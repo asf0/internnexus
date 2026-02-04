@@ -28,7 +28,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   
   const [showFilters, setShowFilters] = useState(false);
   const [showResume, setShowResume] = useState(false);
-  const [matchResult, setMatchResult] = useState<unknown>(null);
+  const [matchResult, setMatchResult] = useState<any>(null);
   const [isMatching, setIsMatching] = useState(false);
 
   const currentSearch = searchParams.get("search") || "";
@@ -328,7 +328,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           </form>
           {matchResult && !isMatching && (
             <div className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              {matchCount > 0 ? `Matched ${matchCount} jobs.` : "No matches found."}
+              {matchCount > 0 ? "Matched" : "No matches found."}
             </div>
           )}
         </div>

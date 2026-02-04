@@ -10,3 +10,4 @@ dist
 .DS_Store
 my-react-native-app/
 rntemp/
+opencode.json

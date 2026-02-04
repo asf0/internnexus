@@ -1,12 +1,32 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
+from app.rate_limiter import limiter
 
 app = FastAPI(title="InternNexus API", version="1.0.0")
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+
+
+# Add rate limit exceeded exception handler
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Rate limit exceeded. Please try again later.",
+            "retry_after": exc.retry_after if hasattr(exc, "retry_after") else None,
+        },
+        headers={"Retry-After": str(exc.retry_after) if hasattr(exc, "retry_after") else "60"},
+    )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,5 +41,6 @@ app.include_router(matching_router, tags=["matching"])
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
+@limiter.limit("1000/minute")
+def health_check(request: Request) -> dict[str, str]:
     return {"status": "ok"}

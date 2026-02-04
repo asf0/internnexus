@@ -3,6 +3,7 @@ import Toolbar from "../components/Toolbar";
 import JobList from "../components/JobList";
 import MatchedJobList from "../components/MatchedJobList";
 import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "../lib/api";
+import Link from "next/link";
 
 interface HomePageProps {
   searchParams: Promise<{ 
@@ -53,7 +54,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">InternNexus</h1>
+          <Link href="/" className="hover:opacity-80 transition-opacity">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  InternNexus
+                </h1>
+            </Link>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Find your next internship
           </p>
