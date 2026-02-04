@@ -1,0 +1,12 @@
+.env
+.env.local
+node_modules
+__pycache__
+*.pyc
+.next
+dist
+*.log
+*.db
+.DS_Store
+my-react-native-app/
+rntemp/
