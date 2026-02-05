@@ -1,0 +1,335 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy.orm import Session
+
+from app.auth.dependencies import get_current_user
+from app.auth.jwt import create_access_token, get_password_hash, verify_password
+from app.db import get_db
+from app.models import Account, User
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    provider: str = Field(..., pattern="^(google|github)$")
+    provider_account_id: str
+    email: EmailStr
+    name: str | None = None
+    image: str | None = None
+    access_token: str
+    refresh_token: str | None = None
+    expires_at: datetime | None = None
+
+
+class SetPasswordRequest(BaseModel):
+    password: str = Field(..., min_length=8)
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+    action: str | None = None
+
+
+@router.post("/register", response_model=AuthResponse)
+def register(
+    request: Request,
+    data: RegisterRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Register a new user with email and password.
+
+    If the email already exists with an OAuth account, returns an error
+    suggesting the user set a password instead.
+    """
+    # Check if user already exists
+    existing_user = db.query(User).filter(User.email == data.email).first()
+
+    if existing_user:
+        # Check if user has OAuth accounts
+        oauth_accounts = (
+            db.query(Account)
+            .filter(Account.user_id == existing_user.id, Account.provider.in_(["google", "github"]))
+            .all()
+        )
+
+        if oauth_accounts:
+            # User exists with OAuth - suggest setting password
+            provider_names = [acc.provider.capitalize() for acc in oauth_accounts]
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "EMAIL_REGISTERED_WITH_OAUTH",
+                    "message": f"This email is already registered with {', '.join(provider_names)}. "
+                    "Please sign in with that provider or set a password for your account.",
+                    "action": "SET_PASSWORD",
+                    "providers": provider_names,
+                },
+            )
+        else:
+            # User exists with credentials
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "EMAIL_ALREADY_REGISTERED",
+                    "message": "An account with this email already exists. Please sign in instead.",
+                    "action": "SIGN_IN",
+                },
+            )
+
+    # Create new user
+    hashed_password = get_password_hash(data.password)
+    user = User(
+        email=data.email,
+        name=data.name,
+        hashed_password=hashed_password,
+        email_verified=False,
+    )
+    db.add(user)
+    db.flush()  # Get user.id
+
+    # Create credentials account
+    account = Account(
+        user_id=user.id,
+        provider="credentials",
+        provider_account_id=data.email,
+    )
+    db.add(account)
+    db.commit()
+
+    # Generate JWT token
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+
+    return AuthResponse(
+        access_token=access_token,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+        },
+    )
+
+
+@router.post("/login", response_model=AuthResponse)
+def login(
+    request: Request,
+    data: LoginRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Login with email and password."""
+    # Find user by email
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": "INVALID_CREDENTIALS",
+                "message": "Invalid email or password.",
+            },
+        )
+
+    # Check if user has a password set
+    if not user.hashed_password:
+        # Check if user has OAuth accounts
+        oauth_accounts = (
+            db.query(Account)
+            .filter(Account.user_id == user.id, Account.provider.in_(["google", "github"]))
+            .all()
+        )
+
+        if oauth_accounts:
+            provider_names = [acc.provider.capitalize() for acc in oauth_accounts]
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "OAUTH_ACCOUNT_NO_PASSWORD",
+                    "message": f"This account uses {', '.join(provider_names)} authentication. "
+                    "Please sign in with that provider or set a password first.",
+                    "action": "USE_OAUTH",
+                    "providers": provider_names,
+                },
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "INVALID_CREDENTIALS",
+                    "message": "Invalid email or password.",
+                },
+            )
+
+    # Verify password
+    if not verify_password(data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": "INVALID_CREDENTIALS",
+                "message": "Invalid email or password.",
+            },
+        )
+
+    # Generate JWT token
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+
+    return AuthResponse(
+        access_token=access_token,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+        },
+    )
+
+
+@router.post("/oauth/callback", response_model=AuthResponse)
+def oauth_callback(
+    request: Request,
+    data: OAuthCallbackRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Handle OAuth callback from providers like Google or GitHub.
+
+    Creates or updates the user account and returns a backend JWT token.
+    """
+    # Try to find existing user by email
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if user:
+        # User exists - update or create OAuth account
+        existing_account = (
+            db.query(Account)
+            .filter(
+                Account.user_id == user.id,
+                Account.provider == data.provider,
+                Account.provider_account_id == data.provider_account_id,
+            )
+            .first()
+        )
+
+        if existing_account:
+            # Update existing account
+            existing_account.access_token = data.access_token
+            existing_account.refresh_token = data.refresh_token
+            existing_account.expires_at = data.expires_at
+        else:
+            # Create new OAuth account for existing user
+            account = Account(
+                user_id=user.id,
+                provider=data.provider,
+                provider_account_id=data.provider_account_id,
+                access_token=data.access_token,
+                refresh_token=data.refresh_token,
+                expires_at=data.expires_at,
+            )
+            db.add(account)
+
+        # Update user info if provided
+        if data.name and not user.name:
+            user.name = data.name
+        if data.image and not user.image:
+            user.image = data.image
+
+    else:
+        # Create new user
+        user = User(
+            email=data.email,
+            name=data.name,
+            image=data.image,
+            email_verified=True,  # OAuth emails are verified
+        )
+        db.add(user)
+        db.flush()  # Get user.id
+
+        # Create OAuth account
+        account = Account(
+            user_id=user.id,
+            provider=data.provider,
+            provider_account_id=data.provider_account_id,
+            access_token=data.access_token,
+            refresh_token=data.refresh_token,
+            expires_at=data.expires_at,
+        )
+        db.add(account)
+
+    db.commit()
+
+    # Generate JWT token
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+
+    return AuthResponse(
+        access_token=access_token,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+        },
+    )
+
+
+@router.post("/set-password", response_model=AuthResponse)
+def set_password(
+    request: Request,
+    data: SetPasswordRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Set a password for an OAuth user to enable local authentication."""
+    # Hash the new password
+    hashed_password = get_password_hash(data.password)
+    current_user.hashed_password = hashed_password
+
+    # Check if credentials account already exists
+    credentials_account = (
+        db.query(Account)
+        .filter(Account.user_id == current_user.id, Account.provider == "credentials")
+        .first()
+    )
+
+    if not credentials_account:
+        # Create credentials account
+        account = Account(
+            user_id=current_user.id,
+            provider="credentials",
+            provider_account_id=current_user.email,
+        )
+        db.add(account)
+
+    db.commit()
+
+    # Generate new JWT token
+    access_token = create_access_token(
+        data={"sub": str(current_user.id), "email": current_user.email}
+    )
+
+    return AuthResponse(
+        access_token=access_token,
+        user={
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "name": current_user.name,
+        },
+    )

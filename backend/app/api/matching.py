@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import io
-from typing import BinaryIO
+from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import MatchResponse, MatchResult
+from app.auth import get_current_user
 from app.db import get_db
-from app.models import Job
+from app.models import Job, User
 from app.rate_limiter import limiter
 from app.services.embedding_service import EmbeddingService
 
@@ -77,6 +78,7 @@ def extract_text_from_pdf(file: BinaryIO) -> str:
 @limiter.limit("5/minute")
 def match_resume(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     max_results: int = 200,

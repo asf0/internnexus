@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
+from app.api.auth import router as auth_router
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
+from app.api.users import router as users_router
 from app.rate_limiter import limiter
 
 app = FastAPI(title="InternNexus API", version="1.0.0")
@@ -36,6 +38,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(jobs_router, tags=["jobs"])
 app.include_router(matching_router, tags=["matching"])
 

@@ -1,23 +1,37 @@
 "use server";
 
+import { auth } from "@/auth";
 import type { Job, JobListResponse } from "../../lib/types";
 
+const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+
 export async function matchResume(formData: FormData): Promise<unknown> {
+  const session = await auth();
+  
+  if (!session?.backendToken) {
+    return { error: "Authentication required. Please sign in." };
+  }
+
   const file = formData.get("resume") as File | null;
   if (!file) {
     return { error: "Resume file is required." };
   }
 
-  const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
   const body = new FormData();
   body.append("file", file, file.name);
 
   const response = await fetch(`${backendBaseUrl}/match`, {
     method: "POST",
-    body
+    headers: {
+      "Authorization": `Bearer ${session.backendToken}`,
+    },
+    body,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      return { error: "Your session has expired. Please sign in again." };
+    }
     return { error: "Failed to match resume." };
   }
 
@@ -25,14 +39,24 @@ export async function matchResume(formData: FormData): Promise<unknown> {
 }
 
 export async function fetchMatchedJobs(matchIds: string[], pageSize: number = 20): Promise<JobListResponse> {
+  const session = await auth();
+  
+  if (!session?.backendToken) {
+    return { items: [], total: 0, page: 1, page_size: pageSize };
+  }
+
   if (matchIds.length === 0) {
     return { items: [], total: 0, page: 1, page_size: pageSize };
   }
 
-  const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
   const response = await fetch(
     `${backendBaseUrl}/jobs?match_ids=${matchIds.join("|")}&page_size=${pageSize}`,
-    { cache: "no-store" }
+    { 
+      cache: "no-store",
+      headers: {
+        "Authorization": `Bearer ${session.backendToken}`,
+      },
+    }
   );
 
   if (!response.ok) {

@@ -1,4 +1,5 @@
 import ThemeToggle from "../components/ThemeToggle";
+import UserMenu from "../components/UserMenu";
 import Toolbar from "../components/Toolbar";
 import JobList from "../components/JobList";
 import MatchedJobList from "../components/MatchedJobList";
@@ -63,7 +64,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             Find your next internship
           </p>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-4">
+          <UserMenu />
+          <ThemeToggle />
+        </div>
       </header>
 
       <Toolbar companies={companies} locations={locations} categories={categories} />
