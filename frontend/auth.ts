@@ -22,6 +22,10 @@ declare module "next-auth" {
     id?: string
     provider?: string
   }
+
+  interface User {
+    backendToken?: string
+  }
 }
  
 export const { handlers, signIn, signOut, auth } = NextAuth({

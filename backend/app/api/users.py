@@ -10,9 +10,14 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
-from app.auth.jwt import create_access_token, get_password_hash, verify_password
+from app.auth.jwt import (
+    create_access_token,
+    get_password_hash,
+    verify_password,
+    validate_password_strength,
+)
 from app.db import get_db
-from app.models import Account, User
+from app.models import Account, PasswordHistory, User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -61,7 +66,15 @@ class UpdateUserRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str | None = None
-    new_password: str = Field(..., min_length=8)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        is_valid, error_message = validate_password_strength(v)
+        if not is_valid:
+            raise ValueError(error_message)
+        return v
 
 
 @router.get("/me", response_model=UserProfileResponse)
@@ -178,6 +191,52 @@ def change_password(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"message": "Current password is incorrect"},
             )
+
+    # Check if new password is same as current password
+    if current_user.hashed_password and verify_password(
+        data.new_password, current_user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "New password cannot be the same as the current password"},
+        )
+
+    # Check password history (last 3 passwords)
+    password_history = (
+        db.query(PasswordHistory)
+        .filter(PasswordHistory.user_id == current_user.id)
+        .order_by(PasswordHistory.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
+    for history_entry in password_history:
+        if verify_password(data.new_password, history_entry.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "Cannot reuse a previous password. Please choose a different password."
+                },
+            )
+
+    # Store current password in history before changing (if exists)
+    if current_user.hashed_password:
+        history_entry = PasswordHistory(
+            user_id=current_user.id,
+            hashed_password=current_user.hashed_password,
+        )
+        db.add(history_entry)
+
+        # Keep only last 3 passwords in history
+        old_history = (
+            db.query(PasswordHistory)
+            .filter(PasswordHistory.user_id == current_user.id)
+            .order_by(PasswordHistory.created_at.desc())
+            .offset(3)
+            .all()
+        )
+        for old_entry in old_history:
+            db.delete(old_entry)
 
     # Hash and set new password
     current_user.hashed_password = get_password_hash(data.new_password)

@@ -1,13 +1,16 @@
 "use client"
 
-import { useSession, signIn, signOut } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { User, LogOut, ChevronDown, Settings, UserCircle } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
+import AuthModal from "./AuthModal"
 
 export default function UserMenu() {
   const { data: session, status } = useSession()
   const [isOpen, setIsOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login")
 
   if (status === "loading") {
     return (
@@ -17,20 +20,22 @@ export default function UserMenu() {
 
   if (!session) {
     return (
-      <div className="flex items-center gap-2">
-        <Link
-          href="/login"
-          className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-colors"
-        >
-          Sign in
-        </Link>
-        <Link
-          href="/register"
+      <>
+        <button
+          onClick={() => {
+            setAuthModalMode("login")
+            setIsAuthModalOpen(true)
+          }}
           className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
         >
-          Sign up
-        </Link>
-      </div>
+          Sign in
+        </button>
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          defaultMode={authModalMode}
+        />
+      </>
     )
   }
 

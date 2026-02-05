@@ -21,6 +21,7 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import { getUserProfile, updateUserProfile, changePassword, deleteAccount } from "@/app/actions/user"
+import PasswordInput, { calculateStrength } from "@/components/PasswordInput"
 
 interface UserProfile {
   id: string
@@ -80,7 +81,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login")
+      router.push("/")
       return
     }
 
@@ -124,8 +125,16 @@ export default function SettingsPage() {
         return
       }
 
-      if (passwordForm.new_password.length < 8) {
-        setMessage({ type: "error", text: "Password must be at least 8 characters" })
+      const strength = calculateStrength(passwordForm.new_password)
+      if (strength.score < 100) {
+        setMessage({ type: "error", text: "Password does not meet all requirements" })
+        setIsSaving(false)
+        return
+      }
+
+      // Check if new password is same as current password
+      if (passwordForm.new_password === passwordForm.current_password) {
+        setMessage({ type: "error", text: "New password cannot be the same as current password" })
         setIsSaving(false)
         return
       }
@@ -340,35 +349,26 @@ export default function SettingsPage() {
                 {profile?.has_password && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-                    <input
-                      type="password"
-                      value={passwordForm.current_password}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                    />
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={passwordForm.current_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      />
+                    </div>
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.new_password}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                    placeholder="Min 8 characters"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.confirm_password}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
-                  />
-                </div>
+                <PasswordInput
+                  value={passwordForm.new_password}
+                  onChange={(value) => setPasswordForm({ ...passwordForm, new_password: value })}
+                  confirmValue={passwordForm.confirm_password}
+                  onConfirmChange={(value) => setPasswordForm({ ...passwordForm, confirm_password: value })}
+                  showConfirmation={true}
+                  label="New Password"
+                  id="new-password"
+                />
               </div>
             </div>
           </div>
