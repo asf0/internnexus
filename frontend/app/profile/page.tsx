@@ -15,11 +15,9 @@ export default async function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center">
-          <p className="text-slate-600 dark:text-slate-400">Failed to load profile. Please try again.</p>
+          <p className="text-slate-600 dark:text-md-on-surface-variant">Failed to load profile. Please try again.</p>
         </div>
-      </div>
     )
   }
 
@@ -32,12 +30,12 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4">
+    <div className="py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-6"
+          className="inline-flex items-center gap-2 text-slate-600 dark:text-md-on-surface-variant hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back</span>
@@ -46,8 +44,8 @@ export default async function ProfilePage() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">My Profile</h1>
-            <p className="mt-1 text-slate-600 dark:text-slate-400">View your profile information</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-md-on-surface">My Profile</h1>
+            <p className="mt-1 text-slate-600 dark:text-md-on-surface-variant">View your profile information</p>
           </div>
           <Link
             href="/settings"
@@ -61,25 +59,25 @@ export default async function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Profile Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden sticky top-8">
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant overflow-hidden sticky top-8">
               {/* Avatar and Basic Info */}
-              <div className="p-6 text-center border-b border-slate-200 dark:border-slate-700">
+              <div className="p-6 text-center border-b border-slate-200 dark:border-md-outline-variant">
                 {profile.image ? (
                   <img
                     src={profile.image}
                     alt={profile.name || "User"}
-                    className="h-32 w-32 rounded-full object-cover border-4 border-slate-100 dark:border-slate-700 mx-auto mb-4"
+                    className="h-32 w-32 rounded-full object-cover border-4 border-slate-100 dark:border-md-outline-variant mx-auto mb-4"
                   />
                 ) : (
-                  <div className="h-32 w-32 rounded-full bg-blue-600 flex items-center justify-center border-4 border-slate-100 dark:border-slate-700 mx-auto mb-4">
+                  <div className="h-32 w-32 rounded-full bg-blue-600 flex items-center justify-center border-4 border-slate-100 dark:border-md-outline-variant mx-auto mb-4">
                     <User className="h-16 w-16 text-white" />
                   </div>
                 )}
 
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-md-on-surface">
                   {profile.name || "Anonymous User"}
                 </h2>
-                <div className="mt-2 flex flex-col items-center gap-1 text-slate-600 dark:text-slate-400">
+                <div className="mt-2 flex flex-col items-center gap-1 text-slate-600 dark:text-md-on-surface-variant">
                   <div className="flex items-center gap-1">
                     <Mail className="h-4 w-4" />
                     <span className="text-sm">{profile.email}</span>
@@ -91,7 +89,7 @@ export default async function ProfilePage() {
                     </div>
                   )}
                 </div>
-                <div className="mt-3 flex items-center justify-center gap-1 text-slate-500 dark:text-slate-500">
+                <div className="mt-3 flex items-center justify-center gap-1 text-slate-500 dark:text-md-on-surface-variant">
                   <Calendar className="h-4 w-4" />
                   <span className="text-sm">Member since {formatDate(profile.created_at)}</span>
                 </div>
@@ -100,13 +98,13 @@ export default async function ProfilePage() {
               {/* Quick Stats */}
               <div className="p-4">
                 <div className="grid grid-cols-2 gap-4 text-center">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                  <div className="p-3 bg-slate-50 dark:bg-md-surface-container-high/50 rounded-lg">
                     <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{profile.skills.length}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Skills</p>
+                    <p className="text-xs text-slate-500 dark:text-md-on-surface-variant">Skills</p>
                   </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                  <div className="p-3 bg-slate-50 dark:bg-md-surface-container-high/50 rounded-lg">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">{profile.preferred_locations.length}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Locations</p>
+                    <p className="text-xs text-slate-500 dark:text-md-on-surface-variant">Locations</p>
                   </div>
                 </div>
               </div>
@@ -117,15 +115,15 @@ export default async function ProfilePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Bio */}
             {profile.bio && (
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">About</h3>
-                <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{profile.bio}</p>
+              <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-md-on-surface mb-3">About</h3>
+                <p className="text-slate-600 dark:text-md-on-surface-variant whitespace-pre-wrap">{profile.bio}</p>
               </div>
             )}
 
             {/* Professional Info */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Professional Information</h3>
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-md-on-surface mb-4">Professional Information</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {profile.job_title && (
@@ -134,8 +132,8 @@ export default async function ProfilePage() {
                       <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Job Title</p>
-                      <p className="font-medium text-slate-900 dark:text-slate-100">{profile.job_title}</p>
+                      <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Job Title</p>
+                      <p className="font-medium text-slate-900 dark:text-md-on-surface">{profile.job_title}</p>
                     </div>
                   </div>
                 )}
@@ -146,8 +144,8 @@ export default async function ProfilePage() {
                       <Building className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Company</p>
-                      <p className="font-medium text-slate-900 dark:text-slate-100">{profile.company}</p>
+                      <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Company</p>
+                      <p className="font-medium text-slate-900 dark:text-md-on-surface">{profile.company}</p>
                     </div>
                   </div>
                 )}
@@ -158,8 +156,8 @@ export default async function ProfilePage() {
                       <GraduationCap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Industry</p>
-                      <p className="font-medium text-slate-900 dark:text-slate-100">{profile.industry}</p>
+                      <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Industry</p>
+                      <p className="font-medium text-slate-900 dark:text-md-on-surface">{profile.industry}</p>
                     </div>
                   </div>
                 )}
@@ -170,8 +168,8 @@ export default async function ProfilePage() {
                       <Mail className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Phone</p>
-                      <p className="font-medium text-slate-900 dark:text-slate-100">{profile.phone}</p>
+                      <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Phone</p>
+                      <p className="font-medium text-slate-900 dark:text-md-on-surface">{profile.phone}</p>
                     </div>
                   </div>
                 )}
@@ -180,12 +178,12 @@ export default async function ProfilePage() {
               {/* Skills */}
               {profile.skills.length > 0 && (
                 <div className="mt-6">
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Skills</p>
+                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant mb-2">Skills</p>
                   <div className="flex flex-wrap gap-2">
                     {profile.skills.map((skill) => (
                       <span
                         key={skill}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-sm"
+                        className="px-3 py-1 bg-slate-100 dark:bg-md-surface-container-high text-slate-700 dark:text-md-on-surface-variant rounded-full text-sm"
                       >
                         {skill}
                       </span>
@@ -197,7 +195,7 @@ export default async function ProfilePage() {
               {/* Preferred Locations */}
               {profile.preferred_locations.length > 0 && (
                 <div className="mt-6">
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Preferred Job Locations</p>
+                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</p>
                   <div className="flex flex-wrap gap-2">
                     {profile.preferred_locations.map((loc) => (
                       <span
@@ -214,8 +212,8 @@ export default async function ProfilePage() {
 
             {/* Links */}
             {(profile.linkedin_url || profile.portfolio_url) && (
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Links</h3>
+              <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-md-on-surface mb-4">Links</h3>
 
                 <div className="space-y-3">
                   {profile.linkedin_url && (
@@ -253,8 +251,8 @@ export default async function ProfilePage() {
               profile.skills.length === 0 &&
               !profile.linkedin_url &&
               !profile.portfolio_url && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 text-center">
-                  <p className="text-slate-500 dark:text-slate-400">No additional profile information yet.</p>
+                <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6 text-center">
+                  <p className="text-slate-500 dark:text-md-on-surface-variant">No additional profile information yet.</p>
                   <Link
                     href="/settings"
                     className="mt-2 inline-block text-blue-600 dark:text-blue-400 hover:underline"

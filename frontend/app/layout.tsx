@@ -9,8 +9,9 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100" suppressHydrationWarning={true}>
+    <html lang="en" suppressHydrationWarning={true}>
+      <head />
+      <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-md-surface dark:text-md-on-surface" suppressHydrationWarning={true}>
         <AuthProvider>
           <main className="mx-auto w-full max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
         </AuthProvider>

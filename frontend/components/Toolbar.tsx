@@ -122,7 +122,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   };
 
   return (
-    <div className="space-y-3">
+    <div className="sticky top-0 z-50 space-y-3 backdrop-blur-md bg-white/80 dark:bg-md-surface/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       {/* Main Toolbar Row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Input */}
@@ -133,7 +133,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             placeholder="Search jobs, companies, locations..."
             defaultValue={currentSearch}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-blue-400"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface dark:placeholder-md-on-surface-variant dark:focus:border-blue-400"
           />
         </div>
 
@@ -143,7 +143,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
             showFilters || activeFilterCount > 0
               ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
           }`}
         >
           <SlidersHorizontal className="h-4 w-4" />
@@ -161,14 +161,14 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           onClick={() => setShowResume(!showResume)}
           className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
             showResume
-              ? "border-purple-500 bg-purple-50 text-purple-700 dark:border-purple-400 dark:bg-purple-950 dark:text-purple-300"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
           }`}
         >
           <Upload className="h-4 w-4" />
           <span className="hidden sm:inline">Match Resume</span>
           {matchCount > 0 && (
-            <span className="rounded-full bg-purple-600 px-2 py-0.5 text-xs text-white">
+            <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
               {matchCount}
             </span>
           )}
@@ -178,7 +178,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
         {activeFilterCount > 0 && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:text-md-on-surface-variant dark:hover:text-slate-200"
           >
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Clear</span>
@@ -188,7 +188,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
 
       {/* Expanded Filters Panel */}
       {showFilters && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Company */}
             <MultiSelect
@@ -219,7 +219,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             <select
               value={currentJobType}
               onChange={(e) => updateFilter("job_type", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
             >
               <option value="">Job Type</option>
               {jobTypes.map((type) => (
@@ -233,7 +233,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             <select
               value={currentWorkMode}
               onChange={(e) => updateFilter("work_mode", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
             >
               <option value="">Work Mode</option>
               {workModes.map((mode) => (
@@ -247,7 +247,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             <select
               value={currentPostedWithin}
               onChange={(e) => updateFilter("posted_within", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
             >
               <option value="">Date Posted</option>
               {postedWithinOptions.map((option) => (
@@ -264,18 +264,18 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
                   type="checkbox"
                   checked={currentVisa === "true"}
                   onChange={(e) => updateFilter("visa_sponsored", e.target.checked ? "true" : "")}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-high"
                 />
-                <span className="text-slate-700 dark:text-slate-300">Visa Sponsored</span>
+                <span className="text-slate-700 dark:text-md-on-surface-variant">Visa Sponsored</span>
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={currentF1 === "true"}
                   onChange={(e) => updateFilter("f1_friendly", e.target.checked ? "true" : "")}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-high"
                 />
-                <span className="text-slate-700 dark:text-slate-300">F1 Friendly</span>
+                <span className="text-slate-700 dark:text-md-on-surface-variant">F1 Friendly</span>
               </label>
             </div>
           </div>
@@ -284,26 +284,26 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
 
       {/* Resume Upload Panel */}
       {showResume && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
           <form
             action={handleResumeSubmit}
             className="flex flex-wrap items-end gap-4"
           >
             <div className="flex-1 min-w-[200px]">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant">
                 Upload your resume to find matching jobs
               </label>
               <input
                 name="resume"
                 type="file"
                 accept="application/pdf"
-                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:file:bg-slate-700 dark:file:text-slate-300"
+                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:file:bg-slate-700 dark:file:text-slate-300"
               />
             </div>
             <button
               type="submit"
               disabled={isMatching}
-              className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {isMatching ? "Matching..." : "Find Matches"}
             </button>
@@ -320,14 +320,14 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
                     router.push(`/?${params.toString()}`);
                   });
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
               >
                 Clear Matches
               </button>
             )}
           </form>
           {matchResult && !isMatching && (
-            <div className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+            <div className="mt-3 text-sm text-slate-600 dark:text-md-on-surface-variant">
               {matchCount > 0 ? "Matched" : "No matches found."}
             </div>
           )}
@@ -335,7 +335,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
       )}
 
       {isPending && (
-        <div className="text-xs text-slate-500 dark:text-slate-400">Updating...</div>
+        <div className="text-xs text-slate-500 dark:text-md-on-surface-variant">Updating...</div>
       )}
     </div>
   );

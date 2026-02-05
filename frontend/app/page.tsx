@@ -1,4 +1,3 @@
-import ThemeToggle from "../components/ThemeToggle";
 import UserMenu from "../components/UserMenu";
 import Toolbar from "../components/Toolbar";
 import JobList from "../components/JobList";
@@ -66,7 +65,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
         <div className="flex items-center gap-4">
           <UserMenu />
-          <ThemeToggle />
         </div>
       </header>
 

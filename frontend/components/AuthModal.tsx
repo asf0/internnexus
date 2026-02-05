@@ -186,11 +186,11 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
       />
 
       {/* Modal Card */}
-      <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-6 z-10">
+      <div className="relative bg-white dark:bg-md-surface-container rounded-xl shadow-2xl border border-slate-200 dark:border-md-outline-variant w-full max-w-md p-6 z-10">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-md-on-surface-variant hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -198,10 +198,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
 
         {/* Header */}
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-md-on-surface">
             Welcome to InternNexus
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-600 dark:text-md-on-surface-variant">
             Sign in to find your dream internship
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
               <button
                 onClick={() => handleOAuthSignIn("github")}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-300 dark:border-md-outline-variant rounded-lg text-sm font-medium text-slate-700 dark:text-md-on-surface bg-white dark:bg-md-surface-container hover:bg-slate-50 dark:hover:bg-md-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Github className="w-5 h-5" />
                 Continue with GitHub
@@ -229,7 +229,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
               <button
                 onClick={() => handleOAuthSignIn("google")}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-300 dark:border-md-outline-variant rounded-lg text-sm font-medium text-slate-700 dark:text-md-on-surface bg-white dark:bg-md-surface-container hover:bg-slate-50 dark:hover:bg-md-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -256,10 +256,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             {/* Divider */}
             <div className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-300 dark:border-slate-600" />
+                <div className="w-full border-t border-slate-300 dark:border-md-outline-variant" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                <span className="px-2 bg-white dark:bg-md-surface-container text-slate-500 dark:text-md-on-surface-variant">
                   Or continue with email
                 </span>
               </div>
@@ -273,7 +273,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
               >
                 Email address
               </label>
@@ -283,7 +283,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="email"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="you@example.com"
               />
             </div>
@@ -291,7 +291,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
               >
                 Password
               </label>
@@ -301,7 +301,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="password"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="••••••••"
               />
             </div>
@@ -324,7 +324,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
               >
                 Full name
               </label>
@@ -334,7 +334,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="text"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="John Doe"
               />
             </div>
@@ -342,7 +342,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
               >
                 Email address
               </label>
@@ -352,7 +352,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="email"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="you@example.com"
               />
             </div>
@@ -383,7 +383,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
 
         {/* Footer Link */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-slate-600 dark:text-md-on-surface-variant">
             {mode === "login" ? (
               <>
                 Don&apos;t have an account?{" "}

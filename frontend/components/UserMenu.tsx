@@ -43,7 +43,7 @@ export default function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-md-surface-container transition-colors"
       >
         {session.user?.image ? (
           <img
@@ -56,7 +56,7 @@ export default function UserMenu() {
             <User className="h-5 w-5 text-white" />
           </div>
         )}
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 hidden sm:block">
+        <span className="text-sm font-medium text-slate-700 dark:text-md-on-surface hidden sm:block">
           {session.user?.name || session.user?.email}
         </span>
         <ChevronDown className="h-4 w-4 text-slate-500" />
@@ -68,13 +68,13 @@ export default function UserMenu() {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-20">
+          <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-md-surface-container ring-1 ring-black ring-opacity-5 z-20">
             {/* User Info Header */}
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-md-outline-variant">
+              <p className="text-sm font-medium text-slate-900 dark:text-md-on-surface">
                 {session.user?.name || "User"}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              <p className="text-xs text-slate-500 dark:text-md-on-surface-variant truncate">
                 {session.user?.email}
               </p>
             </div>
@@ -84,7 +84,7 @@ export default function UserMenu() {
               <Link
                 href="/profile"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
               >
                 <UserCircle className="h-4 w-4" />
                 My Profile
@@ -93,7 +93,7 @@ export default function UserMenu() {
               <Link
                 href="/settings"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
               >
                 <Settings className="h-4 w-4" />
                 Account Settings
@@ -101,7 +101,7 @@ export default function UserMenu() {
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-200 dark:border-slate-700" />
+            <div className="border-t border-slate-200 dark:border-md-outline-variant" />
 
             {/* Sign Out */}
             <div className="py-1">
@@ -110,7 +110,7 @@ export default function UserMenu() {
                   setIsOpen(false)
                   signOut({ callbackUrl: "/" })
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
               >
                 <LogOut className="h-4 w-4" />
                 Sign out

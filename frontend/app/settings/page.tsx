@@ -225,19 +225,19 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-md-surface-container-low">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4">
+    <div className="py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-6"
+          className="inline-flex items-center gap-2 text-slate-600 dark:text-md-on-surface-variant hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back</span>
@@ -245,8 +245,8 @@ export default function SettingsPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Account Settings</h1>
-          <p className="mt-1 text-slate-600 dark:text-slate-400">Manage your profile and account preferences</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-md-on-surface">Account Settings</h1>
+          <p className="mt-1 text-slate-600 dark:text-md-on-surface-variant">Manage your profile and account preferences</p>
         </div>
 
         {/* Message */}
@@ -267,63 +267,63 @@ export default function SettingsPage() {
           {/* Left Column - Personal & Password */}
           <div className="lg:col-span-1 space-y-6">
             {/* Personal Information */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                   <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Personal</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Your basic info</p>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Personal</h2>
+                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your basic info</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Full Name</label>
                   <input
                     type="text"
                     value={personalForm.name}
                     onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                     placeholder="John Doe"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio / About</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Bio / About</label>
                   <textarea
                     value={personalForm.bio}
                     onChange={(e) => setPersonalForm({ ...personalForm, bio: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                     placeholder="Tell us about yourself..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Phone</label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="tel"
                       value={personalForm.phone}
                       onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="+1 (555) 123-4567"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Location</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Location</label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="text"
                       value={personalForm.location}
                       onChange={(e) => setPersonalForm({ ...personalForm, location: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="San Francisco, CA"
                     />
                   </div>
@@ -332,14 +332,14 @@ export default function SettingsPage() {
             </div>
 
             {/* Password */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                   <Lock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Password</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Password</h2>
+                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
                     {profile?.has_password ? "Change password" : "Set password"}
                   </p>
                 </div>
@@ -348,13 +348,13 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 {profile?.has_password && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Current Password</label>
                     <div className="relative">
                       <input
                         type="password"
                         value={passwordForm.current_password}
                         onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       />
                     </div>
                   </div>
@@ -375,83 +375,83 @@ export default function SettingsPage() {
 
           {/* Right Column - Professional & Danger Zone */}
           <div className="lg:col-span-2 space-y-6">            {/* Professional Information */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                   <Briefcase className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Professional Information</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Your work details</p>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Professional Information</h2>
+                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your work details</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Job Title</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Job Title</label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="text"
                       value={professionalForm.job_title}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, job_title: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="Software Engineer"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Company</label>
                   <div className="relative">
                     <Building className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="text"
                       value={professionalForm.company}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, company: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="Acme Inc."
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Industry</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Industry</label>
                   <div className="relative">
                     <GraduationCap className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="text"
                       value={professionalForm.industry}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, industry: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="Technology"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">LinkedIn URL</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">LinkedIn URL</label>
                   <div className="relative">
                     <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="url"
                       value={professionalForm.linkedin_url}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, linkedin_url: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="https://linkedin.com/in/username"
                     />
                   </div>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Portfolio / Website</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Portfolio / Website</label>
                   <div className="relative">
                     <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input
                       type="url"
                       value={professionalForm.portfolio_url}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, portfolio_url: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       placeholder="https://yourportfolio.com"
                     />
                   </div>
@@ -460,7 +460,7 @@ export default function SettingsPage() {
 
               {/* Skills */}
               <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Skills</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Skills</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {skills.map((skill) => (
                     <span
@@ -482,12 +482,12 @@ export default function SettingsPage() {
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                     placeholder="Add a skill (e.g., Python, React)"
                   />
                   <button
                     onClick={addSkill}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
+                    className="px-3 py-2 bg-slate-100 dark:bg-md-surface-container-high text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
                   >
                     <Plus className="h-5 w-5" />
                   </button>
@@ -496,7 +496,7 @@ export default function SettingsPage() {
 
               {/* Preferred Locations */}
               <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Preferred Job Locations</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {preferredLocations.map((location) => (
                     <span
@@ -518,12 +518,12 @@ export default function SettingsPage() {
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addLocation())}
-                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
+                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                     placeholder="Add a location (e.g., San Francisco, Remote)"
                   />
                   <button
                     onClick={addLocation}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
+                    className="px-3 py-2 bg-slate-100 dark:bg-md-surface-container-high text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
                   >
                     <Plus className="h-5 w-5" />
                   </button>
@@ -558,7 +558,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Save Button */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
               <button
                 onClick={handleSaveAll}
                 disabled={isSaving}
@@ -575,28 +575,28 @@ export default function SettingsPage() {
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6">
+          <div className="bg-white dark:bg-md-surface-container rounded-xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
                 <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Delete Account</h3>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Delete Account</h3>
             </div>
 
-            <p className="text-slate-600 dark:text-slate-400 mb-4">
+            <p className="text-slate-600 dark:text-md-on-surface-variant mb-4">
               This action cannot be undone. This will permanently delete your account and remove your data from our
               servers.
             </p>
 
-            <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 mb-4">
-              <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
+            <div className="bg-slate-100 dark:bg-md-surface-container-high rounded-lg p-4 mb-4">
+              <p className="text-sm text-slate-700 dark:text-md-on-surface-variant mb-2">
                 Please type <strong className="text-red-600">DELETE</strong> to confirm:
               </p>
               <input
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-md-surface-container dark:text-md-on-surface"
                 placeholder="Type DELETE"
               />
             </div>
@@ -607,7 +607,7 @@ export default function SettingsPage() {
                   setShowDeleteModal(false)
                   setDeleteConfirmText("")
                 }}
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-md-outline-variant text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>
