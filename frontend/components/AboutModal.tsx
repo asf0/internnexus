@@ -21,15 +21,17 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </p>
         </div>
         
-        <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            Built by asf0
-          </p>
-        </div>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
+              Built by asf0
+            </p>
+          </CardContent>
+        </Card>
         
         <Card>
           <CardContent>
-            <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-md-on-surface-variant">
               Tech Stack
             </h4>
             <div className="flex flex-wrap gap-2">
@@ -42,29 +44,31 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </CardContent>
         </Card>
         
-        <div>
-          <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Features
-          </h4>
-          <ul className="space-y-2 text-sm text-slate-600 dark:text-md-on-surface-variant">
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
-              15k+ jobs from 145+ companies
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
-              Smart resume matching using AI embeddings
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
-              Real-time job aggregation
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
-              Personalized recommendations
-            </li>
-          </ul>
-        </div>
+        <Card>
+          <CardContent>
+            <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-md-on-surface-variant">
+              Features
+            </h4>
+            <ul className="space-y-2 text-sm text-slate-600 dark:text-md-on-surface-variant">
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
+                15k+ jobs from 145+ companies
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
+                Smart resume matching using AI embeddings
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
+                Real-time job aggregation
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
+                Personalized recommendations
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     </Modal>
   );

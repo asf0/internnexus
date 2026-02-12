@@ -1,26 +1,20 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
-import JobDetailPanel from "./JobDetailPanel";
+import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
+import { LoadingSpinner } from "./ui";
 import { fetchMatchedJobs } from "../app/actions/match";
 import { Badge } from "./ui";
+import { CATEGORY_LABEL_MAP } from "../lib/constants";
 import type { Job } from "../lib/types";
 
 interface MatchedJobListProps {
   totalPages: number;
   currentPage: number;
 }
-
-const categoryLabelMap: Record<string, string> = {
-  "software_engineering": "Software Engineering",
-  "product_management": "Product Management",
-  "data_science_ai": "Data Science & AI",
-  "quantitative_finance": "Quantitative Finance",
-  "hardware_engineering": "Hardware Engineering",
-};
 
 const getMatchColor = (percentage: number) => {
   if (percentage >= 80) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
@@ -111,7 +105,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
           <h2 className="text-xl font-semibold dark:text-md-on-surface">Matched roles</h2>
         </div>
         <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-500" />
+          <LoadingSpinner size="md" />
         </div>
       </section>
     );
@@ -166,7 +160,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
                     <div className="mt-2 flex flex-wrap gap-2">
                       {job.job_category && (
                         <Badge variant="default">
-                          {categoryLabelMap[job.job_category] || job.job_category}
+                          {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
                         </Badge>
                       )}
                       {job.visa_sponsored && (
@@ -218,28 +212,11 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
 
         {/* Detail Panel */}
         {selectedJob && (
-          <>
-            {/* Mobile: Full-screen modal overlay */}
-            <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={handleClose} />
-            <div className="fixed inset-4 z-50 flex lg:hidden">
-              <div className="w-full rounded-2xl bg-white dark:bg-md-surface-container-low">
-                <JobDetailPanel
-                  job={selectedJob}
-                  isLoading={false}
-                  onClose={handleClose}
-                />
-              </div>
-            </div>
-
-            {/* Desktop: Sticky side panel */}
-            <div className="hidden sticky top-4 h-[calc(100vh-6rem)] w-1/2 min-w-[400px] lg:block">
-              <JobDetailPanel
-                job={selectedJob}
-                isLoading={false}
-                onClose={handleClose}
-              />
-            </div>
-          </>
+          <JobDetailPanelContainer
+            job={selectedJob}
+            isLoading={false}
+            onClose={handleClose}
+          />
         )}
       </div>
     </section>

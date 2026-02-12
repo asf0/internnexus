@@ -2,7 +2,8 @@
 
 import { X, MapPin, Building2, ExternalLink, Calendar, Flame, GraduationCap, Globe, Flag } from "lucide-react";
 import DOMPurify from 'isomorphic-dompurify';
-import { Badge } from "./ui";
+import { Badge, LoadingSpinner } from "./ui";
+import { CATEGORY_LABEL_MAP } from "../lib/constants";
 import type { Job } from "../lib/types";
 
 interface JobDetailPanelProps {
@@ -10,14 +11,6 @@ interface JobDetailPanelProps {
   isLoading: boolean;
   onClose: () => void;
 }
-
-const categoryLabelMap: Record<string, string> = {
-  "software_engineering": "Software Engineering",
-  "product_management": "Product Management",
-  "data_science_ai": "Data Science & AI",
-  "quantitative_finance": "Quantitative Finance",
-  "hardware_engineering": "Hardware Engineering",
-};
 
 export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPanelProps) {
   if (!job && !isLoading) {
@@ -31,7 +24,7 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 dark:border-md-outline-variant dark:bg-md-surface-container-low">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-500" />
+        <LoadingSpinner size="md" />
       </div>
     );
   }
@@ -70,7 +63,7 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
         <div className="flex flex-wrap gap-2">
           {job.job_category && (
             <Badge variant="default">
-              {categoryLabelMap[job.job_category] || job.job_category}
+              {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
             </Badge>
           )}
           {job.visa_sponsored && (

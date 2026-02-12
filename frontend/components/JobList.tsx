@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MapPin, Building2, Flame } from "lucide-react";
-import JobDetailPanel from "./JobDetailPanel";
+import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
 import Pagination from "./ui/Pagination";
 import { Badge } from "./ui";
+import { CATEGORY_LABEL_MAP } from "../lib/constants";
 import type { Job } from "../lib/types";
 
 interface JobListProps {
@@ -14,14 +15,6 @@ interface JobListProps {
   totalPages: number;
   currentPage: number;
 }
-
-const categoryLabelMap: Record<string, string> = {
-  "software_engineering": "Software Engineering",
-  "product_management": "Product Management",
-  "data_science_ai": "Data Science & AI",
-  "quantitative_finance": "Quantitative Finance",
-  "hardware_engineering": "Hardware Engineering",
-};
 
 export default function JobList({ jobs, total, totalPages, currentPage }: JobListProps) {
   const searchParams = useSearchParams();
@@ -82,7 +75,7 @@ export default function JobList({ jobs, total, totalPages, currentPage }: JobLis
                   <div className="mt-2 flex flex-wrap gap-2">
                     {job.job_category && (
                       <Badge variant="default">
-                        {categoryLabelMap[job.job_category] || job.job_category}
+                        {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
                       </Badge>
                     )}
                     {job.visa_sponsored && (
@@ -107,28 +100,11 @@ export default function JobList({ jobs, total, totalPages, currentPage }: JobLis
 
         {/* Detail Panel - Fullscreen modal on mobile, side panel on desktop */}
         {selectedJob && (
-          <>
-            {/* Mobile: Full-screen modal overlay */}
-            <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={handleClose} />
-            <div className="fixed inset-4 z-50 flex lg:hidden">
-              <div className="w-full rounded-2xl bg-white dark:bg-md-surface-container-low">
-                <JobDetailPanel
-                  job={selectedJob}
-                  isLoading={false}
-                  onClose={handleClose}
-                />
-              </div>
-            </div>
-
-            {/* Desktop: Sticky side panel */}
-            <div className="hidden sticky top-4 h-[calc(100vh-6rem)] w-1/2 min-w-[400px] lg:block">
-              <JobDetailPanel
-                job={selectedJob}
-                isLoading={false}
-                onClose={handleClose}
-              />
-            </div>
-          </>
+          <JobDetailPanelContainer
+            job={selectedJob}
+            isLoading={false}
+            onClose={handleClose}
+          />
         )}
       </div>
     </section>

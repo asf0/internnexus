@@ -22,7 +22,8 @@ import {
 } from "lucide-react"
 import { getUserProfile, updateUserProfile, changePassword, deleteAccount } from "@/app/actions/user"
 import PasswordInput, { calculateStrength } from "@/components/PasswordInput"
-import { Button, Input, Card, CardContent, Badge, IconContainer } from "@/components/ui"
+import Modal from "@/components/Modal"
+import { Button, Input, Card, CardContent, Badge, IconContainer, Alert, FormField } from "@/components/ui"
 
 interface UserProfile {
   id: string
@@ -253,15 +254,9 @@ export default function SettingsPage() {
 
         {/* Message */}
         {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
-            }`}
-          >
+          <Alert type={message.type} className="mb-6">
             {message.text}
-          </div>
+          </Alert>
         )}
 
         {/* Two Column Layout */}
@@ -280,15 +275,12 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Full Name</label>
-                    <Input
-                      type="text"
-                      value={personalForm.name}
-                      onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
-                      placeholder="John Doe"
-                    />
-                  </div>
+                  <FormField
+                    label="Full Name"
+                    value={personalForm.name}
+                    onChange={(value) => setPersonalForm({ ...personalForm, name: value })}
+                    placeholder="John Doe"
+                  />
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Bio / About</label>
@@ -301,27 +293,21 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Phone</label>
-                    <Input
-                      type="tel"
-                      value={personalForm.phone}
-                      onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
-                      icon={Phone}
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
+                  <FormField
+                    label="Phone"
+                    value={personalForm.phone}
+                    onChange={(value) => setPersonalForm({ ...personalForm, phone: value })}
+                    icon={Phone}
+                    placeholder="+1 (555) 123-4567"
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Location</label>
-                    <Input
-                      type="text"
-                      value={personalForm.location}
-                      onChange={(e) => setPersonalForm({ ...personalForm, location: e.target.value })}
-                      icon={MapPin}
-                      placeholder="San Francisco, CA"
-                    />
-                  </div>
+                  <FormField
+                    label="Location"
+                    value={personalForm.location}
+                    onChange={(value) => setPersonalForm({ ...personalForm, location: value })}
+                    icon={MapPin}
+                    placeholder="San Francisco, CA"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -341,14 +327,12 @@ export default function SettingsPage() {
 
                 <div className="space-y-4">
                   {profile?.has_password && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Current Password</label>
-                      <Input
-                        type="password"
-                        value={passwordForm.current_password}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                      />
-                    </div>
+                    <FormField
+                      label="Current Password"
+                      value={passwordForm.current_password}
+                      onChange={(value) => setPasswordForm({ ...passwordForm, current_password: value })}
+                      type="password"
+                    />
                   )}
 
                   <PasswordInput
@@ -379,56 +363,43 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Job Title</label>
-                    <Input
-                      type="text"
-                      value={professionalForm.job_title}
-                      onChange={(e) => setProfessionalForm({ ...professionalForm, job_title: e.target.value })}
-                      icon={Briefcase}
-                      placeholder="Software Engineer"
-                    />
-                  </div>
+                  <FormField
+                    label="Job Title"
+                    value={professionalForm.job_title}
+                    onChange={(value) => setProfessionalForm({ ...professionalForm, job_title: value })}
+                    icon={Briefcase}
+                    placeholder="Software Engineer"
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Company</label>
-                    <Input
-                      type="text"
-                      value={professionalForm.company}
-                      onChange={(e) => setProfessionalForm({ ...professionalForm, company: e.target.value })}
-                      icon={Building}
-                      placeholder="Acme Inc."
-                    />
-                  </div>
+                  <FormField
+                    label="Company"
+                    value={professionalForm.company}
+                    onChange={(value) => setProfessionalForm({ ...professionalForm, company: value })}
+                    icon={Building}
+                    placeholder="Acme Inc."
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Industry</label>
-                    <Input
-                      type="text"
-                      value={professionalForm.industry}
-                      onChange={(e) => setProfessionalForm({ ...professionalForm, industry: e.target.value })}
-                      icon={GraduationCap}
-                      placeholder="Technology"
-                    />
-                  </div>
+                  <FormField
+                    label="Industry"
+                    value={professionalForm.industry}
+                    onChange={(value) => setProfessionalForm({ ...professionalForm, industry: value })}
+                    icon={GraduationCap}
+                    placeholder="Technology"
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">LinkedIn URL</label>
-                    <Input
-                      type="url"
-                      value={professionalForm.linkedin_url}
-                      onChange={(e) => setProfessionalForm({ ...professionalForm, linkedin_url: e.target.value })}
-                      icon={LinkIcon}
-                      placeholder="https://linkedin.com/in/username"
-                    />
-                  </div>
+                  <FormField
+                    label="LinkedIn URL"
+                    value={professionalForm.linkedin_url}
+                    onChange={(value) => setProfessionalForm({ ...professionalForm, linkedin_url: value })}
+                    icon={LinkIcon}
+                    placeholder="https://linkedin.com/in/username"
+                  />
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Portfolio / Website</label>
-                    <Input
-                      type="url"
+                    <FormField
+                      label="Portfolio / Website"
                       value={professionalForm.portfolio_url}
-                      onChange={(e) => setProfessionalForm({ ...professionalForm, portfolio_url: e.target.value })}
+                      onChange={(value) => setProfessionalForm({ ...professionalForm, portfolio_url: value })}
                       icon={LinkIcon}
                       placeholder="https://yourportfolio.com"
                     />
@@ -542,56 +513,58 @@ export default function SettingsPage() {
       </div>
 
       {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-md w-full">
-            <CardContent>
-              <div className="flex items-center gap-3 mb-4">
-                <IconContainer icon={AlertTriangle} color="red" />
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Delete Account</h3>
-              </div>
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteConfirmText("");
+        }}
+        title={
+          <div className="flex items-center gap-3">
+            <IconContainer icon={AlertTriangle} color="red" />
+            <span>Delete Account</span>
+          </div>
+        }
+        size="md"
+      >
+        <p className="text-slate-600 dark:text-md-on-surface-variant mb-4">
+          This action cannot be undone. This will permanently delete your account and remove your data from our
+          servers.
+        </p>
 
-              <p className="text-slate-600 dark:text-md-on-surface-variant mb-4">
-                This action cannot be undone. This will permanently delete your account and remove your data from our
-                servers.
-              </p>
-
-              <div className="bg-slate-100 dark:bg-md-surface-container-high rounded-lg p-4 mb-4">
-                <p className="text-sm text-slate-700 dark:text-md-on-surface-variant mb-2">
-                  Please type <strong className="text-red-600">DELETE</strong> to confirm:
-                </p>
-                <Input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type DELETE"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowDeleteModal(false)
-                    setDeleteConfirmText("")
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleDeleteAccount}
-                  disabled={isSaving || deleteConfirmText !== "DELETE"}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Delete Account"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="bg-slate-100 dark:bg-md-surface-container-high rounded-lg p-4 mb-4">
+          <p className="text-sm text-slate-700 dark:text-md-on-surface-variant mb-2">
+            Please type <strong className="text-red-600">DELETE</strong> to confirm:
+          </p>
+          <Input
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="Type DELETE"
+          />
         </div>
-      )}
+
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowDeleteModal(false);
+              setDeleteConfirmText("");
+            }}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleDeleteAccount}
+            disabled={isSaving || deleteConfirmText !== "DELETE"}
+            className="flex-1 bg-red-600 hover:bg-red-700"
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Delete Account"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }
