@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import type { DefaultSession } from "next-auth"
 
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000"
+const backendBaseUrl = process.env.BACKEND_URL;
 
 // Extend the session type to include accessToken and user.id
 declare module "next-auth" {
@@ -29,7 +29,6 @@ declare module "next-auth" {
 }
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,
   providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID as string,
@@ -86,13 +85,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account && profile) {
         // Exchange OAuth token for backend JWT
         try {
+          if (!profile.email) {
+            throw new Error("Email is required from OAuth provider")
+          }
+          if (!account.access_token) {
+            throw new Error("Access token is missing from OAuth provider")
+          }
           const oauthData = {
             provider: account.provider,
             provider_account_id: account.providerAccountId,
-            email: profile.email!,
+            email: profile.email,
             name: profile.name || null,
             image: profile.image || null,
-            access_token: account.access_token!,
+            access_token: account.access_token,
             refresh_token: account.refresh_token || null,
             expires_at: account.expires_at 
               ? new Date(account.expires_at * 1000) 
@@ -133,12 +138,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     }
   },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+
   session: {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
   },
+  secret: process.env.AUTH_SECRET,
 })

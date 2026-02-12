@@ -5,13 +5,13 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import distinct, func, or_, case, literal
-from sqlalchemy.orm import Session
+from sqlalchemy import distinct, func, or_, and_, case, literal, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
 from app.db import get_db
 from app.models import Job
-from app.rate_limiter import limiter
+from app.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter()
 
@@ -165,10 +165,10 @@ def normalize_location(location: str) -> str | None:
 
 
 @router.get("/jobs", response_model=JobListResponse)
-@limiter.limit("60/minute")
-def list_jobs(
+@limiter.limit(RATE_LIMITS["jobs_list"])
+async def list_jobs(
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -182,7 +182,8 @@ def list_jobs(
     posted_within: str | None = Query(None),
     match_ids: str | None = Query(None),
 ) -> JobListResponse:
-    query = db.query(Job).filter(Job.is_active == True)  # noqa: E712
+    # Build base select statement
+    stmt = select(Job).where(Job.is_active == True)  # noqa: E712
 
     # Track if we need to preserve match_ids order
     preserve_match_order = False
@@ -196,22 +197,28 @@ def list_jobs(
             except ValueError:
                 continue
         if valid_ids:
-            query = query.filter(Job.id.in_(valid_ids))
+            stmt = stmt.where(Job.id.in_(valid_ids))
             preserve_match_order = True
         else:
-            query = query.filter(Job.id == None)  # noqa: E711
+            stmt = stmt.where(Job.id == None)  # noqa: E711
 
     if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Job.title.ilike(search_term))
-            | (Job.company.ilike(search_term))
-            | (Job.location.ilike(search_term))
-        )
+        # Split search by spaces and use AND logic (all terms must match)
+        search_terms = [term.strip() for term in search.split() if term.strip()]
+        if search_terms:
+            term_conditions = []
+            for term in search_terms:
+                search_term = f"%{term}%"
+                term_conditions.append(
+                    (Job.title.ilike(search_term))
+                    | (Job.company.ilike(search_term))
+                    | (Job.location.ilike(search_term))
+                )
+            stmt = stmt.where(and_(*term_conditions))
     if company:
         # Support multiple companies separated by pipe
         companies = [c.strip() for c in company.split("|")]
-        query = query.filter(Job.company.in_(companies))
+        stmt = stmt.where(Job.company.in_(companies))
     if location:
         # Support multiple locations separated by pipe
         # Normalize each location before filtering
@@ -220,33 +227,31 @@ def list_jobs(
 
         if search_locations:
             # Use ILIKE to match normalized locations (case-insensitive)
-            query = query.filter(or_(*[Job.location.ilike(f"%{loc}%") for loc in search_locations]))
+            stmt = stmt.where(or_(*[Job.location.ilike(f"%{loc}%") for loc in search_locations]))
     if category:
         # Support multiple categories separated by pipe
         categories = [c.strip() for c in category.split("|")]
-        query = query.filter(Job.job_category.in_(categories))
+        stmt = stmt.where(Job.job_category.in_(categories))
     if visa_sponsored is not None:
-        query = query.filter(Job.visa_sponsored == visa_sponsored)
+        stmt = stmt.where(Job.visa_sponsored == visa_sponsored)
     if f1_friendly is not None:
-        query = query.filter(Job.f1_friendly == f1_friendly)
+        stmt = stmt.where(Job.f1_friendly == f1_friendly)
     if job_type:
         # Filter by job type using pattern matching
         if job_type == "internship":
-            query = query.filter(Job.title.ilike("%intern%"))
+            stmt = stmt.where(Job.title.ilike("%intern%"))
         elif job_type == "part-time":
-            query = query.filter(Job.title.ilike("%part%time%"))
+            stmt = stmt.where(Job.title.ilike("%part%time%"))
         elif job_type == "full-time":
-            query = query.filter(Job.title.ilike("%full%time%"))
+            stmt = stmt.where(Job.title.ilike("%full%time%"))
     if work_mode:
         # Filter by work mode using pattern matching
         if work_mode == "remote":
-            query = query.filter(or_(Job.title.ilike("%remote%"), Job.location.ilike("%remote%")))
+            stmt = stmt.where(or_(Job.title.ilike("%remote%"), Job.location.ilike("%remote%")))
         elif work_mode == "hybrid":
-            query = query.filter(or_(Job.title.ilike("%hybrid%"), Job.location.ilike("%hybrid%")))
+            stmt = stmt.where(or_(Job.title.ilike("%hybrid%"), Job.location.ilike("%hybrid%")))
         elif work_mode == "on-site":
-            query = query.filter(
-                or_(Job.title.ilike("%on-site%"), Job.location.ilike("%in-office%"))
-            )
+            stmt = stmt.where(or_(Job.title.ilike("%on-site%"), Job.location.ilike("%in-office%")))
 
     if posted_within:
         now = datetime.now(timezone.utc)
@@ -260,7 +265,7 @@ def list_jobs(
             cutoff = None
 
         if cutoff:
-            query = query.filter(Job.posted_at >= cutoff)
+            stmt = stmt.where(Job.posted_at >= cutoff)
 
     # If we have match_ids, apply custom ordering at SQL level to preserve match ranking
     if preserve_match_order and valid_ids:
@@ -268,10 +273,17 @@ def list_jobs(
         ordering = case(
             {uid: idx for idx, uid in enumerate(valid_ids)}, value=Job.id, else_=len(valid_ids)
         )
-        query = query.order_by(ordering)
+        stmt = stmt.order_by(ordering)
 
-    total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    # Get total count
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar() or 0
+
+    # Get paginated results
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(stmt)
+    items = result.scalars().all()
 
     return JobListResponse(
         items=[JobResponse.model_validate(job) for job in items],
@@ -282,39 +294,44 @@ def list_jobs(
 
 
 @router.get("/jobs/filters/companies")
-@limiter.limit("30/minute")
-def get_companies(request: Request, db: Session = Depends(get_db)) -> list[str]:
-    companies = (
-        db.query(distinct(Job.company)).filter(Job.is_active == True).order_by(Job.company).all()
-    )
+@limiter.limit(RATE_LIMITS["filters"])
+async def get_companies(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
+    stmt = select(distinct(Job.company)).where(Job.is_active == True).order_by(Job.company)
+    result = await db.execute(stmt)
+    companies = result.all()
     return [c[0] for c in companies]
 
 
 @router.get("/jobs/filters/locations")
-@limiter.limit("30/minute")
-def get_locations(request: Request, db: Session = Depends(get_db)) -> list[str]:
-    locations = (
-        db.query(distinct(Job.location)).filter(Job.is_active == True).order_by(Job.location).all()
-    )
+@limiter.limit(RATE_LIMITS["filters"])
+async def get_locations(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
+    stmt = select(distinct(Job.location)).where(Job.is_active == True).order_by(Job.location)
+    result = await db.execute(stmt)
+    locations = result.all()
     return [loc[0] for loc in locations if loc[0]]
 
 
 @router.get("/jobs/filters/categories")
-@limiter.limit("30/minute")
-def get_categories(request: Request, db: Session = Depends(get_db)) -> list[str]:
-    categories = (
-        db.query(distinct(Job.job_category))
-        .filter(Job.is_active == True, Job.job_category != None)
+@limiter.limit(RATE_LIMITS["filters"])
+async def get_categories(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
+    stmt = (
+        select(distinct(Job.job_category))
+        .where(Job.is_active == True, Job.job_category != None)
         .order_by(Job.job_category)
-        .all()
     )
+    result = await db.execute(stmt)
+    categories = result.all()
     return [cat[0] for cat in categories if cat[0]]
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
-@limiter.limit("60/minute")
-def get_job(request: Request, job_id: UUID, db: Session = Depends(get_db)) -> JobResponse:
-    job = db.query(Job).filter(Job.id == job_id, Job.is_active == True).first()  # noqa: E712
+@limiter.limit(RATE_LIMITS["jobs_detail"])
+async def get_job(
+    request: Request, job_id: UUID, db: AsyncSession = Depends(get_db)
+) -> JobResponse:
+    stmt = select(Job).where(Job.id == job_id, Job.is_active == True)  # noqa: E712
+    result = await db.execute(stmt)
+    job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return JobResponse.model_validate(job)

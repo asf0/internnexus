@@ -113,7 +113,7 @@ export default function PasswordInput({
       <div>
         <label
           htmlFor={id}
-          className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+          className="block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1"
         >
           {label}
         </label>
@@ -124,13 +124,13 @@ export default function PasswordInput({
             value={value}
             onChange={handlePasswordChange}
             disabled={disabled}
-            className="block w-full px-3 py-2 pr-10 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
+            className="block w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-700 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
             placeholder={placeholder}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-md-on-surface-variant transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-100-variant transition-colors"
             tabIndex={-1}
           >
             {showPassword ? (
@@ -145,7 +145,7 @@ export default function PasswordInput({
         {showStrengthIndicator && value.length > 0 && (
           <div className="mt-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-slate-500 dark:text-md-on-surface-variant">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Password strength
               </span>
               <span
@@ -156,7 +156,7 @@ export default function PasswordInput({
                 {strength.level}
               </span>
             </div>
-            <div className="h-2 bg-slate-200 dark:bg-md-surface-container-high rounded-full overflow-hidden">
+            <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${getStrengthColor(
                   strength.level
@@ -181,7 +181,7 @@ export default function PasswordInput({
                   className={
                     req.met
                       ? "text-green-600 dark:text-green-400"
-                      : "text-slate-500 dark:text-md-on-surface-variant"
+                      : "text-slate-500 dark:text-slate-400"
                   }
                 >
                   {req.label}
@@ -197,7 +197,7 @@ export default function PasswordInput({
         <div>
           <label
             htmlFor={`${id}-confirm`}
-            className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+            className="block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1"
           >
             {confirmLabel}
           </label>
@@ -208,17 +208,17 @@ export default function PasswordInput({
               value={confirmValue}
               onChange={handleConfirmChange}
               disabled={disabled}
-              className={`block w-full px-3 py-2 pr-10 border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50 ${
+              className={`block w-full px-3 py-2 pr-10 border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50 ${
                 confirmPasswordTouched && !passwordsMatch
                   ? "border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-500"
-                  : "border-slate-300 dark:border-md-outline-variant"
+                  : "border-slate-300 dark:border-slate-700"
               }`}
               placeholder={placeholder}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-md-on-surface-variant transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-100-variant transition-colors"
               tabIndex={-1}
             >
               {showConfirmPassword ? (

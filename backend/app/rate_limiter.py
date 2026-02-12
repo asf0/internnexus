@@ -1,25 +1,33 @@
 from __future__ import annotations
 
-import os
-
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import os
 
-# Get Redis URL from environment variable, fallback to in-memory for development
+def get_real_client_ip(request):
+    """Get client IP behind Cloudflare."""
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
 redis_url = os.getenv("REDIS_URL")
 
-if redis_url:
-    # Use Redis for persistent rate limiting
-    limiter = Limiter(key_func=get_remote_address, storage_uri=redis_url)
-else:
-    # Fallback to in-memory storage for development
-    limiter = Limiter(key_func=get_remote_address)
-
-# Rate limit configurations
 RATE_LIMITS = {
-    "match": "5/minute",  # Expensive operation: PDF parsing + embeddings
-    "jobs_list": "60/minute",  # Standard read operation
-    "jobs_detail": "60/minute",  # Standard read operation
-    "filters": "30/minute",  # Filter endpoints (cached data)
-    "health": "1000/minute",  # Health checks - very permissive
+    "match": "5/minute",
+    "jobs_list": "60/minute",
+    "jobs_detail": "60/minute",
+    "filters": "30/minute",
+    "health": "1000/minute",
+    "auth_register": "5/minute",
+    "auth_login": "10/minute",
+    "auth_oauth": "20/minute",
+    "auth_set_password": "5/minute",
 }
+if redis_url:
+    limiter = Limiter(key_func=get_real_client_ip, storage_uri=redis_url)
+else:
+    limiter = Limiter(key_func=get_real_client_ip)

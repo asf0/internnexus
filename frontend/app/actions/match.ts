@@ -1,9 +1,8 @@
 "use server";
 
 import { auth } from "@/auth";
-import type { Job, JobListResponse } from "../../lib/types";
-
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+import { BACKEND_URL } from "@/lib/config";
+import type { Job, JobListResponse } from "@/lib/types";
 
 export async function matchResume(formData: FormData): Promise<unknown> {
   const session = await auth();
@@ -20,7 +19,7 @@ export async function matchResume(formData: FormData): Promise<unknown> {
   const body = new FormData();
   body.append("file", file, file.name);
 
-  const response = await fetch(`${backendBaseUrl}/match`, {
+  const response = await fetch(`${BACKEND_URL}/match`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${session.backendToken}`,
@@ -50,7 +49,7 @@ export async function fetchMatchedJobs(matchIds: string[], pageSize: number = 20
   }
 
   const response = await fetch(
-    `${backendBaseUrl}/jobs?match_ids=${matchIds.join("|")}&page_size=${pageSize}`,
+    `${BACKEND_URL}/jobs?match_ids=${matchIds.join("|")}&page_size=${pageSize}`,
     { 
       cache: "no-store",
       headers: {

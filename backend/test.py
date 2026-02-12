@@ -1,18 +1,28 @@
 import requests
 import re
+import sys
+from pathlib import Path
+
+# Add app to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from app.config import get_settings
+
+settings = get_settings()
+
 
 def harvest_companies_from_github():
     # URL for the raw markdown of the Summer 2026 Internships repo
-    intern_url = "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/README.md"
-    
+    intern_url = settings.simplify_jobs_intern_url
+
     # Optional: New Grad 2026 repo often has different companies
-    new_grad_url = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
-    
+    new_grad_url = settings.simplify_jobs_new_grad_url
+
     urls = [intern_url, new_grad_url]
     all_content = ""
 
     print(f"Fetching data from GitHub (2026 Cycle)...")
-    
+
     for url in urls:
         try:
             print(f"  - GET {url}...")
@@ -44,14 +54,15 @@ def harvest_companies_from_github():
     print("\n--- RESULTS ---")
     print(f"Found {len(lever_slugs)} unique Lever companies")
     print(f"Found {len(gh_slugs)} unique Greenhouse companies")
-    
+
     print("\n--- LEVER SAMPLE ---")
     print(list(lever_slugs)[:5])
 
     print("\n--- GREENHOUSE SAMPLE ---")
     print(list(gh_slugs)[:5])
-    
+
     return lever_slugs, gh_slugs
+
 
 if __name__ == "__main__":
     harvest_companies_from_github()

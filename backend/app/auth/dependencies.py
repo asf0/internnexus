@@ -5,7 +5,8 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.auth.jwt import get_user_id_from_token
 from app.db import get_db
@@ -15,9 +16,9 @@ from app.models import User
 security = HTTPBearer(auto_error=False)
 
 
-def get_current_user(
+async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Dependency to get the current authenticated user from JWT token.
 
@@ -48,7 +49,8 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(
@@ -60,9 +62,9 @@ def get_current_user(
     return user
 
 
-def get_optional_user(
+async def get_optional_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User | None:
     """Dependency to optionally get the current user if authenticated.
 
@@ -85,5 +87,6 @@ def get_optional_user(
     if user_id is None:
         return None
 
-    user = db.query(User).filter(User.id == user_id).first()
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalar_one_or_none()
     return user

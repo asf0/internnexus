@@ -3,15 +3,14 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import (
-    create_access_token,
     get_password_hash,
     verify_password,
     validate_password_strength,
@@ -20,6 +19,30 @@ from app.db import get_db
 from app.models import Account, PasswordHistory, User
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _parse_user_profile(user: User) -> dict:
+    """Helper to parse JSON fields and construct profile dict."""
+    skills = json.loads(user.skills) if user.skills else []
+    preferred_locations = json.loads(user.preferred_locations) if user.preferred_locations else []
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "image": user.image,
+        "created_at": user.created_at,
+        "bio": user.bio,
+        "phone": user.phone,
+        "location": user.location,
+        "job_title": user.job_title,
+        "company": user.company,
+        "industry": user.industry,
+        "skills": skills,
+        "linkedin_url": user.linkedin_url,
+        "portfolio_url": user.portfolio_url,
+        "preferred_locations": preferred_locations,
+        "has_password": user.hashed_password is not None,
+    }
 
 
 class UserProfileResponse(BaseModel):
@@ -46,8 +69,7 @@ class UserProfileResponse(BaseModel):
     # Auth status
     has_password: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UpdateUserRequest(BaseModel):
@@ -83,37 +105,15 @@ def get_current_user_profile(
 ) -> UserProfileResponse:
     """Get the current user's profile."""
     # Parse JSON fields
-    skills = json.loads(current_user.skills) if current_user.skills else []
-    preferred_locations = (
-        json.loads(current_user.preferred_locations) if current_user.preferred_locations else []
-    )
-
-    return UserProfileResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        name=current_user.name,
-        image=current_user.image,
-        created_at=current_user.created_at,
-        bio=current_user.bio,
-        phone=current_user.phone,
-        location=current_user.location,
-        job_title=current_user.job_title,
-        company=current_user.company,
-        industry=current_user.industry,
-        skills=skills,
-        linkedin_url=current_user.linkedin_url,
-        portfolio_url=current_user.portfolio_url,
-        preferred_locations=preferred_locations,
-        has_password=current_user.hashed_password is not None,
-    )
+    return UserProfileResponse(**_parse_user_profile(current_user))
 
 
 @router.put("/me", response_model=UserProfileResponse)
-def update_user_profile(
+async def update_user_profile(
     request: Request,
     data: UpdateUserRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
     """Update the current user's profile."""
     # Update fields
@@ -142,41 +142,19 @@ def update_user_profile(
         json.dumps(data.preferred_locations) if data.preferred_locations else None
     )
 
-    db.commit()
-    db.refresh(current_user)
+    await db.commit()
+    await db.refresh(current_user)
 
     # Return updated profile
-    skills = json.loads(current_user.skills) if current_user.skills else []
-    preferred_locations = (
-        json.loads(current_user.preferred_locations) if current_user.preferred_locations else []
-    )
-
-    return UserProfileResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        name=current_user.name,
-        image=current_user.image,
-        created_at=current_user.created_at,
-        bio=current_user.bio,
-        phone=current_user.phone,
-        location=current_user.location,
-        job_title=current_user.job_title,
-        company=current_user.company,
-        industry=current_user.industry,
-        skills=skills,
-        linkedin_url=current_user.linkedin_url,
-        portfolio_url=current_user.portfolio_url,
-        preferred_locations=preferred_locations,
-        has_password=current_user.hashed_password is not None,
-    )
+    return UserProfileResponse(**_parse_user_profile(current_user))
 
 
 @router.put("/me/password")
-def change_password(
+async def change_password(
     request: Request,
     data: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Change or set the user's password."""
     # If user already has a password, verify current password
@@ -202,13 +180,14 @@ def change_password(
         )
 
     # Check password history (last 3 passwords)
-    password_history = (
-        db.query(PasswordHistory)
-        .filter(PasswordHistory.user_id == current_user.id)
+    history_stmt = (
+        select(PasswordHistory)
+        .where(PasswordHistory.user_id == current_user.id)
         .order_by(PasswordHistory.created_at.desc())
         .limit(3)
-        .all()
     )
+    history_result = await db.execute(history_stmt)
+    password_history = history_result.scalars().all()
 
     for history_entry in password_history:
         if verify_password(data.new_password, history_entry.hashed_password):
@@ -228,25 +207,26 @@ def change_password(
         db.add(history_entry)
 
         # Keep only last 3 passwords in history
-        old_history = (
-            db.query(PasswordHistory)
-            .filter(PasswordHistory.user_id == current_user.id)
+        old_history_stmt = (
+            select(PasswordHistory)
+            .where(PasswordHistory.user_id == current_user.id)
             .order_by(PasswordHistory.created_at.desc())
             .offset(3)
-            .all()
         )
+        old_history_result = await db.execute(old_history_stmt)
+        old_history = old_history_result.scalars().all()
         for old_entry in old_history:
-            db.delete(old_entry)
+            await db.delete(old_entry)
 
     # Hash and set new password
     current_user.hashed_password = get_password_hash(data.new_password)
 
     # Create credentials account if it doesn't exist
-    credentials_account = (
-        db.query(Account)
-        .filter(Account.user_id == current_user.id, Account.provider == "credentials")
-        .first()
+    account_stmt = select(Account).where(
+        Account.user_id == current_user.id, Account.provider == "credentials"
     )
+    account_result = await db.execute(account_stmt)
+    credentials_account = account_result.scalar_one_or_none()
 
     if not credentials_account:
         account = Account(
@@ -256,16 +236,16 @@ def change_password(
         )
         db.add(account)
 
-    db.commit()
+    await db.commit()
 
     return {"message": "Password updated successfully"}
 
 
 @router.delete("/me")
-def delete_account(
+async def delete_account(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Soft delete the current user's account (GDPR compliant)."""
     # Soft delete: mark as deleted and anonymize
@@ -288,10 +268,11 @@ def delete_account(
     # Clear sensitive data
     current_user.hashed_password = None
 
-    # Delete all sessions and accounts
-    db.query(Account).filter(Account.user_id == current_user.id).delete()
-    db.query(Account).filter(Account.user_id == current_user.id).delete()
+    # Delete all accounts
+    from sqlalchemy import delete
 
-    db.commit()
+    await db.execute(delete(Account).where(Account.user_id == current_user.id))
+
+    await db.commit()
 
     return {"message": "Account deleted successfully"}

@@ -3,21 +3,10 @@
 import { useState, useTransition } from "react";
 import { matchResume } from "../app/actions/match";
 import { Building2, MapPin, TrendingUp } from "lucide-react";
+import { getMatchColor } from "../lib/utils";
+import type { MatchResponse } from "../lib/types/job";
 
-interface MatchResponse {
-  matches: Array<{
-    job_id: string;
-    score: number;
-    match_percentage: number;
-    title: string;
-    company: string;
-    location: string;
-  }>;
-  total: number;
-  error?: string;
-}
-
-export default function ResumeUploader() {
+export default function ResumeUploader(): JSX.Element {
   const [result, setResult] = useState<MatchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -33,13 +22,6 @@ export default function ResumeUploader() {
         setResult(response);
       }
     });
-  };
-
-  const getMatchColor = (percentage: number) => {
-    if (percentage >= 80) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-    if (percentage >= 60) return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-    if (percentage >= 40) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
   };
 
   return (
@@ -58,7 +40,7 @@ export default function ResumeUploader() {
           />
           <button
             type="submit"
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-md-on-surface dark:text-md-surface dark:hover:bg-md-on-surface-variant"
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300"
             disabled={isPending}
           >
             {isPending ? "Matching..." : "Find Matches"}

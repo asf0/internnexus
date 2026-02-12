@@ -4,14 +4,14 @@ import io
 from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
 from app.auth import get_current_user
 from app.db import get_db
 from app.models import Job, User
-from app.rate_limiter import limiter
+from app.rate_limiter import limiter, RATE_LIMITS
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter()
@@ -75,12 +75,12 @@ def extract_text_from_pdf(file: BinaryIO) -> str:
 
 
 @router.post("/match", response_model=MatchResponse)
-@limiter.limit("5/minute")
-def match_resume(
+@limiter.limit(RATE_LIMITS["match"])
+async def match_resume(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     max_results: int = 200,
     min_score: float = 0.5,
 ) -> MatchResponse:
@@ -129,7 +129,7 @@ def match_resume(
 
     try:
         embedder = EmbeddingService()
-        resume_embedding = embedder.embed(resume_text)
+        resume_embedding = await embedder.embed(resume_text)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")
 
@@ -151,7 +151,8 @@ def match_resume(
         .limit(max_results)
     )
 
-    results = db.execute(stmt).all()
+    result = await db.execute(stmt)
+    results = result.all()
     filtered_results = [row for row in results if row.score is not None and row.score >= min_score]
 
     matches = [

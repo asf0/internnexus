@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DOMPurify from "isomorphic-dompurify";
 import { fetchJob } from "../../../lib/api";
 
 interface JobPageProps {
@@ -58,7 +59,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
 
       <article
         className="prose max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-li:text-slate-700 prose-strong:text-slate-900 dark:prose-invert dark:prose-headings:text-md-on-surface dark:prose-p:text-md-on-surface-variant dark:prose-li:text-md-on-surface-variant dark:prose-strong:text-md-on-surface"
-        dangerouslySetInnerHTML={{ __html: job.description_text }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(job.description_text) }}
       />
 
       <a

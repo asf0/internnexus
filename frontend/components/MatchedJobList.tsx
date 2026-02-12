@@ -197,7 +197,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
               {currentPage > 1 && (
                 <Link
                   href={buildPageUrl(currentPage - 1)}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-slate-700"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
                 >
                   Previous
                 </Link>
@@ -210,7 +210,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
               {currentPage < totalPages && (
                 <Link
                   href={buildPageUrl(currentPage + 1)}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-slate-700"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
                 >
                   Next
                 </Link>

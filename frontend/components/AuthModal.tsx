@@ -59,7 +59,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
     setIsLoading(true);
     setError(null);
     try {
-      await signIn(provider, { callbackUrl: window.location.href });
+      await signIn(provider);
     } catch {
       setError("Failed to sign in. Please try again.");
       setIsLoading(false);
@@ -178,7 +178,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -213,10 +213,8 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
           </div>
         )}
 
-        {/* OAuth Buttons - Only show in login mode */}
-        {mode === "login" && (
-          <>
-            <div className="space-y-3 mb-6">
+        {/* OAuth Buttons */}
+        <div className="space-y-3 mb-6">
               <button
                 onClick={() => handleOAuthSignIn("github")}
                 disabled={isLoading}
@@ -264,8 +262,6 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 </span>
               </div>
             </div>
-          </>
-        )}
 
         {/* Forms */}
         {mode === "login" ? (
@@ -283,7 +279,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="email"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="you@example.com"
               />
             </div>
@@ -301,7 +297,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="password"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="••••••••"
               />
             </div>
@@ -309,7 +305,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-md-primary hover:bg-md-primary-container focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-md-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -334,7 +330,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="text"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="John Doe"
               />
             </div>
@@ -352,7 +348,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 type="email"
                 required
                 disabled={isLoading}
-                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container dark:text-md-on-surface disabled:opacity-50"
                 placeholder="you@example.com"
               />
             </div>
@@ -369,7 +365,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
             <button
               type="submit"
               disabled={isLoading || calculateStrength(password).score < 100 || password !== confirmPassword}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-md-primary hover:bg-md-primary-container focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-md-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -389,7 +385,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 Don&apos;t have an account?{" "}
                 <button
                   onClick={toggleMode}
-                  className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
                 >
                   Sign up
                 </button>
@@ -399,7 +395,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
                 Already have an account?{" "}
                 <button
                   onClick={toggleMode}
-                  className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
                 >
                   Sign in
                 </button>

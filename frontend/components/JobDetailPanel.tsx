@@ -1,6 +1,7 @@
 "use client";
 
 import { X, MapPin, Building2, ExternalLink, Calendar, Flame, GraduationCap, Globe, Flag } from "lucide-react";
+import DOMPurify from 'isomorphic-dompurify';
 import type { Job } from "../lib/types";
 
 interface JobDetailPanelProps {
@@ -59,7 +60,7 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-md-surface-container dark:hover:text-md-on-surface-variant"
+          className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-md-surface-container-high dark:hover:text-md-on-surface-variant"
         >
           <X className="h-5 w-5" />
         </button>
@@ -108,16 +109,16 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
           </div>
         )}
 
-        {/* Description */}
-        {job.description_text && (
-          <div className="mt-6">
-            <h3 className="font-semibold text-slate-900 dark:text-md-on-surface">Description</h3>
-            <div 
-              className="mt-2 prose prose-sm prose-slate max-w-none dark:prose-invert text-slate-600 dark:text-md-on-surface-variant"
-              dangerouslySetInnerHTML={{ __html: job.description_text }}
-            />
-          </div>
-        )}
+{/* Description */}
+         {job.description_text && (
+           <div className="mt-6">
+             <h3 className="font-semibold text-slate-900 dark:text-md-on-surface">Description</h3>
+             <div 
+               className="mt-2 prose prose-sm prose-slate max-w-none dark:prose-invert text-slate-600 dark:text-md-on-surface-variant"
+               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(job.description_text) }}
+             />
+           </div>
+         )}
       </div>
 
       {/* Footer */}

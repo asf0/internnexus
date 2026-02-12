@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import (
@@ -17,6 +17,7 @@ from app.auth.jwt import (
 )
 from app.db import get_db
 from app.models import Account, User
+from app.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -67,11 +68,20 @@ class ErrorResponse(BaseModel):
     action: str | None = None
 
 
+def create_auth_error(error: str, message: str, action: str | None = None, **extra) -> dict:
+    detail = {"error": error, "message": message}
+    if action:
+        detail["action"] = action
+    detail.update(extra)
+    return detail
+
+
 @router.post("/register", response_model=AuthResponse)
-def register(
+@limiter.limit(RATE_LIMITS["auth_register"])
+async def register(
     request: Request,
     data: RegisterRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """Register a new user with email and password.
 
@@ -79,38 +89,40 @@ def register(
     suggesting the user set a password instead.
     """
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == data.email).first()
+    stmt = select(User).where(User.email == data.email)
+    result = await db.execute(stmt)
+    existing_user = result.scalar_one_or_none()
 
     if existing_user:
         # Check if user has OAuth accounts
-        oauth_accounts = (
-            db.query(Account)
-            .filter(Account.user_id == existing_user.id, Account.provider.in_(["google", "github"]))
-            .all()
+        oauth_stmt = select(Account).where(
+            Account.user_id == existing_user.id, Account.provider.in_(["google", "github"])
         )
+        oauth_result = await db.execute(oauth_stmt)
+        oauth_accounts = oauth_result.scalars().all()
 
         if oauth_accounts:
             # User exists with OAuth - suggest setting password
             provider_names = [acc.provider.capitalize() for acc in oauth_accounts]
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "EMAIL_REGISTERED_WITH_OAUTH",
-                    "message": f"This email is already registered with {', '.join(provider_names)}. "
+                detail=create_auth_error(
+                    "EMAIL_REGISTERED_WITH_OAUTH",
+                    f"This email is already registered with {', '.join(provider_names)}. "
                     "Please sign in with that provider or set a password for your account.",
-                    "action": "SET_PASSWORD",
-                    "providers": provider_names,
-                },
+                    action="SET_PASSWORD",
+                    providers=provider_names,
+                ),
             )
         else:
             # User exists with credentials
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "EMAIL_ALREADY_REGISTERED",
-                    "message": "An account with this email already exists. Please sign in instead.",
-                    "action": "SIGN_IN",
-                },
+                detail=create_auth_error(
+                    "EMAIL_ALREADY_REGISTERED",
+                    "An account with this email already exists. Please sign in instead.",
+                    action="SIGN_IN",
+                ),
             )
 
     # Create new user
@@ -122,7 +134,7 @@ def register(
         email_verified=False,
     )
     db.add(user)
-    db.flush()  # Get user.id
+    await db.flush()  # Get user.id
 
     # Create credentials account
     account = Account(
@@ -131,7 +143,7 @@ def register(
         provider_account_id=data.email,
     )
     db.add(account)
-    db.commit()
+    await db.commit()
 
     # Generate JWT token
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
@@ -147,62 +159,56 @@ def register(
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(
+@limiter.limit(RATE_LIMITS["auth_login"])
+async def login(
     request: Request,
     data: LoginRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """Login with email and password."""
     # Find user by email
-    user = db.query(User).filter(User.email == data.email).first()
+    stmt = select(User).where(User.email == data.email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error": "INVALID_CREDENTIALS",
-                "message": "Invalid email or password.",
-            },
+            detail=create_auth_error("INVALID_CREDENTIALS", "Invalid email or password."),
         )
 
     # Check if user has a password set
     if not user.hashed_password:
         # Check if user has OAuth accounts
-        oauth_accounts = (
-            db.query(Account)
-            .filter(Account.user_id == user.id, Account.provider.in_(["google", "github"]))
-            .all()
+        oauth_stmt = select(Account).where(
+            Account.user_id == user.id, Account.provider.in_(["google", "github"])
         )
+        oauth_result = await db.execute(oauth_stmt)
+        oauth_accounts = oauth_result.scalars().all()
 
         if oauth_accounts:
             provider_names = [acc.provider.capitalize() for acc in oauth_accounts]
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "OAUTH_ACCOUNT_NO_PASSWORD",
-                    "message": f"This account uses {', '.join(provider_names)} authentication. "
+                detail=create_auth_error(
+                    "OAUTH_ACCOUNT_NO_PASSWORD",
+                    f"This account uses {', '.join(provider_names)} authentication. "
                     "Please sign in with that provider or set a password first.",
-                    "action": "USE_OAUTH",
-                    "providers": provider_names,
-                },
+                    action="USE_OAUTH",
+                    providers=provider_names,
+                ),
             )
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "INVALID_CREDENTIALS",
-                    "message": "Invalid email or password.",
-                },
+                detail=create_auth_error("INVALID_CREDENTIALS", "Invalid email or password."),
             )
 
     # Verify password
     if not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error": "INVALID_CREDENTIALS",
-                "message": "Invalid email or password.",
-            },
+            detail=create_auth_error("INVALID_CREDENTIALS", "Invalid email or password."),
         )
 
     # Generate JWT token
@@ -219,29 +225,30 @@ def login(
 
 
 @router.post("/oauth/callback", response_model=AuthResponse)
-def oauth_callback(
+@limiter.limit(RATE_LIMITS["auth_oauth"])
+async def oauth_callback(
     request: Request,
     data: OAuthCallbackRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """Handle OAuth callback from providers like Google or GitHub.
 
     Creates or updates the user account and returns a backend JWT token.
     """
     # Try to find existing user by email
-    user = db.query(User).filter(User.email == data.email).first()
+    stmt = select(User).where(User.email == data.email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
 
     if user:
         # User exists - update or create OAuth account
-        existing_account = (
-            db.query(Account)
-            .filter(
-                Account.user_id == user.id,
-                Account.provider == data.provider,
-                Account.provider_account_id == data.provider_account_id,
-            )
-            .first()
+        account_stmt = select(Account).where(
+            Account.user_id == user.id,
+            Account.provider == data.provider,
+            Account.provider_account_id == data.provider_account_id,
         )
+        account_result = await db.execute(account_stmt)
+        existing_account = account_result.scalar_one_or_none()
 
         if existing_account:
             # Update existing account
@@ -275,7 +282,7 @@ def oauth_callback(
             email_verified=True,  # OAuth emails are verified
         )
         db.add(user)
-        db.flush()  # Get user.id
+        await db.flush()  # Get user.id
 
         # Create OAuth account
         account = Account(
@@ -288,7 +295,10 @@ def oauth_callback(
         )
         db.add(account)
 
-    db.commit()
+    await db.commit()
+
+    # Refresh user to ensure all attributes are loaded before accessing them
+    await db.refresh(user)
 
     # Generate JWT token
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
@@ -304,11 +314,12 @@ def oauth_callback(
 
 
 @router.post("/set-password", response_model=AuthResponse)
-def set_password(
+@limiter.limit(RATE_LIMITS["auth_set_password"])
+async def set_password(
     request: Request,
     data: SetPasswordRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """Set a password for an OAuth user to enable local authentication."""
     # Hash the new password
@@ -316,11 +327,11 @@ def set_password(
     current_user.hashed_password = hashed_password
 
     # Check if credentials account already exists
-    credentials_account = (
-        db.query(Account)
-        .filter(Account.user_id == current_user.id, Account.provider == "credentials")
-        .first()
+    account_stmt = select(Account).where(
+        Account.user_id == current_user.id, Account.provider == "credentials"
     )
+    account_result = await db.execute(account_stmt)
+    credentials_account = account_result.scalar_one_or_none()
 
     if not credentials_account:
         # Create credentials account
@@ -331,7 +342,7 @@ def set_password(
         )
         db.add(account)
 
-    db.commit()
+    await db.commit()
 
     # Generate new JWT token
     access_token = create_access_token(

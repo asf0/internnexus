@@ -2,29 +2,11 @@
 
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { BACKEND_URL } from "@/lib/config";
+import { parseApiError } from "@/lib/utils";
+import type { UserProfile, UpdateUserData } from "@/lib/types/user";
 
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-  created_at: string;
-  bio: string | null;
-  phone: string | null;
-  location: string | null;
-  job_title: string | null;
-  company: string | null;
-  industry: string | null;
-  skills: string[];
-  linkedin_url: string | null;
-  portfolio_url: string | null;
-  preferred_locations: string[];
-  has_password: boolean;
-}
-
-export async function getUserProfile(): Promise<UserProfile | null> {
+export async function fetchUserProfile(): Promise<UserProfile | null> {
   const session = await auth();
 
   if (!session?.backendToken) {
@@ -32,7 +14,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   }
 
   try {
-    const response = await fetch(`${backendBaseUrl}/users/me`, {
+    const response = await fetch(`${BACKEND_URL}/users/me`, {
       headers: {
         Authorization: `Bearer ${session.backendToken}`,
       },
@@ -52,18 +34,9 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   }
 }
 
-export interface UpdateUserData {
-  name?: string | null;
-  bio?: string | null;
-  phone?: string | null;
-  location?: string | null;
-  job_title?: string | null;
-  company?: string | null;
-  industry?: string | null;
-  skills?: string[];
-  linkedin_url?: string | null;
-  portfolio_url?: string | null;
-  preferred_locations?: string[];
+export interface ChangePasswordData {
+  current_password: string;
+  new_password: string;
 }
 
 export async function updateUserProfile(data: UpdateUserData): Promise<{ success: boolean; error?: string }> {
@@ -74,7 +47,7 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
   }
 
   try {
-    const response = await fetch(`${backendBaseUrl}/users/me`, {
+    const response = await fetch(`${BACKEND_URL}/users/me`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -85,7 +58,7 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { success: false, error: errorData.detail?.message || "Failed to update profile" };
+      return { success: false, error: parseApiError(errorData) };
     }
 
     revalidatePath("/profile");
@@ -97,11 +70,6 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
   }
 }
 
-export interface ChangePasswordData {
-  current_password?: string;
-  new_password: string;
-}
-
 export async function changePassword(data: ChangePasswordData): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
 
@@ -110,7 +78,7 @@ export async function changePassword(data: ChangePasswordData): Promise<{ succes
   }
 
   try {
-    const response = await fetch(`${backendBaseUrl}/users/me/password`, {
+    const response = await fetch(`${BACKEND_URL}/users/me/password`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -121,7 +89,7 @@ export async function changePassword(data: ChangePasswordData): Promise<{ succes
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { success: false, error: errorData.detail?.message || "Failed to change password" };
+      return { success: false, error: parseApiError(errorData) };
     }
 
     return { success: true };
@@ -139,7 +107,7 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
   }
 
   try {
-    const response = await fetch(`${backendBaseUrl}/users/me`, {
+    const response = await fetch(`${BACKEND_URL}/users/me`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${session.backendToken}`,
@@ -148,7 +116,7 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { success: false, error: errorData.detail?.message || "Failed to delete account" };
+      return { success: false, error: parseApiError(errorData) };
     }
 
     return { success: true };
@@ -157,3 +125,6 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
     return { success: false, error: "An unexpected error occurred" };
   }
 }
+
+// Backward compatibility alias
+export const getUserProfile = fetchUserProfile;

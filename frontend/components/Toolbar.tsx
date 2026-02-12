@@ -35,8 +35,6 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   const currentCompanies = searchParams.get("company")?.split("|").filter(Boolean) || [];
   const currentLocations = searchParams.get("location")?.split("|").filter(Boolean) || [];
   const currentCategories = searchParams.get("category")?.split("|").filter(Boolean) || [];
-  const currentVisa = searchParams.get("visa_sponsored");
-  const currentF1 = searchParams.get("f1_friendly");
   const currentJobType = searchParams.get("job_type") || "";
   const currentWorkMode = searchParams.get("work_mode") || "";
   const currentPostedWithin = searchParams.get("posted_within") || "";
@@ -47,8 +45,6 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     currentCompanies.length > 0,
     currentLocations.length > 0,
     currentCategories.length > 0,
-    currentVisa,
-    currentF1,
     currentJobType,
     currentWorkMode,
     currentPostedWithin,
@@ -133,7 +129,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             placeholder="Search jobs, companies, locations..."
             defaultValue={currentSearch}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface dark:placeholder-md-on-surface-variant dark:focus:border-blue-400"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-md-primary focus:outline-none focus:ring-1 focus:ring-md-primary dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface dark:placeholder-slate-500 dark:focus:border-md-primary"
           />
         </div>
 
@@ -142,14 +138,14 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
             showFilters || activeFilterCount > 0
-              ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+              ? "border-md-primary bg-md-primary-container text-md-primary dark:border-md-primary dark:bg-md-primary-container dark:text-md-primary"
               : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
           }`}
         >
           <SlidersHorizontal className="h-4 w-4" />
           <span>Filters</span>
           {activeFilterCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-md-primary text-xs text-white">
               {activeFilterCount}
             </span>
           )}
@@ -161,14 +157,14 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           onClick={() => setShowResume(!showResume)}
           className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
             showResume
-              ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+              ? "border-md-primary bg-md-primary-container text-md-primary dark:border-md-primary dark:bg-md-primary-container dark:text-md-primary"
               : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
           }`}
         >
           <Upload className="h-4 w-4" />
           <span className="hidden sm:inline">Match Resume</span>
           {matchCount > 0 && (
-            <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+            <span className="rounded-full bg-md-primary px-2 py-0.5 text-xs text-white">
               {matchCount}
             </span>
           )}
@@ -178,7 +174,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
         {activeFilterCount > 0 && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:text-md-on-surface-variant dark:hover:text-slate-200"
+            className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:text-md-on-surface-variant dark:hover:text-md-on-surface"
           >
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Clear</span>
@@ -188,7 +184,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
 
       {/* Expanded Filters Panel */}
       {showFilters && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Company */}
             <MultiSelect
@@ -257,28 +253,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
               ))}
             </select>
 
-            {/* Visa & F1 Checkboxes */}
-            <div className="flex items-center gap-4 sm:col-span-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={currentVisa === "true"}
-                  onChange={(e) => updateFilter("visa_sponsored", e.target.checked ? "true" : "")}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-high"
-                />
-                <span className="text-slate-700 dark:text-md-on-surface-variant">Visa Sponsored</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={currentF1 === "true"}
-                  onChange={(e) => updateFilter("f1_friendly", e.target.checked ? "true" : "")}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container-high"
-                />
-                <span className="text-slate-700 dark:text-md-on-surface-variant">F1 Friendly</span>
-              </label>
-            </div>
-          </div>
+       </div>
         </div>
       )}
 
@@ -303,7 +278,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             <button
               type="submit"
               disabled={isMatching}
-              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-md-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-md-primary-container disabled:opacity-50"
             >
               {isMatching ? "Matching..." : "Find Matches"}
             </button>

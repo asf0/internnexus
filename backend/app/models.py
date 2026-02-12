@@ -41,7 +41,7 @@ class Job(Base):
     country = Column(String, nullable=True)
     apply_url = Column(String, nullable=False)
     description_text = Column(Text, nullable=False)
-    description_embedding = Column(Vector(768))  # nomic-embed-text dimensions
+    description_embedding = Column(Vector(1024), nullable=True)
     visa_sponsored = Column(Boolean, nullable=True)
     f1_friendly = Column(Boolean, nullable=True)
     job_category = Column(Enum(JobCategory, name="job_category"), nullable=True)
@@ -75,10 +75,6 @@ class User(Base):
 
     # Profile Information
     bio = Column(Text, nullable=True)
-    phone = Column(String, nullable=True)
-    location = Column(String, nullable=True)
-
-    # Professional Information
     job_title = Column(String, nullable=True)
     company = Column(String, nullable=True)
     industry = Column(String, nullable=True)
@@ -166,9 +162,3 @@ class PasswordHistory(Base):
 
     # Relationships
     user = relationship("User", back_populates="password_history")
-
-    # Index for faster lookups
-    __table_args__ = (
-        # Keep only last 3 passwords per user
-        {"postgresql_using": "btree"},
-    )

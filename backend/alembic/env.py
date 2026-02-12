@@ -16,7 +16,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.resolved_database_url)
+# Use sync URL for alembic migrations (remove asyncpg driver)
+sync_database_url = settings.resolved_database_url.replace("+asyncpg", "")
+config.set_main_option("sqlalchemy.url", sync_database_url)
 
 target_metadata = Base.metadata
 

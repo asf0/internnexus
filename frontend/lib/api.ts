@@ -1,9 +1,9 @@
+import { BACKEND_URL } from "./config";
 import type { Job, JobListResponse } from "./types";
-
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 interface JobFilters {
   page?: number;
+  page_size?: number;
   search?: string;
   company?: string;
   location?: string;
@@ -31,9 +31,9 @@ export async function fetchJobs(filters: JobFilters = {}): Promise<JobListRespon
   if (filters.posted_within) params.set("posted_within", filters.posted_within);
   if (filters.match_ids) params.set("match_ids", filters.match_ids);
   
-  params.set("page_size", "20");
+  params.set("page_size", filters.page_size?.toString() || "20");
   
-  const response = await fetch(`${backendBaseUrl}/jobs?${params.toString()}`, {
+  const response = await fetch(`${BACKEND_URL}/jobs?${params.toString()}`, {
     cache: "no-store"
   });
   if (!response.ok) {
@@ -43,7 +43,7 @@ export async function fetchJobs(filters: JobFilters = {}): Promise<JobListRespon
 }
 
 export async function fetchCompanies(): Promise<string[]> {
-  const response = await fetch(`${backendBaseUrl}/jobs/filters/companies`, {
+  const response = await fetch(`${BACKEND_URL}/jobs/filters/companies`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -51,7 +51,7 @@ export async function fetchCompanies(): Promise<string[]> {
 }
 
 export async function fetchLocations(): Promise<string[]> {
-  const response = await fetch(`${backendBaseUrl}/jobs/filters/locations`, {
+  const response = await fetch(`${BACKEND_URL}/jobs/filters/locations`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -59,7 +59,7 @@ export async function fetchLocations(): Promise<string[]> {
 }
 
 export async function fetchCategories(): Promise<string[]> {
-  const response = await fetch(`${backendBaseUrl}/jobs/filters/categories`, {
+  const response = await fetch(`${BACKEND_URL}/jobs/filters/categories`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -67,7 +67,7 @@ export async function fetchCategories(): Promise<string[]> {
 }
 
 export async function fetchJob(id: string): Promise<Job | null> {
-  const response = await fetch(`${backendBaseUrl}/jobs/${id}`, {
+  const response = await fetch(`${BACKEND_URL}/jobs/${id}`, {
     cache: "no-store"
   });
   if (!response.ok) {

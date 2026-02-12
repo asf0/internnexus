@@ -5,14 +5,15 @@ from typing import Any
 
 import httpx
 
+from app.config import get_settings
 from ..schemas import JobSchema
 
 
 class GreenhouseClient:
-    base_url = "https://boards-api.greenhouse.io/v1/boards"
-
     def __init__(self, timeout_seconds: float = 20.0) -> None:
         self._client = httpx.Client(timeout=timeout_seconds)
+        self._settings = get_settings()
+        self.base_url = self._settings.greenhouse_api_url
 
     def fetch_jobs(self, company_slug: str) -> list[JobSchema]:
         url = f"{self.base_url}/{company_slug}/jobs"
