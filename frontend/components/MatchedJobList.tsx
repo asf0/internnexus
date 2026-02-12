@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
 import JobDetailPanel from "./JobDetailPanel";
 import { fetchMatchedJobs } from "../app/actions/match";
+import { Badge } from "./ui";
 import type { Job } from "../lib/types";
 
 interface MatchedJobListProps {
@@ -164,19 +165,15 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {job.job_category && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-md-surface-container dark:text-md-on-surface-variant">
+                        <Badge variant="default">
                           {categoryLabelMap[job.job_category] || job.job_category}
-                        </span>
+                        </Badge>
                       )}
                       {job.visa_sponsored && (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                          Visa
-                        </span>
+                        <Badge variant="visa">Visa</Badge>
                       )}
                       {job.f1_friendly && (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
-                          F1
-                        </span>
+                        <Badge variant="f1">F1</Badge>
                       )}
                     </div>
                   </div>

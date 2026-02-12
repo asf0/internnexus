@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Search, SlidersHorizontal, Upload, ChevronDown, X, Check } from "lucide-react";
+import { useState } from "react";
+import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import MultiSelect from "./MultiSelect";
+import { Button, Input, SingleSelect } from "./ui";
 import { matchResume } from "../app/actions/match";
 
 interface ToolbarProps {
@@ -39,7 +40,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   const currentWorkModes = searchParams.get("work_mode")?.split("|").filter(Boolean) || [];
   const currentPostedWithin = searchParams.get("posted_within") || "";
   const isMatched = searchParams.get("matched") === "true";
-  const matchCount = isMatched ? 1 : 0; // Simplified - we'll show "matched" indicator
+  const matchCount = isMatched ? 1 : 0;
 
   const activeFilterCount = [
     currentCompanies.length > 0,
@@ -82,81 +83,6 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     { value: "month", label: "Past month" },
   ];
 
-// Single Select Component styled like MultiSelect
-interface SingleSelectProps {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}
-
-function SingleSelect({ options, value, onChange, placeholder }: SingleSelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(opt => opt.value === value);
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex min-h-[38px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
-      >
-        <span className={selectedOption ? "text-slate-900 dark:text-md-on-surface" : "text-slate-400 dark:text-md-on-surface"}>
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown
-          size={16}
-          className={`ml-2 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
-          <div className="max-h-60 overflow-y-auto">
-            <div
-              onClick={() => {
-                onChange("");
-                setIsOpen(false);
-              }}
-              className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
-            >
-              <span className="text-slate-900 dark:text-md-on-surface">{placeholder}</span>
-              {!value && <Check size={16} className="text-slate-900 dark:text-md-on-surface" />}
-            </div>
-            {options.map((option) => (
-              <div
-                key={option.value}
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
-              >
-                <span className="text-slate-900 dark:text-md-on-surface">{option.label}</span>
-                {value === option.value && (
-                  <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
   const handleResumeSubmit = async (formData: FormData) => {
     setIsMatching(true);
     try {
@@ -166,7 +92,6 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
         const matches = (response as { matches?: Array<{ job_id: string; match_percentage: number }> }).matches || [];
         const matchIds = matches.map((match) => match.job_id).filter(Boolean);
         
-        // Store match data in localStorage to avoid URL size limits
         const scoresMap: Record<string, number> = {};
         matches.forEach((match) => {
           scoresMap[match.job_id] = match.match_percentage;
@@ -192,30 +117,29 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
     }
   };
 
+  const isFiltersActive = showFilters || activeFilterCount > 0;
+  const isResumeActive = showResume;
+
   return (
     <div className="sticky top-0 z-50 space-y-3 backdrop-blur-md bg-white/80 dark:bg-md-surface/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       {/* Main Toolbar Row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
+          <Input
             type="text"
             placeholder="Search jobs, companies, locations..."
             defaultValue={currentSearch}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-md-primary focus:outline-none focus:ring-1 focus:ring-md-primary dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:placeholder-slate-400 dark:focus:border-md-primary"
+            icon={Search}
           />
         </div>
 
         {/* Filters Toggle Button */}
-        <button
+        <Button
+          variant={isFiltersActive ? "primary" : "secondary"}
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-            showFilters || activeFilterCount > 0
-              ? "border-md-primary bg-md-primary-container text-md-primary dark:border-md-primary dark:bg-md-primary-container dark:text-md-primary"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
-          }`}
+          className="flex items-center gap-2"
         >
           <SlidersHorizontal className="h-4 w-4" />
           <span>Filters</span>
@@ -225,16 +149,13 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
             </span>
           )}
           <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`} />
-        </button>
+        </Button>
 
         {/* Resume Upload Toggle Button */}
-        <button
+        <Button
+          variant={isResumeActive ? "primary" : "secondary"}
           onClick={() => setShowResume(!showResume)}
-          className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-            showResume
-              ? "border-md-primary bg-md-primary-container text-md-primary dark:border-md-primary dark:bg-md-primary-container dark:text-md-primary"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface-variant dark:hover:bg-md-surface-container"
-          }`}
+          className="flex items-center gap-2"
         >
           <Upload className="h-4 w-4" />
           <span className="hidden sm:inline">Match Resume</span>
@@ -243,23 +164,20 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
               {matchCount}
             </span>
           )}
-        </button>
+        </Button>
 
         {/* Clear Filters */}
         {activeFilterCount > 0 && (
-          <button
-            onClick={clearFilters}
-            className="flex items-center gap-1 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 dark:text-md-on-surface-variant dark:hover:text-md-on-surface"
-          >
+          <Button variant="ghost" onClick={clearFilters} className="flex items-center gap-1">
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Clear</span>
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Expanded Filters Panel */}
       {showFilters && (
-        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Company */}
             <MultiSelect
@@ -332,16 +250,16 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
                 className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:file:bg-slate-700 dark:file:text-slate-300"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={isMatching}
-              className="rounded-lg bg-md-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-md-primary-container disabled:opacity-50"
             >
               {isMatching ? "Matching..." : "Find Matches"}
-            </button>
+            </Button>
             {isMatched && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
                   params.delete("matched");
@@ -352,10 +270,9 @@ function SingleSelect({ options, value, onChange, placeholder }: SingleSelectPro
                     router.push(`/?${params.toString()}`);
                   });
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
               >
                 Clear Matches
-              </button>
+              </Button>
             )}
           </form>
           {matchResult && !isMatching && (

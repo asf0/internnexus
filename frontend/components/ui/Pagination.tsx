@@ -24,7 +24,7 @@ export default function Pagination({
   currentPage, 
   totalPages, 
   buildPageUrl 
-}: PaginationProps): JSX.Element {
+}: PaginationProps) {
   // Don't render if only one page
   if (totalPages <= 1) return <></>;
 
@@ -120,7 +120,7 @@ export default function Pagination({
                 key={pageNum}
                 aria-current="page"
                 aria-label={`Page ${pageNum}, current page`}
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white dark:bg-blue-500"
+                className="rounded-lg bg-md-primary px-3 py-2 text-sm font-semibold text-white"
               >
                 {pageNum}
               </span>

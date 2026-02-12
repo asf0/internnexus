@@ -6,7 +6,7 @@ import { Building2, MapPin, TrendingUp } from "lucide-react";
 import { getMatchColor } from "../lib/utils";
 import type { MatchResponse } from "../lib/types/job";
 
-export default function ResumeUploader(): JSX.Element {
+export default function ResumeUploader(){
   const [result, setResult] = useState<MatchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { getUserProfile, updateUserProfile, changePassword, deleteAccount } from "@/app/actions/user"
 import PasswordInput, { calculateStrength } from "@/components/PasswordInput"
+import { Button, Input, Card, CardContent, Badge, IconContainer } from "@/components/ui"
 
 interface UserProfile {
   id: string
@@ -162,9 +163,9 @@ export default function SettingsPage() {
     }
 
     // Save password if provided
-    if (passwordForm.new_password) {
+    if (passwordForm.current_password) {
       const passwordResult = await changePassword({
-        current_password: passwordForm.current_password || undefined,
+        current_password: passwordForm.current_password,  // Now TypeScript knows it's string
         new_password: passwordForm.new_password,
       })
 
@@ -235,13 +236,14 @@ export default function SettingsPage() {
     <div className="py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
-        <button
+        <Button
+          variant="ghost"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-600 dark:text-md-on-surface-variant hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-6"
+          className="mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
-        </button>
+          Back
+        </Button>
 
         {/* Header */}
         <div className="mb-8">
@@ -267,276 +269,240 @@ export default function SettingsPage() {
           {/* Left Column - Personal & Password */}
           <div className="lg:col-span-1 space-y-6">
             {/* Personal Information */}
-            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Personal</h2>
-                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your basic info</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    value={personalForm.name}
-                    onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
-                    placeholder="John Doe"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Bio / About</label>
-                  <textarea
-                    value={personalForm.bio}
-                    onChange={(e) => setPersonalForm({ ...personalForm, bio: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
-                    placeholder="Tell us about yourself..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Phone</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={personalForm.phone}
-                      onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
-                      placeholder="+1 (555) 123-4567"
-                    />
+            <Card>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-6">
+                  <IconContainer icon={User} color="blue" />
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Personal</h2>
+                    <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your basic info</p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Location</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Full Name</label>
+                    <Input
+                      type="text"
+                      value={personalForm.name}
+                      onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Bio / About</label>
+                    <textarea
+                      value={personalForm.bio}
+                      onChange={(e) => setPersonalForm({ ...personalForm, bio: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      placeholder="Tell us about yourself..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Phone</label>
+                    <Input
+                      type="tel"
+                      value={personalForm.phone}
+                      onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                      icon={Phone}
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Location</label>
+                    <Input
                       type="text"
                       value={personalForm.location}
                       onChange={(e) => setPersonalForm({ ...personalForm, location: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={MapPin}
                       placeholder="San Francisco, CA"
                     />
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Password */}
-            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <Lock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Password</h2>
-                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
-                    {profile?.has_password ? "Change password" : "Set password"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {profile?.has_password && (
+            <Card>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-6">
+                  <IconContainer icon={Lock} color="purple" />
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Current Password</label>
-                    <div className="relative">
-                      <input
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Password</h2>
+                    <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
+                      {profile?.has_password ? "Change password" : "Set password"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {profile?.has_password && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Current Password</label>
+                      <Input
                         type="password"
                         value={passwordForm.current_password}
                         onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
                       />
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <PasswordInput
-                  value={passwordForm.new_password}
-                  onChange={(value) => setPasswordForm({ ...passwordForm, new_password: value })}
-                  confirmValue={passwordForm.confirm_password}
-                  onConfirmChange={(value) => setPasswordForm({ ...passwordForm, confirm_password: value })}
-                  showConfirmation={true}
-                  label="New Password"
-                  id="new-password"
-                />
-              </div>
-            </div>
+                  <PasswordInput
+                    value={passwordForm.new_password}
+                    onChange={(value) => setPasswordForm({ ...passwordForm, new_password: value })}
+                    confirmValue={passwordForm.confirm_password}
+                    onConfirmChange={(value) => setPasswordForm({ ...passwordForm, confirm_password: value })}
+                    showConfirmation={true}
+                    label="New Password"
+                    id="new-password"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Right Column - Professional & Danger Zone */}
-          <div className="lg:col-span-2 space-y-6">            {/* Professional Information */}
-            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <Briefcase className="h-6 w-6 text-green-600 dark:text-green-400" />
+            {/* Right Column - Professional & Danger Zone */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Professional Information */}
+            <Card>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-6">
+                  <IconContainer icon={Briefcase} color="green" />
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Professional Information</h2>
+                    <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your work details</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Professional Information</h2>
-                  <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your work details</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Job Title</label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Job Title</label>
+                    <Input
                       type="text"
                       value={professionalForm.job_title}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, job_title: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={Briefcase}
                       placeholder="Software Engineer"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Company</label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Company</label>
+                    <Input
                       type="text"
                       value={professionalForm.company}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, company: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={Building}
                       placeholder="Acme Inc."
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Industry</label>
-                  <div className="relative">
-                    <GraduationCap className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Industry</label>
+                    <Input
                       type="text"
                       value={professionalForm.industry}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, industry: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={GraduationCap}
                       placeholder="Technology"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">LinkedIn URL</label>
-                  <div className="relative">
-                    <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">LinkedIn URL</label>
+                    <Input
                       type="url"
                       value={professionalForm.linkedin_url}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, linkedin_url: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={LinkIcon}
                       placeholder="https://linkedin.com/in/username"
                     />
                   </div>
-                </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Portfolio / Website</label>
-                  <div className="relative">
-                    <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Portfolio / Website</label>
+                    <Input
                       type="url"
                       value={professionalForm.portfolio_url}
                       onChange={(e) => setProfessionalForm({ ...professionalForm, portfolio_url: e.target.value })}
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
+                      icon={LinkIcon}
                       placeholder="https://yourportfolio.com"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Skills */}
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Skills</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
-                    >
-                      {skill}
-                      <button
-                        onClick={() => removeSkill(skill)}
-                        className="hover:text-blue-900 dark:hover:text-blue-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newSkill}
-                    onChange={(e) => setNewSkill(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
-                    placeholder="Add a skill (e.g., Python, React)"
-                  />
-                  <button
-                    onClick={addSkill}
-                    className="px-3 py-2 bg-slate-100 dark:bg-md-surface-container-high text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
+                {/* Skills */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Skills</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {skills.map((skill) => (
+                      <Badge key={skill} variant="visa">
+                        {skill}
+                        <button
+                          onClick={() => removeSkill(skill)}
+                          className="ml-1 hover:text-blue-900 dark:hover:text-blue-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      value={newSkill}
+                      onChange={(e) => setNewSkill(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
+                      placeholder="Add a skill (e.g., Python, React)"
+                      className="flex-1"
+                    />
+                    <Button variant="secondary" size="sm" onClick={addSkill}>
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Preferred Locations */}
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {preferredLocations.map((location) => (
-                    <span
-                      key={location}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm"
-                    >
-                      {location}
-                      <button
-                        onClick={() => removeLocation(location)}
-                        className="hover:text-green-900 dark:hover:text-green-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newLocation}
-                    onChange={(e) => setNewLocation(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addLocation())}
-                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-md-surface-container-high dark:text-md-on-surface"
-                    placeholder="Add a location (e.g., San Francisco, Remote)"
-                  />
-                  <button
-                    onClick={addLocation}
-                    className="px-3 py-2 bg-slate-100 dark:bg-md-surface-container-high text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
+                {/* Preferred Locations */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {preferredLocations.map((location) => (
+                      <Badge key={location} variant="f1">
+                        {location}
+                        <button
+                          onClick={() => removeLocation(location)}
+                          className="ml-1 hover:text-green-900 dark:hover:text-green-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      value={newLocation}
+                      onChange={(e) => setNewLocation(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addLocation())}
+                      placeholder="Add a location (e.g., San Francisco, Remote)"
+                      className="flex-1"
+                    />
+                    <Button variant="secondary" size="sm" onClick={addLocation}>
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Danger Zone */}
             <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-200 dark:border-red-800 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                  <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
-                </div>
+                <IconContainer icon={AlertTriangle} color="red" />
                 <div>
                   <h2 className="text-xl font-semibold text-red-900 dark:text-red-100">Danger Zone</h2>
                   <p className="text-sm text-red-600 dark:text-red-300">Irreversible actions</p>
@@ -548,26 +514,29 @@ export default function SettingsPage() {
                 Once you delete your account, there is no going back. This action will permanently delete your account
                 and all associated data in accordance with GDPR and CCPA regulations.
               </p>
-              <button
+              <Button
+                variant="primary"
                 onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="bg-red-600 hover:bg-red-700"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete Account
-              </button>
+              </Button>
             </div>
 
             {/* Save Button */}
-            <div className="bg-white dark:bg-md-surface-container rounded-xl shadow-sm border border-slate-200 dark:border-md-outline-variant p-6">
-              <button
-                onClick={handleSaveAll}
-                disabled={isSaving}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                Save All Changes
-              </button>
-            </div>
+            <Card>
+              <CardContent>
+                <Button
+                  onClick={handleSaveAll}
+                  disabled={isSaving}
+                  className="w-full"
+                >
+                  {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                  Save All Changes
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
@@ -575,51 +544,52 @@ export default function SettingsPage() {
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-md-surface-container rounded-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+          <Card className="max-w-md w-full">
+            <CardContent>
+              <div className="flex items-center gap-3 mb-4">
+                <IconContainer icon={AlertTriangle} color="red" />
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Delete Account</h3>
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Delete Account</h3>
-            </div>
 
-            <p className="text-slate-600 dark:text-md-on-surface-variant mb-4">
-              This action cannot be undone. This will permanently delete your account and remove your data from our
-              servers.
-            </p>
-
-            <div className="bg-slate-100 dark:bg-md-surface-container-high rounded-lg p-4 mb-4">
-              <p className="text-sm text-slate-700 dark:text-md-on-surface-variant mb-2">
-                Please type <strong className="text-red-600">DELETE</strong> to confirm:
+              <p className="text-slate-600 dark:text-md-on-surface-variant mb-4">
+                This action cannot be undone. This will permanently delete your account and remove your data from our
+                servers.
               </p>
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-md-surface-container dark:text-md-on-surface"
-                placeholder="Type DELETE"
-              />
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false)
-                  setDeleteConfirmText("")
-                }}
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-md-outline-variant text-slate-700 dark:text-md-on-surface-variant rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={isSaving || deleteConfirmText !== "DELETE"}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Delete Account"}
-              </button>
-            </div>
-          </div>
+              <div className="bg-slate-100 dark:bg-md-surface-container-high rounded-lg p-4 mb-4">
+                <p className="text-sm text-slate-700 dark:text-md-on-surface-variant mb-2">
+                  Please type <strong className="text-red-600">DELETE</strong> to confirm:
+                </p>
+                <Input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setDeleteConfirmText("")
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleDeleteAccount}
+                  disabled={isSaving || deleteConfirmText !== "DELETE"}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Delete Account"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

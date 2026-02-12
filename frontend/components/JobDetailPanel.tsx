@@ -2,6 +2,7 @@
 
 import { X, MapPin, Building2, ExternalLink, Calendar, Flame, GraduationCap, Globe, Flag } from "lucide-react";
 import DOMPurify from 'isomorphic-dompurify';
+import { Badge } from "./ui";
 import type { Job } from "../lib/types";
 
 interface JobDetailPanelProps {
@@ -47,10 +48,7 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
             <Building2 className="h-4 w-4" />
             <span>{job.company}</span>
             {job.is_faang_plus && (
-              <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700 dark:bg-orange-900 dark:text-orange-300">
-                <Flame className="h-3 w-3" />
-                FAANG+
-              </span>
+              <Badge variant="faang" icon={Flame}>FAANG+</Badge>
             )}
           </div>
           <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-md-on-surface-variant">
@@ -71,33 +69,21 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
         {/* Tags */}
         <div className="flex flex-wrap gap-2">
           {job.job_category && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-md-surface-container dark:text-md-on-surface-variant">
+            <Badge variant="default">
               {categoryLabelMap[job.job_category] || job.job_category}
-            </span>
+            </Badge>
           )}
           {job.visa_sponsored && (
-            <span className="flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-              <Globe className="h-3 w-3" />
-              Visa Sponsored
-            </span>
+            <Badge variant="visa" icon={Globe}>Visa Sponsored</Badge>
           )}
           {job.f1_friendly && (
-            <span className="flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm text-green-700 dark:bg-green-900 dark:text-green-300">
-              <GraduationCap className="h-3 w-3" />
-              F1 Friendly
-            </span>
+            <Badge variant="f1" icon={GraduationCap}>F1 Friendly</Badge>
           )}
           {job.requires_us_citizenship && (
-            <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-sm text-red-700 dark:bg-red-900 dark:text-red-300">
-              <Flag className="h-3 w-3" />
-              US Citizenship Required
-            </span>
+            <Badge variant="danger" icon={Flag}>US Citizenship Required</Badge>
           )}
           {job.requires_advanced_degree && (
-            <span className="flex items-center gap-1 rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-              <GraduationCap className="h-3 w-3" />
-              Advanced Degree
-            </span>
+            <Badge variant="purple" icon={GraduationCap}>Advanced Degree</Badge>
           )}
         </div>
 

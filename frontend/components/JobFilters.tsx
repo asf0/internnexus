@@ -1,10 +1,11 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState } from "react";
 import MultiSelect from "./MultiSelect";
+import { SingleSelect, Input, Button } from "./ui";
 import { CATEGORY_LABEL_MAP } from "../lib/constants";
+import { Search } from "lucide-react";
 
 interface JobFiltersProps {
   companies: string[];
@@ -64,33 +65,42 @@ export default function JobFilters({ companies, locations, categories = [] }: Jo
     currentJobType || 
     currentWorkMode;
 
-  const jobTypes = ["internship", "full-time", "part-time"];
-  const workModes = ["remote", "hybrid", "on-site"];
+  const jobTypes = [
+    { value: "internship", label: "Internship" },
+    { value: "full-time", label: "Full-time" },
+    { value: "part-time", label: "Part-time" },
+  ];
+  
+  const workModes = [
+    { value: "remote", label: "Remote" },
+    { value: "hybrid", label: "Hybrid" },
+    { value: "on-site", label: "On-site" },
+  ];
 
   return (
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-md-outline-variant dark:bg-md-surface-container-low">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-md-on-surface">Filter Jobs</h3>
         {hasActiveFilters && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={clearFilters}
-            className="text-xs text-slate-500 hover:text-slate-700 dark:text-md-on-surface-variant dark:hover:text-slate-200"
           >
             Clear all
-          </button>
+          </Button>
         )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Search */}
-        <div className="relative lg:col-span-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
+        <div className="lg:col-span-3">
+          <Input
             type="text"
             placeholder="Search jobs, companies, locations..."
             defaultValue={currentSearch}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
+            icon={Search}
           />
         </div>
 
@@ -125,55 +135,22 @@ export default function JobFilters({ companies, locations, categories = [] }: Jo
           labelMap={CATEGORY_LABEL_MAP}
         />
 
-
-        <select
+        {/* Job Type */}
+        <SingleSelect
+          options={jobTypes}
           value={currentJobType}
-          onChange={(e) => updateFilter("job_type", e.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:focus:border-slate-400 dark:focus:ring-slate-400"
-        >
-          <option value="">All Job Types</option>
-          {jobTypes.map((type) => (
-            <option key={type} value={type}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => updateFilter("job_type", value)}
+          placeholder="All Job Types"
+        />
 
         {/* Work Mode */}
-        <select
+        <SingleSelect
+          options={workModes}
           value={currentWorkMode}
-          onChange={(e) => updateFilter("work_mode", e.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:focus:border-slate-400 dark:focus:ring-slate-400"
-        >
-          <option value="">All Work Modes</option>
-          {workModes.map((mode) => (
-            <option key={mode} value={mode}>
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => updateFilter("work_mode", value)}
+          placeholder="All Work Modes"
+        />
 
-        {/* Visa/F1 Checkboxes
-        <div className="flex gap-2">
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:hover:bg-md-surface-container-high">
-            <input
-              type="checkbox"
-              checked={currentVisa === "true"}
-              onChange={(e) => updateFilter("visa_sponsored", e.target.checked ? "true" : "")}
-              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
-            />
-            <span className="text-slate-700 dark:text-md-on-surface-variant">Visa</span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:hover:bg-md-surface-container-high">
-            <input
-              type="checkbox"
-              checked={currentF1 === "true"}
-              onChange={(e) => updateFilter("f1_friendly", e.target.checked ? "true" : "")}
-              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
-            />
-            <span className="text-slate-700 dark:text-md-on-surface-variant">F1</span>
-          </label>
-        </div> */}
       </div>
 
       {isPending && (

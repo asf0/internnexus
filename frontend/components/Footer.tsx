@@ -5,6 +5,7 @@ import { Github, Linkedin, Mail } from "lucide-react";
 import AboutModal from "./AboutModal";
 import PrivacyModal from "./PrivacyModal";
 import TermsModal from "./TermsModal";
+import { Button } from "./ui";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -15,17 +16,17 @@ export default function Footer() {
   const socialLinks = [
     {
       name: "GitHub",
-      href: "https://github.com/asf0", // TODO: Replace with your GitHub URL
+      href: "https://github.com/asf0",
       icon: Github,
     },
     {
       name: "LinkedIn",
-      href: "https://linkedin.com/in/ataidesantos", // TODO: Replace with your LinkedIn URL
+      href: "https://linkedin.com/in/ataidesantos",
       icon: Linkedin,
     },
     {
       name: "Contact",
-      href: "mailto:your.email@example.com", // TODO: Replace with your email
+      href: "mailto:your.email@example.com",
       icon: Mail,
     },
   ];
@@ -50,13 +51,14 @@ export default function Footer() {
           {/* Navigation Links */}
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {footerLinks.map((link) => (
-              <button
+              <Button
                 key={link.name}
+                variant="ghost"
+                size="sm"
                 onClick={link.action}
-                className="text-sm text-slate-600 transition-colors hover:text-slate-900 dark:text-md-on-surface-variant dark:hover:text-md-on-surface"
               >
                 {link.name}
-              </button>
+              </Button>
             ))}
           </nav>
 
