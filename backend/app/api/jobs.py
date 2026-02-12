@@ -12,6 +12,7 @@ from app.api.schemas import JobListResponse, JobResponse
 from app.db import get_db
 from app.models import Job
 from app.rate_limiter import RATE_LIMITS, limiter
+from app.services.embedding_service import EmbeddingService
 
 router = APIRouter()
 
@@ -164,6 +165,29 @@ def normalize_location(location: str) -> str | None:
     return location
 
 
+def is_likely_company_name(search: str) -> bool:
+    """Detect if search query is likely a company name."""
+    search_clean = search.strip()
+    words = search_clean.split()
+
+    # Single capitalized word (Google, Microsoft, Meta, etc.)
+    if len(words) == 1:
+        word = words[0]
+        if word[0].isupper() and len(word) > 1:
+            return True
+
+    # Contains common company suffixes
+    company_suffixes = ["inc", "corp", "llc", "ltd", "co", "company", "corporation"]
+    if any(suffix in search_clean.lower() for suffix in company_suffixes):
+        return True
+
+    # All caps (IBM, HP, AMD, etc.)
+    if search_clean.isupper() and len(search_clean) <= 5:
+        return True
+
+    return False
+
+
 @router.get("/jobs", response_model=JobListResponse)
 @limiter.limit(RATE_LIMITS["jobs_list"])
 async def list_jobs(
@@ -202,19 +226,94 @@ async def list_jobs(
         else:
             stmt = stmt.where(Job.id == None)  # noqa: E711
 
-    if search:
-        # Split search by spaces and use AND logic (all terms must match)
-        search_terms = [term.strip() for term in search.split() if term.strip()]
-        if search_terms:
-            term_conditions = []
-            for term in search_terms:
-                search_term = f"%{term}%"
-                term_conditions.append(
-                    (Job.title.ilike(search_term))
-                    | (Job.company.ilike(search_term))
-                    | (Job.location.ilike(search_term))
+    # Hybrid Search Logic
+    vector_job_ids = None
+    if search and search.strip():
+        # Check if search is likely a company name (use ILIKE only for these)
+        if is_likely_company_name(search):
+            # Company names should use ILIKE for exact matching
+            search_term = f"%{search}%"
+            stmt = stmt.where(
+                (Job.title.ilike(search_term))
+                | (Job.company.ilike(search_term))
+                | (Job.location.ilike(search_term))
+            )
+        else:
+            # For non-company searches, try hybrid approach
+            search_term = f"%{search}%"
+            ilike_stmt = stmt.where(
+                (Job.title.ilike(search_term))
+                | (Job.company.ilike(search_term))
+                | (Job.location.ilike(search_term))
+            )
+
+            # Count ILIKE results
+            count_stmt = select(func.count()).select_from(ilike_stmt.subquery())
+            count_result = await db.execute(count_stmt)
+            ilike_count = count_result.scalar() or 0
+
+            if ilike_count >= 3:
+                # Use ILIKE results - exact matches found
+                stmt = ilike_stmt
+            else:
+                # Not enough exact matches - use vector search with higher precision
+                # Calculate dynamic limit based on active filters
+                active_filter_count = sum(
+                    [
+                        bool(company),
+                        bool(location),
+                        bool(category),
+                        bool(visa_sponsored),
+                        bool(f1_friendly),
+                        bool(job_type),
+                        bool(work_mode),
+                        bool(posted_within),
+                    ]
                 )
-            stmt = stmt.where(and_(*term_conditions))
+
+                if active_filter_count == 0:
+                    vector_limit = 50
+                elif active_filter_count <= 3:
+                    vector_limit = 100
+                else:
+                    vector_limit = 150
+
+                try:
+                    embedder = EmbeddingService()
+                    search_embedding = await embedder.embed(search)
+
+                    # Get vector matches with similarity scores (higher threshold for precision)
+                    vector_stmt = (
+                        select(
+                            Job.id,
+                            (1 - Job.description_embedding.cosine_distance(search_embedding)).label(
+                                "similarity"
+                            ),
+                        )
+                        .where(Job.is_active == True)
+                        .where(Job.description_embedding.isnot(None))
+                        .where(
+                            (1 - Job.description_embedding.cosine_distance(search_embedding)) >= 0.6
+                        )
+                        .order_by(
+                            (1 - Job.description_embedding.cosine_distance(search_embedding)).desc()
+                        )
+                        .limit(vector_limit)
+                    )
+
+                    vector_result = await db.execute(vector_stmt)
+                    vector_rows = vector_result.all()
+
+                    if vector_rows:
+                        vector_job_ids = [row.id for row in vector_rows]
+                        # Filter to only these job IDs
+                        stmt = stmt.where(Job.id.in_(vector_job_ids))
+                    else:
+                        # No vector matches, fall back to empty ILIKE results
+                        stmt = ilike_stmt
+                except RuntimeError:
+                    # Embedding service unavailable, fall back to ILIKE
+                    stmt = ilike_stmt
     if company:
         # Support multiple companies separated by pipe
         companies = [c.strip() for c in company.split("|")]
@@ -267,11 +366,19 @@ async def list_jobs(
         if cutoff:
             stmt = stmt.where(Job.posted_at >= cutoff)
 
-    # If we have match_ids, apply custom ordering at SQL level to preserve match ranking
+    # If we have match_ids or vector results, apply custom ordering at SQL level
     if preserve_match_order and valid_ids:
         # Build a CASE statement to order by the position in match_ids list
         ordering = case(
             {uid: idx for idx, uid in enumerate(valid_ids)}, value=Job.id, else_=len(valid_ids)
+        )
+        stmt = stmt.order_by(ordering)
+    elif vector_job_ids:
+        # Preserve vector search ordering (most similar first)
+        ordering = case(
+            {uid: idx for idx, uid in enumerate(vector_job_ids)},
+            value=Job.id,
+            else_=len(vector_job_ids),
         )
         stmt = stmt.order_by(ordering)
 

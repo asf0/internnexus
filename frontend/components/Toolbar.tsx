@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { useSession } from "next-auth/react";
+import { useDebounce } from "use-debounce";
 import MultiSelect from "./MultiSelect";
 import { Button, Input, SingleSelect } from "./ui";
 import { matchResume } from "../app/actions/match";
@@ -26,13 +28,30 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const { data: session } = useSession();
   
   const [showFilters, setShowFilters] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [matchResult, setMatchResult] = useState<any>(null);
   const [isMatching, setIsMatching] = useState(false);
-
+  
+  // Local state for search input with debouncing
   const currentSearch = searchParams.get("search") || "";
+  const [searchInput, setSearchInput] = useState(currentSearch);
+  const [debouncedSearch] = useDebounce(searchInput, 400);
+  
+  // Update URL when debounced search value changes
+  useEffect(() => {
+    if (debouncedSearch !== currentSearch) {
+      updateFilter("search", debouncedSearch);
+    }
+  }, [debouncedSearch, currentSearch]);
+
+  // Sync search input with URL parameter when it changes externally
+  useEffect(() => {
+    setSearchInput(currentSearch);
+  }, [currentSearch]);
+
   const currentCompanies = searchParams.get("company")?.split("|").filter(Boolean) || [];
   const currentLocations = searchParams.get("location")?.split("|").filter(Boolean) || [];
   const currentCategories = searchParams.get("category")?.split("|").filter(Boolean) || [];
@@ -129,8 +148,13 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           <Input
             type="text"
             placeholder="Search jobs, companies, locations..."
-            defaultValue={currentSearch}
-            onChange={(e) => updateFilter("search", e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter") {
+                updateFilter("search", searchInput);
+              }
+            }}
             icon={Search}
           />
         </div>
@@ -151,20 +175,22 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
           <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`} />
         </Button>
 
-        {/* Resume Upload Toggle Button */}
-        <Button
-          variant={isResumeActive ? "primary" : "secondary"}
-          onClick={() => setShowResume(!showResume)}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Match Resume</span>
-          {matchCount > 0 && (
-            <span className="rounded-full bg-md-primary px-2 py-0.5 text-xs text-white">
-              {matchCount}
-            </span>
-          )}
-        </Button>
+        {/* Resume Upload Toggle Button - Only show if logged in */}
+        {session?.user && (
+          <Button
+            variant={isResumeActive ? "primary" : "secondary"}
+            onClick={() => setShowResume(!showResume)}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Match Resume</span>
+            {matchCount > 0 && (
+              <span className="rounded-full bg-md-primary px-2 py-0.5 text-xs text-white">
+                {matchCount}
+              </span>
+            )}
+          </Button>
+        )}
 
         {/* Clear Filters */}
         {activeFilterCount > 0 && (
@@ -232,8 +258,8 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
         </div>
       )}
 
-      {/* Resume Upload Panel */}
-      {showResume && (
+      {/* Resume Upload Panel - Only show if logged in */}
+      {session?.user && showResume && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
           <form
             action={handleResumeSubmit}
