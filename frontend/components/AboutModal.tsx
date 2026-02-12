@@ -48,19 +48,19 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </h4>
           <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
               15k+ jobs from 145+ companies
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
               Smart resume matching using AI embeddings
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
               Real-time job aggregation
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-md-primary"></span>
               Personalized recommendations
             </li>
           </ul>

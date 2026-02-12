@@ -37,12 +37,12 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-transparent text-slate-900 dark:bg-transparent dark:text-slate-100">
-      <div className="mx-auto w-full max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <footer className="bg-transparent text-slate-900 dark:bg-transparent dark:text-md-on-surface">
+      <div className="mx-auto w-full max-w-(--breakpoint-2xl) px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
           {/* Logo/Brand */}
           <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+            <span className="text-xl font-bold text-slate-900 dark:text-md-on-surface">
               InternNexus
             </span>
           </div>
@@ -53,7 +53,7 @@ export default function Footer() {
               <button
                 key={link.name}
                 onClick={link.action}
-                className="text-sm text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                className="text-sm text-slate-600 transition-colors hover:text-slate-900 dark:text-md-on-surface-variant dark:hover:text-md-on-surface"
               >
                 {link.name}
               </button>
@@ -68,7 +68,7 @@ export default function Footer() {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900 dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high dark:hover:text-md-on-surface"
                 aria-label={social.name}
               >
                 <social.icon className="h-5 w-5" />
@@ -78,11 +78,11 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-8 dark:border-slate-700 md:flex-row">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-8 dark:border-md-outline-variant md:flex-row">
+          <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
             © {currentYear} InternNexus. Built with ❤️ by asf0.
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-400">
+          <p className="text-xs text-slate-400 dark:text-md-on-surface-variant">
             Smart Job Matching Platform
           </p>
         </div>

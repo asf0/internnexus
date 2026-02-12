@@ -49,15 +49,15 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
     <div ref={ref} className="relative">
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+        className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
       >
         {selected.length === 0 ? (
-          <span className="text-slate-400 dark:text-slate-400">{placeholder}</span>
+          <span className="text-slate-400 dark:text-md-on-surface">{placeholder}</span>
         ) : (
           selected.map((item) => (
             <span
               key={item}
-              className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface"
             >
               {getLabel(item)}
               <button
@@ -79,14 +79,14 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
       </div>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
           <div className="p-2">
             <input
               type="text"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-md-primary focus:outline-none dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -98,11 +98,11 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                 <div
                   key={option}
                   onClick={() => toggleOption(option)}
-                  className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                  className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
                 >
-                  <span className="text-slate-900 dark:text-slate-100">{getLabel(option)}</span>
+                  <span className="text-slate-900 dark:text-md-on-surface">{getLabel(option)}</span>
                   {selected.includes(option) && (
-                    <Check size={16} className="text-slate-900 dark:text-slate-100" />
+                    <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
                   )}
                 </div>
               ))

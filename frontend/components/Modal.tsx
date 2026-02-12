@@ -62,13 +62,13 @@ export default function Modal({
 
       {/* Modal Card */}
       <div
-        className={`relative flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full ${sizeClasses[size]} max-h-[80vh] z-10`}
+        className={`relative flex flex-col bg-white dark:bg-md-surface-container rounded-xl shadow-2xl border border-slate-200 dark:border-md-outline-variant w-full ${sizeClasses[size]} max-h-[80vh] z-10`}
       >
         {/* Close Button */}
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-100-variant hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors z-20"
+            className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors z-20"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -77,15 +77,15 @@ export default function Modal({
 
         {/* Header */}
         {title && (
-          <div className="shrink-0 px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <div className="shrink-0 px-6 pt-6 pb-4 border-b border-slate-200 dark:border-md-outline-variant">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-md-on-surface">
               {title}
             </h2>
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-700 dark:text-slate-300">
+        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-700 dark:text-md-on-surface-variant">
           {children}
         </div>
       </div>

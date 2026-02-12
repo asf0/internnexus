@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, SlidersHorizontal, Upload, ChevronDown, X, Check } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import MultiSelect from "./MultiSelect";
@@ -35,8 +35,8 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   const currentCompanies = searchParams.get("company")?.split("|").filter(Boolean) || [];
   const currentLocations = searchParams.get("location")?.split("|").filter(Boolean) || [];
   const currentCategories = searchParams.get("category")?.split("|").filter(Boolean) || [];
-  const currentJobType = searchParams.get("job_type") || "";
-  const currentWorkMode = searchParams.get("work_mode") || "";
+  const currentJobTypes = searchParams.get("job_type")?.split("|").filter(Boolean) || [];
+  const currentWorkModes = searchParams.get("work_mode")?.split("|").filter(Boolean) || [];
   const currentPostedWithin = searchParams.get("posted_within") || "";
   const isMatched = searchParams.get("matched") === "true";
   const matchCount = isMatched ? 1 : 0; // Simplified - we'll show "matched" indicator
@@ -45,8 +45,8 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     currentCompanies.length > 0,
     currentLocations.length > 0,
     currentCategories.length > 0,
-    currentJobType,
-    currentWorkMode,
+    currentJobTypes.length > 0,
+    currentWorkModes.length > 0,
     currentPostedWithin,
     isMatched,
   ].filter(Boolean).length;
@@ -81,6 +81,81 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     { value: "week", label: "Past week" },
     { value: "month", label: "Past month" },
   ];
+
+// Single Select Component styled like MultiSelect
+interface SingleSelectProps {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}
+
+function SingleSelect({ options, value, onChange, placeholder }: SingleSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex min-h-[38px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+      >
+        <span className={selectedOption ? "text-slate-900 dark:text-md-on-surface" : "text-slate-400 dark:text-md-on-surface"}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`ml-2 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
+          <div className="max-h-60 overflow-y-auto">
+            <div
+              onClick={() => {
+                onChange("");
+                setIsOpen(false);
+              }}
+              className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+            >
+              <span className="text-slate-900 dark:text-md-on-surface">{placeholder}</span>
+              {!value && <Check size={16} className="text-slate-900 dark:text-md-on-surface" />}
+            </div>
+            {options.map((option) => (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+              >
+                <span className="text-slate-900 dark:text-md-on-surface">{option.label}</span>
+                {value === option.value && (
+                  <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   const handleResumeSubmit = async (formData: FormData) => {
     setIsMatching(true);
@@ -129,7 +204,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             placeholder="Search jobs, companies, locations..."
             defaultValue={currentSearch}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-md-primary focus:outline-none focus:ring-1 focus:ring-md-primary dark:border-md-outline-variant dark:bg-md-surface-container-low dark:text-md-on-surface dark:placeholder-slate-500 dark:focus:border-md-primary"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-md-primary focus:outline-none focus:ring-1 focus:ring-md-primary dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface dark:placeholder-slate-400 dark:focus:border-md-primary"
           />
         </div>
 
@@ -212,46 +287,28 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             />
 
             {/* Job Type */}
-            <select
-              value={currentJobType}
-              onChange={(e) => updateFilter("job_type", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
-            >
-              <option value="">Job Type</option>
-              {jobTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </select>
+            <MultiSelect
+              options={jobTypes}
+              selected={currentJobTypes}
+              onChange={(values) => updateMultiSelect("job_type", values)}
+              placeholder="Job Type"
+            />
 
             {/* Work Mode */}
-            <select
-              value={currentWorkMode}
-              onChange={(e) => updateFilter("work_mode", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
-            >
-              <option value="">Work Mode</option>
-              {workModes.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </option>
-              ))}
-            </select>
+            <MultiSelect
+              options={workModes}
+              selected={currentWorkModes}
+              onChange={(values) => updateMultiSelect("work_mode", values)}
+              placeholder="Work Mode"
+            />
 
             {/* Date Posted */}
-            <select
+            <SingleSelect
+              options={postedWithinOptions}
               value={currentPostedWithin}
-              onChange={(e) => updateFilter("posted_within", e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
-            >
-              <option value="">Date Posted</option>
-              {postedWithinOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateFilter("posted_within", value)}
+              placeholder="Date Posted"
+            />
 
        </div>
         </div>
