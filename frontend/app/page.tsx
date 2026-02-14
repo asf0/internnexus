@@ -3,6 +3,7 @@ import Toolbar from "../components/Toolbar";
 import JobList from "../components/JobList";
 import MatchedJobList from "../components/MatchedJobList";
 import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "../lib/api";
+import { BASE_URL } from "../lib/config";
 import Link from "next/link";
 
 interface HomePageProps {
@@ -50,8 +51,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   
   const totalPages = Math.ceil(data.total / data.page_size);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Internship Listings",
+    "numberOfItems": data.total,
+    "itemListElement": data.items.map((job, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "url": `${BASE_URL}/jobs/${job.id}`,
+    })),
+  };
+
   return (
     <div className="space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <header className="flex items-center justify-between">
         <div>
           <Link href="/" className="hover:opacity-80 transition-opacity">

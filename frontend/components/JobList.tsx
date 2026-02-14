@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useMemo, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { MapPin, Building2, Flame } from "lucide-react";
 import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
 import Pagination from "./ui/Pagination";
 import { Badge } from "./ui";
 import { CATEGORY_LABEL_MAP } from "../lib/constants";
+import { generateJobSlug, findJobBySlug } from "../lib/utils";
 import type { Job } from "../lib/types";
 
 interface JobListProps {
@@ -18,19 +19,37 @@ interface JobListProps {
 
 export default function JobList({ jobs, total, totalPages, currentPage }: JobListProps) {
   const searchParams = useSearchParams();
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const handleJobClick = (job: Job) => {
-    setSelectedJob(job);
-  };
+  const selectedSlug = searchParams.get("selected");
 
-  const handleClose = () => {
-    setSelectedJob(null);
-  };
+  const selectedJob = useMemo(() => {
+    if (!selectedSlug) return null;
+    return findJobBySlug(jobs, selectedSlug) || null;
+  }, [selectedSlug, jobs]);
+
+  const handleJobClick = useCallback(
+    (job: Job) => {
+      const slug = generateJobSlug(job.title, job.company, job.id);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("selected", slug);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router, pathname]
+  );
+
+  const handleClose = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("selected");
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.push(newUrl, { scroll: false });
+  }, [searchParams, router, pathname]);
 
   const buildPageUrl = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
+    params.delete("selected");
     return `/?${params.toString()}`;
   };
 
@@ -42,11 +61,10 @@ export default function JobList({ jobs, total, totalPages, currentPage }: JobLis
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* Job List - Full width on mobile, half width on desktop with detail panel */}
         <div className={`transition-all duration-300 ${selectedJob ? "w-full lg:w-1/2" : "w-full"}`}>
           {jobs.map((job) => (
-            <article 
-              key={job.id} 
+            <article
+              key={job.id}
               onClick={() => handleJobClick(job)}
               className={`mb-3 cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${
                 selectedJob?.id === job.id
@@ -90,7 +108,6 @@ export default function JobList({ jobs, total, totalPages, currentPage }: JobLis
             </article>
           ))}
 
-          {/* Pagination */}
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -98,11 +115,9 @@ export default function JobList({ jobs, total, totalPages, currentPage }: JobLis
           />
         </div>
 
-        {/* Detail Panel - Fullscreen modal on mobile, side panel on desktop */}
-        {selectedJob && (
+        {selectedSlug && (
           <JobDetailPanelContainer
             job={selectedJob}
-            isLoading={false}
             onClose={handleClose}
           />
         )}

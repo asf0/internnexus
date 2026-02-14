@@ -36,7 +36,7 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
       {/* Header */}
       <div className="flex items-start justify-between border-b border-slate-200 p-6 dark:border-md-outline-variant">
         <div className="flex-1 pr-4">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-md-on-surface">{job.title}</h2>
+          <h2 id="job-detail-title" className="text-xl font-bold text-slate-900 dark:text-md-on-surface">{job.title}</h2>
           <div className="mt-2 flex items-center gap-2 text-slate-600 dark:text-md-on-surface-variant">
             <Building2 className="h-4 w-4" />
             <span>{job.company}</span>

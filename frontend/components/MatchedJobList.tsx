@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
 import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
@@ -9,6 +9,7 @@ import { LoadingSpinner } from "./ui";
 import { fetchMatchedJobs } from "../app/actions/match";
 import { Badge } from "./ui";
 import { CATEGORY_LABEL_MAP } from "../lib/constants";
+import { generateJobSlug, findJobBySlug } from "../lib/utils";
 import type { Job } from "../lib/types";
 
 interface MatchedJobListProps {
@@ -27,20 +28,28 @@ const PAGE_SIZE = 20;
 
 export default function MatchedJobList({ totalPages: _totalPages, currentPage }: MatchedJobListProps) {
   const searchParams = useSearchParams();
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [matchScoresMap, setMatchScoresMap] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  // Load match data from localStorage and fetch jobs
+  const selectedSlug = searchParams.get("selected");
+
+  const selectedJob = useMemo(() => {
+    if (!selectedSlug) return null;
+    return findJobBySlug(jobs, selectedSlug) || null;
+  }, [selectedSlug, jobs]);
+
   useEffect(() => {
     const loadMatchedJobs = async () => {
       setIsLoading(true);
       try {
         const storedIds = localStorage.getItem("matchIds");
         const storedScores = localStorage.getItem("matchScores");
-        
+
         if (!storedIds) {
           setJobs([]);
           setTotal(0);
@@ -49,11 +58,10 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
 
         const matchIds: string[] = JSON.parse(storedIds);
         const scores: Record<string, number> = storedScores ? JSON.parse(storedScores) : {};
-        
+
         setMatchScoresMap(new Map(Object.entries(scores)));
         setTotal(matchIds.length);
 
-        // Paginate the match IDs
         const startIdx = (currentPage - 1) * PAGE_SIZE;
         const endIdx = startIdx + PAGE_SIZE;
         const pageIds = matchIds.slice(startIdx, endIdx);
@@ -63,10 +71,8 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
           return;
         }
 
-        // Fetch the jobs for this page using server action
         const data = await fetchMatchedJobs(pageIds, PAGE_SIZE);
-        
-        // Sort jobs by their position in pageIds (which preserves match ranking)
+
         const idOrder = new Map(pageIds.map((id, idx) => [id, idx]));
         const sortedJobs = [...data.items].sort(
           (a: Job, b: Job) => (idOrder.get(a.id) ?? Infinity) - (idOrder.get(b.id) ?? Infinity)
@@ -84,17 +90,27 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const handleJobClick = (job: Job) => {
-    setSelectedJob(job);
-  };
+  const handleJobClick = useCallback(
+    (job: Job) => {
+      const slug = generateJobSlug(job.title, job.company, job.id);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("selected", slug);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router, pathname]
+  );
 
-  const handleClose = () => {
-    setSelectedJob(null);
-  };
+  const handleClose = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("selected");
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.push(newUrl, { scroll: false });
+  }, [searchParams, router, pathname]);
 
   const buildPageUrl = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
+    params.delete("selected");
     return `/?${params.toString()}`;
   };
 
@@ -119,13 +135,12 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* Job List */}
         <div className={`transition-all duration-300 ${selectedJob ? "w-full lg:w-1/2" : "w-full"}`}>
           {jobs.map((job) => {
             const matchPercentage = matchScoresMap.get(job.id);
             return (
-              <article 
-                key={job.id} 
+              <article
+                key={job.id}
                 onClick={() => handleJobClick(job)}
                 className={`mb-3 cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${
                   selectedJob?.id === job.id
@@ -182,7 +197,6 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-2">
               {currentPage > 1 && (
@@ -193,11 +207,11 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
                   Previous
                 </Link>
               )}
-              
+
               <span className="px-4 py-2 text-sm text-slate-600 dark:text-md-on-surface-variant">
                 Page {currentPage} of {totalPages}
               </span>
-              
+
               {currentPage < totalPages && (
                 <Link
                   href={buildPageUrl(currentPage + 1)}
@@ -210,11 +224,9 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
           )}
         </div>
 
-        {/* Detail Panel */}
-        {selectedJob && (
+        {selectedSlug && (
           <JobDetailPanelContainer
             job={selectedJob}
-            isLoading={false}
             onClose={handleClose}
           />
         )}

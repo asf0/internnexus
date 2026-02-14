@@ -59,3 +59,32 @@ export function buildBackendUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${baseUrl}${cleanPath}`;
 }
+
+export function generateJobSlug(title: string, company: string, id: string): string {
+  const titleSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 50);
+  
+  const companySlug = company
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 30);
+  
+  // Use first 8 chars of UUID for uniqueness
+  const idSuffix = id.slice(0, 8);
+  
+  return `${titleSlug}-at-${companySlug}-${idSuffix}`;
+}
+
+export function findJobBySlug<T extends { id: string; title: string; company: string }>(jobs: T[], slug: string): T | undefined {
+  // Extract ID suffix from the end of the slug (last 8 chars after the last dash)
+  const idSuffix = slug.slice(-8);
+  return jobs.find((job) => job.id.startsWith(idSuffix));
+}

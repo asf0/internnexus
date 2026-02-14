@@ -11,7 +11,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <head />
+      <head>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3648058884929802"
+     crossOrigin="anonymous"></script>
+      </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-md-surface dark:text-md-on-surface flex flex-col" suppressHydrationWarning={true}>
         <AuthProvider>
           <main className="flex-1 mx-auto w-full max-w-(--breakpoint-2xl) px-4 py-8 sm:px-6 lg:px-8">{children}</main>

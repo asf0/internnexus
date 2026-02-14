@@ -75,3 +75,14 @@ export async function fetchJob(id: string): Promise<Job | null> {
   }
   return (await response.json()) as Job;
 }
+
+export async function fetchAllJobIds(): Promise<string[]> {
+  const response = await fetch(`${BACKEND_URL}/jobs?page_size=1000`, {
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    return [];
+  }
+  const data = (await response.json()) as JobListResponse;
+  return data.items.map((job) => job.id);
+}
