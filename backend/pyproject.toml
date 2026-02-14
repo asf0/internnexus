@@ -23,7 +23,11 @@ dependencies = [
     "slowapi>=0.1.9",
     "python-jose[cryptography]>=3.3.0",
     "argon2-cffi>=23.1.0",
+    "cryptography>=42.0.0",
     "rich>=14.3.2",
+    "psycopg2-binary>=2.9.11",
+    "pycountry>=24.0.0",
+    "geostring>=1.0.9",
 ]
 
 [project.optional-dependencies]
