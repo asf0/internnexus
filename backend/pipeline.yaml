@@ -1,0 +1,19 @@
+pipeline:
+  delete_after_days: 7
+  continuous_interval: 21600
+  backoff_on_error: 300
+  max_backoff_multiplier: 5
+
+cleanup:
+  process_all: false
+
+embeddings:
+  batch_size: 50
+
+discovery:
+  enabled: true
+  timeout: 300
+
+health_check:
+  enabled: true
+  timeout: 10

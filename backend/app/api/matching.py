@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
-from app.auth import get_current_user
+from app.auth.dependencies import get_current_user
 from app.db import get_db
 from app.models import Job, User
 from app.rate_limiter import limiter, RATE_LIMITS

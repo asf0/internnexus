@@ -3,88 +3,32 @@
 from __future__ import annotations
 
 import logging
-import re
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import AsyncSessionLocal
 from app.models import Job
-from ingestion.data.constants import US_STATES, US_STATE_NAMES, STATE_NAMES_TO_ABBR
+from ingestion.location_normalizer import clean_location
 
 logger = logging.getLogger(__name__)
 
-COUNTRY_ALIASES = {
-    "usa": "United States",
-    "us": "United States",
-    "u.s.": "United States",
-    "united states": "United States",
-    "united states of america": "United States",
-    "uk": "United Kingdom",
-    "gb": "United Kingdom",
-    "great britain": "United Kingdom",
-    "ca": "Canada",
-    "canada": "Canada",
-    "au": "Australia",
-    "australia": "Australia",
-    "de": "Germany",
-    "germany": "Germany",
-    "fr": "France",
-    "france": "France",
-    "remote": "Remote",
-}
 
+async def cleanup_locations(
+    session: AsyncSession | None = None, since: datetime | None = None, process_all: bool = False
+) -> int:
+    """Normalize location data for jobs.
 
-def clean_location(location: str) -> dict:
-    """Parse and normalize a location string."""
-    if not location:
-        return {"location": "", "city": None, "state": None, "country": None}
+    Args:
+        session: Database session. If None, creates a new session.
+        since: Only process jobs updated since this timestamp. If None, processes all active jobs.
+        process_all: If True, re-process all active jobs with locations. If False and no since,
+                     only processes jobs that haven't been normalized yet.
 
-    original = location.strip()
-    parts = [p.strip() for p in re.split(r"[,/]", original) if p.strip()]
-
-    city, state, country = None, None, None
-
-    for part in parts:
-        part_lower = part.lower()
-
-        # Check country
-        if part_lower in COUNTRY_ALIASES:
-            country = COUNTRY_ALIASES[part_lower]
-            continue
-
-        # Check US state abbreviation
-        if part.upper() in US_STATES:
-            state = part.upper()
-            country = country or "United States"
-            continue
-
-        # Check US state full name
-        if part_lower in US_STATE_NAMES:
-            state = STATE_NAMES_TO_ABBR[part_lower]
-            country = country or "United States"
-            continue
-
-        # Otherwise treat as city
-        if not city and len(part) > 1:
-            city = part.title()
-
-    # Build normalized location
-    loc_parts = []
-    if city:
-        loc_parts.append(city)
-    if state:
-        loc_parts.append(state)
-    if country:
-        loc_parts.append(country)
-
-    normalized = ", ".join(loc_parts) if loc_parts else original
-
-    return {"location": normalized, "city": city, "state": state, "country": country}
-
-
-async def cleanup_locations(session: AsyncSession | None = None) -> int:
-    """Normalize location data for all jobs."""
+    Returns:
+        Number of jobs updated
+    """
     logger.info("=" * 60)
     logger.info("STEP 3: Cleaning up locations...")
     logger.info("=" * 60)
@@ -94,9 +38,30 @@ async def cleanup_locations(session: AsyncSession | None = None) -> int:
         session = AsyncSessionLocal()
 
     try:
-        result = await session.execute(select(Job).where(Job.is_active == True))
+        if since:
+            result = await session.execute(
+                select(Job).where(Job.is_active == True, Job.last_seen >= since)
+            )
+            logger.info(f"Processing jobs updated since {since.isoformat()}")
+        elif process_all:
+            result = await session.execute(
+                select(Job).where(Job.is_active == True, Job.location.isnot(None))
+            )
+            logger.info("Processing ALL active jobs with locations")
+        else:
+            result = await session.execute(
+                select(Job).where(
+                    Job.is_active == True,
+                    Job.location.isnot(None),
+                    Job.city.is_(None),
+                    Job.state.is_(None),
+                    Job.country.is_(None),
+                )
+            )
+            logger.info("Processing jobs that have not been normalized yet")
+
         jobs = result.scalars().all()
-        logger.info(f"Found {len(jobs)} active jobs to process")
+        logger.info(f"Found {len(jobs)} jobs to process")
 
         updated = 0
         for job in jobs:
@@ -113,7 +78,12 @@ async def cleanup_locations(session: AsyncSession | None = None) -> int:
             )
 
             if changed:
-                job.location = result["location"]
+                if result["location"] is not None:
+                    job.location = result["location"]
+                else:
+                    logger.debug(
+                        f"Location normalization returned None for job {job.id}, preserving original: {job.location}"
+                    )
                 job.city = result["city"]
                 job.state = result["state"]
                 job.country = result["country"]
@@ -122,6 +92,53 @@ async def cleanup_locations(session: AsyncSession | None = None) -> int:
         await session.commit()
         logger.info(f"Updated {updated} job locations")
         return updated
+    finally:
+        if should_close_session:
+            await session.close()
+
+
+async def delete_old_jobs(session: AsyncSession | None = None, days: int = 7) -> int:
+    """
+    Permanently delete jobs that haven't been seen in X days.
+
+    Args:
+        session: Database session (creates new one if None)
+        days: Delete jobs older than this many days (default: 7)
+
+    Returns:
+        Number of jobs deleted
+    """
+    logger.info("=" * 60)
+    logger.info(f"STEP: Deleting jobs older than {days} days...")
+    logger.info("=" * 60)
+
+    should_close_session = session is None
+    if should_close_session:
+        session = AsyncSessionLocal()
+
+    try:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+        # Count before deletion
+        result = await session.execute(
+            select(func.count()).select_from(Job).where(Job.last_seen < cutoff_date)
+        )
+        count_to_delete = result.scalar()
+
+        if count_to_delete == 0:
+            logger.info("No old jobs to delete")
+            return 0
+
+        logger.info(f"Deleting {count_to_delete} jobs older than {days} days")
+
+        # Delete old jobs permanently
+        result = await session.execute(delete(Job).where(Job.last_seen < cutoff_date))
+        await session.commit()
+
+        deleted_count = result.rowcount
+        logger.info(f"Successfully deleted {deleted_count} old jobs")
+        return deleted_count
+
     finally:
         if should_close_session:
             await session.close()

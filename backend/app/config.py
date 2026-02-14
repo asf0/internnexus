@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 VisaResult = dict[str, Any]
@@ -13,17 +16,22 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_host: str
     postgres_port: int
-    # database_url: str
 
     # Embedding configuration
     embedding_provider: str
     embedding_model: str
     ollama_base_url: str
+
     # Auth/JWT configuration
     auth_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
     app_name: str = "InternNexus API"
+
+    # OAuth token encryption (RSA keys in PEM format)
+    # Public key is required for encryption, private key for decryption
+    oauth_encryption_public_key: str = ""
+    oauth_encryption_private_key: str = ""
 
     # Redis configuration
     redis_url: str
@@ -41,6 +49,13 @@ class Settings(BaseSettings):
     )
 
     visa_classifier_model: str | None = None
+
+    @field_validator("auth_secret")
+    @classmethod
+    def validate_auth_secret_strength(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("auth_secret must be at least 32 characters for security")
+        return v
 
     @property
     def resolved_database_url(self) -> str:

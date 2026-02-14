@@ -4,6 +4,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 import os
 
+
 def get_real_client_ip(request):
     """Get client IP behind Cloudflare."""
     cf_ip = request.headers.get("CF-Connecting-IP")
@@ -13,6 +14,7 @@ def get_real_client_ip(request):
     if forwarded:
         return forwarded.split(",")[0].strip()
     return get_remote_address(request)
+
 
 redis_url = os.getenv("REDIS_URL")
 
@@ -26,6 +28,9 @@ RATE_LIMITS = {
     "auth_login": "10/minute",
     "auth_oauth": "20/minute",
     "auth_set_password": "5/minute",
+    "user_me": "60/minute",
+    "user_update": "20/minute",
+    "user_delete": "5/hour",
 }
 if redis_url:
     limiter = Limiter(key_func=get_real_client_ip, storage_uri=redis_url)

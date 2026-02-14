@@ -17,11 +17,13 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 ## ✨ Features
 
 - **15,000+ Jobs** from 145+ companies
-- **Multi-Source Aggregation**: Greenhouse, Lever APIs + intelligent company discovery
+- **Multi-Source Aggregation**: Greenhouse, Lever, Workday, Ashby, SmartRecruiters
+- **Hybrid Search**: Keyword + semantic (vector) search combined for best results
+- **Boolean Search**: Advanced syntax (`AND`, `OR`, `NOT`, `"exact"`, `field:value`)
 - **AI-Powered Matching**: Resume-to-job matching using local LLM embeddings
 - **Smart Categorization**: Automatic job categorization (Software Engineering, Data Science, PM, etc.)
 - **Advanced Filtering**: Category, location, visa sponsorship, FAANG+, work mode
-- **Real-time Pipeline**: Automated job ingestion with 4-step pipeline
+- **Pipeline Resume**: Interrupted runs can be resumed from last successful step
 - **Production Ready**: Rate limiting, JWT auth, OAuth, comprehensive testing
 
 ---
@@ -46,8 +48,9 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 - **Frontend**: Next.js 16, TypeScript, Tailwind CSS
 - **Backend**: FastAPI, SQLAlchemy 2.0, Pydantic
 - **Database**: PostgreSQL 17 + pgvector extension
-- **Cache**: Redis (rate limiting)
+- **Cache**: Redis (rate limiting, embedding cache)
 - **AI**: Ollama or LM Studio (local embeddings)
+- **Geo**: pycountry (ISO country/state lookups)
 
 ---
 
@@ -78,6 +81,8 @@ uv pip install -e ".[dev]"
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
+
+> **Note**: pycountry will be installed automatically for location normalization.
 
 ### 4. Install & Run Frontend
 ```bash
@@ -116,6 +121,9 @@ uv run run_pipeline.py --skip-discover
 
 # Run continuously every hour
 uv run run_pipeline.py --continuous --interval 3600
+
+# Resume interrupted run
+uv run run_pipeline.py --resume
 ```
 
 ---
@@ -166,6 +174,24 @@ EMBEDDING_MODEL=nomic-embed-text
 ```
 
 See [CONFIGURATION.md](docs/CONFIGURATION.md) for complete reference.
+
+---
+
+## 🔍 Search Syntax
+
+InternNexus supports advanced boolean search syntax:
+
+| Query | Result |
+|-------|--------|
+| `python` | Hybrid search (keyword + semantic) |
+| `python AND remote` | Both terms required |
+| `python OR java` | Either term |
+| `python NOT senior` | Exclude senior roles |
+| `"software engineer"` | Exact phrase match |
+| `title:python` | Search only in title |
+| `company:google` | Search only in company |
+
+**Example:** `title:python AND remote NOT senior` → Python remote roles, excluding senior positions.
 
 ---
 

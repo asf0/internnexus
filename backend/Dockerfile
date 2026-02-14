@@ -38,11 +38,13 @@ RUN uv pip install --system --no-cache \
     redis \
     python-jose[cryptography] \
     argon2-cffi \
-    email-validator
+    email-validator \
+    geostring
 
 # Copy application code
 COPY app/ ./app/
 COPY alembic/ ./alembic/
+COPY ingestion/ ./ingestion/
 COPY alembic.ini .
 
 # Expose port

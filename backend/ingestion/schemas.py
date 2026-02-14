@@ -6,7 +6,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-JobSource = Literal["greenhouse", "lever", "linkedin_scrape", "indeed_scrape"]
+JobSource = Literal[
+    "greenhouse", "lever", "linkedin_scrape", "indeed_scrape", "workday", "ashby", "smartrecruiters"
+]
 JobCategory = Literal[
     "software_engineering",
     "product_management",

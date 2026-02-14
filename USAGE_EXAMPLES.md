@@ -231,3 +231,63 @@ This combines:
 - Text search (from titles/descriptions)
 
 All with **zero null values** for categorical fields!
+
+## Search Syntax
+
+InternNexus supports advanced search syntax for precise job filtering.
+
+### Simple Search (Default)
+
+```
+python
+```
+Uses hybrid search: keyword matching (ILIKE) + semantic search (vector embeddings).
+Results are merged and ranked by relevance. Keyword matches get a small boost.
+
+### Boolean Operators
+
+| Query | Meaning |
+|-------|---------|
+| `python AND remote` | Jobs containing both "python" AND "remote" |
+| `python OR java` | Jobs containing either "python" OR "java" |
+| `python NOT senior` | Jobs with "python" but NOT "senior" |
+| `(python OR java) AND remote` | Grouping with parentheses |
+
+When boolean operators are detected, only keyword search is used (no vector search).
+
+### Exact Phrase Matching
+
+```
+"software engineer"
+```
+Matches the exact phrase "software engineer" (not individual words).
+
+### Field-Specific Search
+
+| Query | Searches In |
+|-------|-------------|
+| `title:python` | Job title only |
+| `company:google` | Company name only |
+| `location:remote` | Location field only |
+| `description:ml` | Job description only |
+
+### Combined Examples
+
+```
+# Python roles at FAANG companies, remote, not senior
+title:python AND (google OR meta OR apple) AND remote NOT senior
+
+# Data science or ML roles, visa sponsored
+("data science" OR "machine learning") AND visa
+
+# Software engineer internships at startups
+title:"software engineer" AND title:intern NOT (google OR meta)
+```
+
+### Search Performance Tips
+
+- **Boolean queries** are faster (no vector search needed)
+- **Exact phrases** are faster than fuzzy matches
+- **Field-specific** searches are more precise
+- Popular searches are **cached in Redis** for 24h
+- Keyword + semantic hybrid provides best relevance
