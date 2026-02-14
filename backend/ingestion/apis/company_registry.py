@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Set
 
@@ -14,8 +15,119 @@ from ingestion.data import load_common_companies
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Cache file for discovered companies
 CACHE_FILE = Path(__file__).parent / "discovered_companies.json"
+CROSS_REFERENCE_FILE = Path(__file__).parent / "cross_reference_slugs.json"
+
+ATS_PATTERNS = {
+    "greenhouse": r"boards\.greenhouse\.io/([a-zA-Z0-9\-_]+)",
+    "lever": r"jobs\.lever\.co/([a-zA-Z0-9\-_]+)",
+    "ashby": r"jobs\.ashbyhq\.com/([a-zA-Z0-9\-_]+)",
+    "workday": r"myworkdayjobs\.com/([a-zA-Z0-9\-_/]+)",
+    "smartrecruiters": r"jobs\.smartrecruiters\.com/([a-zA-Z0-9\-_]+)",
+}
+
+IGNORE_SLUGS = {
+    "jobs",
+    "apply",
+    "careers",
+    "engineering",
+    "people",
+    "team",
+    "internal",
+    "workhere",
+    "search",
+    "results",
+    "view",
+    "job",
+}
+
+
+def extract_ats_slug_from_url(apply_url: str) -> tuple[str, str] | None:
+    """Extract ATS platform and company slug from an apply URL.
+
+    Args:
+        apply_url: The job application URL
+
+    Returns:
+        Tuple of (ats_platform, slug) or None if not recognized
+    """
+    if not apply_url:
+        return None
+    for ats_platform, pattern in ATS_PATTERNS.items():
+        match = re.search(pattern, apply_url, re.IGNORECASE)
+        if match:
+            slug = match.group(1).lower()
+            slug = slug.rstrip("/-")
+            if slug in IGNORE_SLUGS:
+                continue
+            if ats_platform == "workday":
+                parts = slug.split("/")
+                if parts:
+                    slug = parts[0]
+            return (ats_platform, slug)
+    return None
+
+
+def extract_slugs_from_jobs(jobs: list) -> dict[str, set[str]]:
+    """Extract ATS slugs from a list of jobs with apply URLs.
+
+    Args:
+        jobs: List of JobSchema objects
+
+    Returns:
+        Dict mapping ATS platform to set of discovered slugs
+    """
+    discovered: dict[str, set[str]] = {
+        "greenhouse": set(),
+        "lever": set(),
+        "ashby": set(),
+        "workday": set(),
+        "smartrecruiters": set(),
+    }
+    for job in jobs:
+        url = getattr(job, "apply_url", None) or getattr(job, "apply_url", "")
+        if not url:
+            continue
+        result = extract_ats_slug_from_url(url)
+        if result:
+            ats_platform, slug = result
+            if ats_platform in discovered:
+                discovered[ats_platform].add(slug)
+    return discovered
+
+
+def save_cross_reference_slugs(slugs: dict[str, set[str]]) -> None:
+    """Save cross-referenced slugs to cache file."""
+    try:
+        data = {k: sorted(list(v)) for k, v in slugs.items() if v}
+        with open(CROSS_REFERENCE_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        total = sum(len(v) for v in slugs.values())
+        logger.info(f"Saved {total} cross-referenced slugs to {CROSS_REFERENCE_FILE}")
+    except Exception as e:
+        logger.warning(f"Could not save cross-reference slugs: {e}")
+
+
+def load_cross_reference_slugs() -> dict[str, set[str]]:
+    """Load cross-referenced slugs from cache file."""
+    result: dict[str, set[str]] = {
+        "greenhouse": set(),
+        "lever": set(),
+        "ashby": set(),
+        "workday": set(),
+        "smartrecruiters": set(),
+    }
+    if CROSS_REFERENCE_FILE.exists():
+        try:
+            with open(CROSS_REFERENCE_FILE) as f:
+                data = json.load(f)
+                for k, v in data.items():
+                    if k in result and isinstance(v, list):
+                        result[k] = set(v)
+        except Exception as e:
+            logger.warning(f"Could not load cross-reference slugs: {e}")
+    return result
+
 
 # Verified companies with active Greenhouse/Lever job boards
 SEED_COMPANIES: list[str] = [
@@ -70,24 +182,19 @@ async def harvest_companies_from_github() -> Set[str]:
         # Extract Lever and Greenhouse slugs from URLs
         import re
 
-        lever_pattern = r"jobs\.lever\.co/([a-zA-Z0-9\-\_]+)"
-        gh_pattern = r"boards\.greenhouse\.io/([a-zA-Z0-9\-\_]+)"
+        lever_pattern = r"jobs\.lever\.co/([a-zA-Z0-9\-_]+)"
+        gh_pattern = r"boards\.greenhouse\.io/([a-zA-Z0-9\-_]+)"
+        ashby_pattern = r"jobs\.ashbyhq\.com/([a-zA-Z0-9\-_]+)"
+        workday_pattern = r"myworkdayjobs\.com/([a-zA-Z0-9\-_/]+)"
+        sr_pattern = r"jobs\.smartrecruiters\.com/([a-zA-Z0-9\-_]+)"
 
         lever_slugs = set(re.findall(lever_pattern, all_content))
         gh_slugs = set(re.findall(gh_pattern, all_content))
+        ashby_slugs = set(re.findall(ashby_pattern, all_content))
+        workday_slugs = set(re.findall(workday_pattern, all_content))
+        sr_slugs = set(re.findall(sr_pattern, all_content))
 
-        # Clean up common false positives
-        ignore_list = {
-            "jobs",
-            "apply",
-            "careers",
-            "engineering",
-            "people",
-            "team",
-            "internal",
-            "workhere",
-        }
-        all_slugs = (lever_slugs | gh_slugs) - ignore_list
+        all_slugs = (lever_slugs | gh_slugs | ashby_slugs | workday_slugs | sr_slugs) - IGNORE_SLUGS
 
         logger.info(f"Harvested {len(all_slugs)} unique companies from GitHub")
         return {s.lower() for s in all_slugs}

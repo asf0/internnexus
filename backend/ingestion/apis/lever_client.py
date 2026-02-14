@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import httpx
 
 from app.config import get_settings
+from .utils import parse_unix_timestamp
 from ..schemas import JobSchema
 
 
@@ -33,16 +33,7 @@ class LeverClient:
                     location=(job.get("categories", {}) or {}).get("location", "").strip(),
                     apply_url=job.get("hostedUrl", ""),
                     description_text=job.get("description", "") or "",
-                    posted_at=self._parse_datetime(job.get("createdAt")),
+                    posted_at=parse_unix_timestamp(job.get("createdAt")),
                 )
             )
         return normalized
-
-    @staticmethod
-    def _parse_datetime(value: int | None) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.utcfromtimestamp(value / 1000)
-        except (TypeError, ValueError, OSError):
-            return None

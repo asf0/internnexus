@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import httpx
 
 from app.config import get_settings
+from .utils import parse_iso_datetime
 from ..schemas import JobSchema
 
 
@@ -33,16 +33,7 @@ class GreenhouseClient:
                     location=(job.get("location", {}) or {}).get("name", "").strip(),
                     apply_url=job.get("absolute_url", ""),
                     description_text=job.get("content", "") or "",
-                    posted_at=self._parse_datetime(job.get("updated_at")),
+                    posted_at=parse_iso_datetime(job.get("updated_at")),
                 )
             )
         return normalized
-
-    @staticmethod
-    def _parse_datetime(value: str | None) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
