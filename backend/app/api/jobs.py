@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import distinct, func, or_, and_, case, literal, select
+from sqlalchemy import and_, case, distinct, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
@@ -13,179 +16,161 @@ from app.db import get_db
 from app.models import Job
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.services.embedding_service import EmbeddingService
+from app.services.search_parser import (
+    BooleanExpr,
+    ParsedSearch,
+    SearchTerm,
+    parse_search_query,
+)
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+VECTOR_SEARCH_THRESHOLD = 0.55
+VECTOR_LIMIT = 100
+KEYWORD_BOOST = 0.1
 
 
-def extract_job_type(title: str) -> str | None:
-    """Extract job type from title."""
-    title_lower = title.lower()
-    if re.search(r"\bintern\b|\binternship\b", title_lower):
-        return "internship"
-    elif re.search(r"\bpart[\s-]?time\b", title_lower):
-        return "part-time"
-    elif re.search(r"\bfull[\s-]?time\b|\bfte\b", title_lower):
-        return "full-time"
+def _get_redis():
+    try:
+        import redis.asyncio as redis
+        from app.config import get_settings
+
+        settings = get_settings()
+        return redis.from_url(settings.redis_url, decode_responses=True)
+    except Exception:
+        return None
+
+
+async def _get_cached_embedding(query: str) -> list[float] | None:
+    r = _get_redis()
+    if not r:
+        return None
+    try:
+        cache_key = f"embed:{hashlib.md5(query.encode()).hexdigest()}"
+        cached = await r.get(cache_key)
+        if cached:
+            await r.close()
+            return json.loads(cached)
+        await r.close()
+    except Exception:
+        pass
     return None
 
 
-def extract_work_mode(title: str, location: str) -> str | None:
-    """Extract work mode from title or location."""
-    combined = f"{title} {location}".lower()
-    if re.search(r"\bremote\b", combined):
-        return "remote"
-    elif re.search(r"\bhybrid\b", combined):
-        return "hybrid"
-    elif re.search(r"\bon[\s-]?site\b|\bin[\s-]?office\b", combined):
-        return "on-site"
-    return None
+async def _cache_embedding(query: str, embedding: list[float]) -> None:
+    r = _get_redis()
+    if not r:
+        return
+    try:
+        cache_key = f"embed:{hashlib.md5(query.encode()).hexdigest()}"
+        await r.setex(cache_key, 86400, json.dumps(embedding))
+        await r.close()
+    except Exception:
+        pass
 
 
-def normalize_location(location: str) -> str | None:
-    """Normalize location by extracting city/region name."""
-    if not location or location.strip() == "":
-        return None
-
-    location = location.strip()
-
-    # Skip if it looks like a full street address (starts with number or contains street terms)
-    if re.match(r"^\d+", location) or any(
-        term in location.lower()
-        for term in ["avenue", "street", "pkwy", "blvd", "drive", "suite", "floor"]
-    ):
-        return None
-
-    # Remove parentheses and content inside
-    location = re.sub(r"\([^)]*\)", "", location).strip()
-
-    # Skip placeholder/generic locations
-    skip_patterns = [
-        "add location here",
-        "amer",
-        "amer - us",
-        "tbd",
-        "varies",
-        "multiple",
-        "unknown",
-        "any",
-        "any location",
-        "manager",
-        "associate",
-        "coordinator",
-        "staff",
-        "role",
-        "position",
-        "office",
-        "campus",
-        "hq",
-        "headquarters",
-    ]
-    if location.lower() in skip_patterns or any(x in location.lower() for x in skip_patterns):
-        return None
-
-    # Handle remote/flexible locations
-    if any(x in location.lower() for x in ["remote", "flexible", "anywhere"]):
-        if "remote" in location.lower():
-            return "Remote"
-        return None
-
-    # Skip if location only lists multiple options
-    if " or " in location.lower():
-        return None
-
-    # Clean up weird characters and separators
-    location = re.sub(r"[/\\|]+", " ", location)  # Replace slashes and pipes with space
-    location = re.sub(r"\s*-\s*", ", ", location)  # Replace dashes with commas for consistency
-
-    # Extract the first city from comma-separated or semicolon-separated lists
-    separators = [";", ","]
-    for sep in separators:
-        if sep in location:
-            parts = [p.strip() for p in location.split(sep)]
-            location = parts[0]
-            break
-
-    location = location.strip()
-
-    # Skip very long locations (likely multi-location listings)
-    if len(location) > 100:
-        return None
-
-    # Skip if it's too short
-    if len(location) < 2:
-        return None
-
-    # Skip if location looks like corrupted data
-    if not re.search(r"[a-zA-Z]", location):
-        return None
-
-    # Normalize spaces and collapse multiple spaces
-    location = re.sub(r"\s+", " ", location).strip()
-
-    # Skip country-only locations (too broad for filtering)
-    country_patterns = [
-        "usa",
-        "united states",
-        "canada",
-        "uk",
-        "united kingdom",
-        "india",
-        "australia",
-        "germany",
-        "france",
-        "central,",
-        "northeast,",
-        "southeast,",
-        "midwest",
-        "western ",
-        "eastern ",
-        "united stated",
-        "us canada",
-    ]  # Also filter corrupted entries
-    if any(
-        location.lower().startswith(p) or location.lower().endswith(p) for p in country_patterns
-    ):
-        return None
-
-    # Extract city and state more robustly
-    # Look for 2-letter state code at end (after space, comma, or just before end)
-    match = re.match(r"^(.+?)\s*[,\s]+([A-Z]{2})(?:\s|,|$)", location)
-    if match:
-        city_part = match.group(1).strip()
-        state_code = match.group(2).strip()
-        # Only keep state if city part is reasonable (actual city name, not just abbreviation)
-        if len(city_part) > 2 and not re.match(r"^[A-Z]{2,3}$", city_part):
-            location = f"{city_part}, {state_code}"
-        else:
-            location = city_part
-
-    # Proper title case
-    location = location.title()
-
-    return location
+def _build_fulltext_query(search: str) -> str:
+    """Convert search terms to PostgreSQL tsquery format."""
+    terms = re.findall(r"\w+", search.lower())
+    if not terms:
+        return ""
+    return " & ".join(f"{term}:*" for term in terms[:10])
 
 
-def is_likely_company_name(search: str) -> bool:
-    """Detect if search query is likely a company name."""
-    search_clean = search.strip()
-    words = search_clean.split()
+def _build_boolean_tsquery(expr: BooleanExpr | SearchTerm) -> str:
+    """Convert boolean expression to PostgreSQL tsquery format."""
 
-    # Single capitalized word (Google, Microsoft, Meta, etc.)
-    if len(words) == 1:
-        word = words[0]
-        if word[0].isupper() and len(word) > 1:
-            return True
+    def build_term(term: SearchTerm) -> str:
+        value = term.value.lower().strip()
+        # Escape special chars
+        value = re.sub(r"[&|!():*<>\"]", " ", value)
+        words = [w for w in re.findall(r"\w+", value) if w][:5]
+        if not words:
+            return ""
+        if term.is_exact:
+            # Exact phrase: group words together
+            return "(" + " <-> ".join(words) + ")"
+        return " & ".join(f"{w}:*" for w in words)
 
-    # Contains common company suffixes
-    company_suffixes = ["inc", "corp", "llc", "ltd", "co", "company", "corporation"]
-    if any(suffix in search_clean.lower() for suffix in company_suffixes):
-        return True
+    def build_expr(e: BooleanExpr | SearchTerm) -> str:
+        if isinstance(e, SearchTerm):
+            return build_term(e)
 
-    # All caps (IBM, HP, AMD, etc.)
-    if search_clean.isupper() and len(search_clean) <= 5:
-        return True
+        parts = [build_expr(t) for t in e.terms if t]
+        parts = [p for p in parts if p]  # Remove empty
+        if not parts:
+            return ""
 
-    return False
+        if e.operator == "NOT":
+            return f"!({parts[0]})" if parts else ""
+        if e.operator == "AND":
+            return "(" + " & ".join(parts) + ")"
+        if e.operator == "OR":
+            return "(" + " | ".join(parts) + ")"
+        return ""
+
+    return build_expr(expr)
+
+
+async def _execute_keyword_search(
+    db: AsyncSession, search: str, parsed: ParsedSearch, base_stmt
+) -> set[UUID]:
+    search = search.strip()
+
+    # Build tsquery
+    if parsed.is_boolean and parsed.expression:
+        tsquery = _build_boolean_tsquery(parsed.expression)
+    else:
+        tsquery = _build_fulltext_query(search)
+
+    if tsquery:
+        # Use full-text search with tsvector
+        stmt = base_stmt.where(Job.search_vector.op("@@")(func.to_tsquery("english", tsquery)))
+        result = await db.execute(stmt)
+        return {row.id for row in result.scalars().all()}
+
+    # Fallback to ILIKE if tsquery failed
+    search_term = f"%{search}%"
+    stmt = base_stmt.where(
+        or_(
+            Job.title.ilike(search_term),
+            Job.company.ilike(search_term),
+            Job.location.ilike(search_term),
+        )
+    )
+    result = await db.execute(stmt)
+    return {row.id for row in result.scalars().all()}
+
+
+async def _execute_vector_search(
+    db: AsyncSession, search: str, parsed: ParsedSearch
+) -> list[tuple[UUID, float]]:
+    embedding = await _get_cached_embedding(search)
+    if embedding is None:
+        try:
+            embedder = EmbeddingService()
+            embedding = await embedder.embed(search)
+            await _cache_embedding(search, embedding)
+        except RuntimeError:
+            return []
+
+    stmt = (
+        select(
+            Job.id,
+            (1 - Job.description_embedding.cosine_distance(embedding)).label("similarity"),
+        )
+        .where(Job.is_active == True)  # noqa: E712
+        .where(Job.description_embedding.isnot(None))
+        .where(
+            (1 - Job.description_embedding.cosine_distance(embedding)) >= VECTOR_SEARCH_THRESHOLD
+        )
+        .order_by((1 - Job.description_embedding.cosine_distance(embedding)).desc())
+        .limit(VECTOR_LIMIT)
+    )
+
+    result = await db.execute(stmt)
+    return [(row.id, float(row.similarity)) for row in result.all()]
 
 
 @router.get("/jobs", response_model=JobListResponse)
@@ -206,10 +191,8 @@ async def list_jobs(
     posted_within: str | None = Query(None),
     match_ids: str | None = Query(None),
 ) -> JobListResponse:
-    # Build base select statement
-    stmt = select(Job).where(Job.is_active == True)  # noqa: E712
+    base_stmt = select(Job).where(Job.is_active == True)  # noqa: E712
 
-    # Track if we need to preserve match_ids order
     preserve_match_order = False
     valid_ids: list[UUID] = []
 
@@ -221,130 +204,81 @@ async def list_jobs(
             except ValueError:
                 continue
         if valid_ids:
-            stmt = stmt.where(Job.id.in_(valid_ids))
             preserve_match_order = True
         else:
-            stmt = stmt.where(Job.id == None)  # noqa: E711
+            valid_ids = []
 
-    # Hybrid Search Logic
-    vector_job_ids = None
+    keyword_ids: set[UUID] = set()
+    vector_results: list[tuple[UUID, float]] = []
+    result_order: list[UUID] = []
+
     if search and search.strip():
-        # Check if search is likely a company name (use ILIKE only for these)
-        if is_likely_company_name(search):
-            # Company names should use ILIKE for exact matching
-            search_term = f"%{search}%"
-            stmt = stmt.where(
-                (Job.title.ilike(search_term))
-                | (Job.company.ilike(search_term))
-                | (Job.location.ilike(search_term))
-            )
+        parsed = parse_search_query(search)
+
+        keyword_ids = await _execute_keyword_search(db, search, parsed, base_stmt)
+
+        if not parsed.is_boolean:
+            vector_results = await _execute_vector_search(db, search, parsed)
+
+        vector_ids = {vid for vid, _ in vector_results}
+        all_ids = keyword_ids | vector_ids
+
+        if all_ids:
+            vector_scores = {vid: score for vid, score in vector_results}
+
+            def sort_key(job_id: UUID) -> tuple:
+                in_keyword = job_id in keyword_ids
+                vector_score = vector_scores.get(job_id, 0.0)
+                boost = KEYWORD_BOOST if in_keyword else 0.0
+                return (-(vector_score + boost),)
+
+            result_order = sorted(all_ids, key=sort_key)
+        elif keyword_ids:
+            result_order = list(keyword_ids)
+
+    stmt = base_stmt
+
+    if valid_ids:
+        all_job_ids = set(valid_ids)
+        if result_order:
+            combined = set(result_order) & all_job_ids
+            result_order = [jid for jid in valid_ids if jid in combined] + [
+                jid for jid in result_order if jid not in all_job_ids
+            ]
         else:
-            # For non-company searches, try hybrid approach
-            search_term = f"%{search}%"
-            ilike_stmt = stmt.where(
-                (Job.title.ilike(search_term))
-                | (Job.company.ilike(search_term))
-                | (Job.location.ilike(search_term))
-            )
+            result_order = valid_ids
+        stmt = stmt.where(Job.id.in_(valid_ids))
+    elif result_order:
+        stmt = stmt.where(Job.id.in_(result_order))
 
-            # Count ILIKE results
-            count_stmt = select(func.count()).select_from(ilike_stmt.subquery())
-            count_result = await db.execute(count_stmt)
-            ilike_count = count_result.scalar() or 0
-
-            if ilike_count >= 3:
-                # Use ILIKE results - exact matches found
-                stmt = ilike_stmt
-            else:
-                # Not enough exact matches - use vector search with higher precision
-                # Calculate dynamic limit based on active filters
-                active_filter_count = sum(
-                    [
-                        bool(company),
-                        bool(location),
-                        bool(category),
-                        bool(visa_sponsored),
-                        bool(f1_friendly),
-                        bool(job_type),
-                        bool(work_mode),
-                        bool(posted_within),
-                    ]
-                )
-
-                if active_filter_count == 0:
-                    vector_limit = 50
-                elif active_filter_count <= 3:
-                    vector_limit = 100
-                else:
-                    vector_limit = 150
-
-                try:
-                    embedder = EmbeddingService()
-                    search_embedding = await embedder.embed(search)
-
-                    # Get vector matches with similarity scores (higher threshold for precision)
-                    vector_stmt = (
-                        select(
-                            Job.id,
-                            (1 - Job.description_embedding.cosine_distance(search_embedding)).label(
-                                "similarity"
-                            ),
-                        )
-                        .where(Job.is_active == True)
-                        .where(Job.description_embedding.isnot(None))
-                        .where(
-                            (1 - Job.description_embedding.cosine_distance(search_embedding)) >= 0.6
-                        )
-                        .order_by(
-                            (1 - Job.description_embedding.cosine_distance(search_embedding)).desc()
-                        )
-                        .limit(vector_limit)
-                    )
-
-                    vector_result = await db.execute(vector_stmt)
-                    vector_rows = vector_result.all()
-
-                    if vector_rows:
-                        vector_job_ids = [row.id for row in vector_rows]
-                        # Filter to only these job IDs
-                        stmt = stmt.where(Job.id.in_(vector_job_ids))
-                    else:
-                        # No vector matches, fall back to empty ILIKE results
-                        stmt = ilike_stmt
-                except RuntimeError:
-                    # Embedding service unavailable, fall back to ILIKE
-                    stmt = ilike_stmt
     if company:
-        # Support multiple companies separated by pipe
         companies = [c.strip() for c in company.split("|")]
         stmt = stmt.where(Job.company.in_(companies))
-    if location:
-        # Support multiple locations separated by pipe
-        # Normalize each location before filtering
-        search_locations = [normalize_location(loc.strip()) for loc in location.split("|")]
-        search_locations = [loc for loc in search_locations if loc]  # Remove None values
 
+    if location:
+        search_locations = [loc.strip() for loc in location.split("|") if loc.strip()]
         if search_locations:
-            # Use ILIKE to match normalized locations (case-insensitive)
             stmt = stmt.where(or_(*[Job.location.ilike(f"%{loc}%") for loc in search_locations]))
+
     if category:
-        # Support multiple categories separated by pipe
         categories = [c.strip() for c in category.split("|")]
         stmt = stmt.where(Job.job_category.in_(categories))
+
     if visa_sponsored is not None:
         stmt = stmt.where(Job.visa_sponsored == visa_sponsored)
+
     if f1_friendly is not None:
         stmt = stmt.where(Job.f1_friendly == f1_friendly)
+
     if job_type:
-        # Filter by job type using pattern matching
         if job_type == "internship":
             stmt = stmt.where(Job.title.ilike("%intern%"))
         elif job_type == "part-time":
             stmt = stmt.where(Job.title.ilike("%part%time%"))
         elif job_type == "full-time":
             stmt = stmt.where(Job.title.ilike("%full%time%"))
+
     if work_mode:
-        # Filter by work mode using pattern matching
         if work_mode == "remote":
             stmt = stmt.where(or_(Job.title.ilike("%remote%"), Job.location.ilike("%remote%")))
         elif work_mode == "hybrid":
@@ -354,40 +288,33 @@ async def list_jobs(
 
     if posted_within:
         now = datetime.now(timezone.utc)
+        cutoff = None
         if posted_within == "24h":
             cutoff = now - timedelta(hours=24)
         elif posted_within == "week":
             cutoff = now - timedelta(days=7)
         elif posted_within == "month":
             cutoff = now - timedelta(days=30)
-        else:
-            cutoff = None
-
         if cutoff:
             stmt = stmt.where(Job.posted_at >= cutoff)
 
-    # If we have match_ids or vector results, apply custom ordering at SQL level
     if preserve_match_order and valid_ids:
-        # Build a CASE statement to order by the position in match_ids list
         ordering = case(
             {uid: idx for idx, uid in enumerate(valid_ids)}, value=Job.id, else_=len(valid_ids)
         )
         stmt = stmt.order_by(ordering)
-    elif vector_job_ids:
-        # Preserve vector search ordering (most similar first)
+    elif result_order:
         ordering = case(
-            {uid: idx for idx, uid in enumerate(vector_job_ids)},
+            {uid: idx for idx, uid in enumerate(result_order)},
             value=Job.id,
-            else_=len(vector_job_ids),
+            else_=len(result_order),
         )
         stmt = stmt.order_by(ordering)
 
-    # Get total count
     count_stmt = select(func.count()).select_from(stmt.subquery())
     count_result = await db.execute(count_stmt)
     total = count_result.scalar() or 0
 
-    # Get paginated results
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
     items = result.scalars().all()
@@ -403,7 +330,7 @@ async def list_jobs(
 @router.get("/jobs/filters/companies")
 @limiter.limit(RATE_LIMITS["filters"])
 async def get_companies(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
-    stmt = select(distinct(Job.company)).where(Job.is_active == True).order_by(Job.company)
+    stmt = select(distinct(Job.company)).where(Job.is_active == True).order_by(Job.company)  # noqa: E712
     result = await db.execute(stmt)
     companies = result.all()
     return [c[0] for c in companies]
@@ -412,7 +339,12 @@ async def get_companies(request: Request, db: AsyncSession = Depends(get_db)) ->
 @router.get("/jobs/filters/locations")
 @limiter.limit(RATE_LIMITS["filters"])
 async def get_locations(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
-    stmt = select(distinct(Job.location)).where(Job.is_active == True).order_by(Job.location)
+    stmt = (
+        select(distinct(Job.location))
+        .where(Job.is_active == True)  # noqa: E712
+        .where(Job.location.isnot(None))
+        .order_by(Job.location)
+    )
     result = await db.execute(stmt)
     locations = result.all()
     return [loc[0] for loc in locations if loc[0]]
@@ -423,7 +355,7 @@ async def get_locations(request: Request, db: AsyncSession = Depends(get_db)) ->
 async def get_categories(request: Request, db: AsyncSession = Depends(get_db)) -> list[str]:
     stmt = (
         select(distinct(Job.job_category))
-        .where(Job.is_active == True, Job.job_category != None)
+        .where(Job.is_active == True, Job.job_category != None)  # noqa: E712
         .order_by(Job.job_category)
     )
     result = await db.execute(stmt)

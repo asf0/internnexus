@@ -5,7 +5,7 @@ import uuid
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,9 @@ class JobSource(enum.Enum):
     lever = "lever"
     linkedin_scrape = "linkedin_scrape"
     indeed_scrape = "indeed_scrape"
+    workday = "workday"
+    ashby = "ashby"
+    smartrecruiters = "smartrecruiters"
 
 
 class JobCategory(enum.Enum):
@@ -42,6 +45,9 @@ class Job(Base):
     apply_url = Column(String, nullable=False)
     description_text = Column(Text, nullable=False)
     description_embedding = Column(Vector(1024), nullable=True)
+    search_vector = Column(
+        TSVECTOR, nullable=True
+    )  # tsvector for full-text search (managed by trigger)
     visa_sponsored = Column(Boolean, nullable=True)
     f1_friendly = Column(Boolean, nullable=True)
     job_category = Column(Enum(JobCategory, name="job_category"), nullable=True)
@@ -72,6 +78,7 @@ class User(Base):
 
     # Authentication
     hashed_password = Column(String, nullable=True)  # Null for OAuth-only users
+    password_changed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Profile Information
     bio = Column(Text, nullable=True)
@@ -160,5 +167,27 @@ class PasswordHistory(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    # Relationships
     user = relationship("User", back_populates="password_history")
+
+
+class PipelineRunStatus(enum.Enum):
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class PipelineRun(Base):
+    __tablename__ = "pipeline_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status = Column(
+        Enum(PipelineRunStatus, name="pipeline_run_status"),
+        nullable=False,
+        server_default="running",
+    )
+    step_completed = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    error_step = Column(String, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    results = Column(Text, nullable=True)

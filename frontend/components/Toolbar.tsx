@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
@@ -39,6 +39,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [debouncedSearch] = useDebounce(searchInput, 400);
+  const isInitialMount = useRef(true);
   
   // Update URL when debounced search value changes
   useEffect(() => {
@@ -47,9 +48,12 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     }
   }, [debouncedSearch, currentSearch]);
 
-  // Sync search input with URL parameter when it changes externally
+  // Sync search input with URL parameter only on initial mount
   useEffect(() => {
-    setSearchInput(currentSearch);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      setSearchInput(currentSearch);
+    }
   }, [currentSearch]);
 
   const currentCompanies = searchParams.get("company")?.split("|").filter(Boolean) || [];
@@ -147,7 +151,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
         <div className="relative flex-1 min-w-[200px]">
           <Input
             type="text"
-            placeholder="Search jobs, companies, locations..."
+            placeholder='Search jobs... (try: "software engineer" AND remote)'
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e: React.KeyboardEvent) => {
@@ -157,6 +161,27 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
             }}
             icon={Search}
           />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
+            <button
+              type="button"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              title="Search tips"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <div className="absolute right-0 top-6 z-50 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-md-outline dark:bg-md-surface-container dark:text-md-on-surface">
+              <p className="mb-2 font-medium text-slate-700 dark:text-md-on-surface">Search syntax:</p>
+              <ul className="space-y-1">
+                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">&quot;exact phrase&quot;</code> - Exact match</li>
+                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python AND remote</code> - Both terms</li>
+                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python OR java</code> - Either term</li>
+                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python NOT senior</code> - Exclude</li>
+                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">title:python</code> - Field search</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         {/* Filters Toggle Button */}
