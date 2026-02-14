@@ -31,12 +31,17 @@ def get_password_hash(password: str) -> str:
     return ph.hash(password)
 
 
-def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+    password_changed_at: datetime | None = None,
+) -> str:
     """Create a JWT access token.
 
     Args:
         data: The data to encode in the token (typically contains user_id, email)
         expires_delta: Optional custom expiration time, defaults to 24 hours
+        password_changed_at: Optional timestamp of last password change for invalidation
 
     Returns:
         The encoded JWT token string
@@ -45,6 +50,9 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
 
     # Add unique JWT ID (jti) claim to ensure token uniqueness (RFC 7519)
     to_encode["jti"] = str(uuid4())
+
+    if password_changed_at:
+        to_encode["pw_changed"] = password_changed_at.timestamp()
 
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,6 +15,8 @@ from app.auth.jwt import (
     verify_password,
     validate_password_strength,
 )
+from app.auth.oauth import verify_oauth_token, OAuthVerificationError
+from app.auth.crypto import encrypt_token
 from app.db import get_db
 from app.models import Account, User
 from app.rate_limiter import RATE_LIMITS, limiter
@@ -233,74 +235,82 @@ async def oauth_callback(
 ) -> AuthResponse:
     """Handle OAuth callback from providers like Google or GitHub.
 
+    Verifies the OAuth token with the provider before creating/updating the user.
     Creates or updates the user account and returns a backend JWT token.
     """
-    # Try to find existing user by email
-    stmt = select(User).where(User.email == data.email)
+    try:
+        verified_user = await verify_oauth_token(data.provider, data.access_token)
+    except OAuthVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=create_auth_error(
+                "OAUTH_VERIFICATION_FAILED",
+                f"Failed to verify {exc.provider} token: {exc.message}",
+            ),
+        )
+
+    verified_email = verified_user.email
+    verified_provider_account_id = verified_user.provider_account_id
+
+    stmt = select(User).where(User.email == verified_email)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
+    encrypted_access_token = encrypt_token(data.access_token)
+    encrypted_refresh_token = encrypt_token(data.refresh_token) if data.refresh_token else None
+
     if user:
-        # User exists - update or create OAuth account
         account_stmt = select(Account).where(
             Account.user_id == user.id,
             Account.provider == data.provider,
-            Account.provider_account_id == data.provider_account_id,
+            Account.provider_account_id == verified_provider_account_id,
         )
         account_result = await db.execute(account_stmt)
         existing_account = account_result.scalar_one_or_none()
 
         if existing_account:
-            # Update existing account
-            existing_account.access_token = data.access_token
-            existing_account.refresh_token = data.refresh_token
+            existing_account.access_token = encrypted_access_token
+            existing_account.refresh_token = encrypted_refresh_token
             existing_account.expires_at = data.expires_at
         else:
-            # Create new OAuth account for existing user
             account = Account(
                 user_id=user.id,
                 provider=data.provider,
-                provider_account_id=data.provider_account_id,
-                access_token=data.access_token,
-                refresh_token=data.refresh_token,
+                provider_account_id=verified_provider_account_id,
+                access_token=encrypted_access_token,
+                refresh_token=encrypted_refresh_token,
                 expires_at=data.expires_at,
             )
             db.add(account)
 
-        # Update user info if provided
-        if data.name and not user.name:
-            user.name = data.name
-        if data.image and not user.image:
-            user.image = data.image
+        if verified_user.name and not user.name:
+            user.name = verified_user.name
+        if verified_user.picture and not user.image:
+            user.image = verified_user.picture
 
     else:
-        # Create new user
         user = User(
-            email=data.email,
-            name=data.name,
-            image=data.image,
-            email_verified=True,  # OAuth emails are verified
+            email=verified_email,
+            name=verified_user.name,
+            image=verified_user.picture,
+            email_verified=True,
         )
         db.add(user)
-        await db.flush()  # Get user.id
+        await db.flush()
 
-        # Create OAuth account
         account = Account(
             user_id=user.id,
             provider=data.provider,
-            provider_account_id=data.provider_account_id,
-            access_token=data.access_token,
-            refresh_token=data.refresh_token,
+            provider_account_id=verified_provider_account_id,
+            access_token=encrypted_access_token,
+            refresh_token=encrypted_refresh_token,
             expires_at=data.expires_at,
         )
         db.add(account)
 
     await db.commit()
-
-    # Refresh user to ensure all attributes are loaded before accessing them
     await db.refresh(user)
 
-    # Generate JWT token
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
 
     return AuthResponse(

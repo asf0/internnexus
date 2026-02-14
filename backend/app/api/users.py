@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -11,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import (
+    create_access_token,
     get_password_hash,
     verify_password,
     validate_password_strength,
 )
 from app.db import get_db
 from app.models import Account, PasswordHistory, User
+from app.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -100,15 +103,17 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.get("/me", response_model=UserProfileResponse)
+@limiter.limit(RATE_LIMITS["user_me"])
 def get_current_user_profile(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserProfileResponse:
     """Get the current user's profile."""
-    # Parse JSON fields
     return UserProfileResponse(**_parse_user_profile(current_user))
 
 
 @router.put("/me", response_model=UserProfileResponse)
+@limiter.limit(RATE_LIMITS["user_update"])
 async def update_user_profile(
     request: Request,
     data: UpdateUserRequest,
@@ -150,6 +155,7 @@ async def update_user_profile(
 
 
 @router.put("/me/password")
+@limiter.limit(RATE_LIMITS["auth_set_password"])
 async def change_password(
     request: Request,
     data: ChangePasswordRequest,
@@ -157,7 +163,6 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Change or set the user's password."""
-    # If user already has a password, verify current password
     if current_user.hashed_password:
         if not data.current_password:
             raise HTTPException(
@@ -170,7 +175,6 @@ async def change_password(
                 detail={"message": "Current password is incorrect"},
             )
 
-    # Check if new password is same as current password
     if current_user.hashed_password and verify_password(
         data.new_password, current_user.hashed_password
     ):
@@ -179,7 +183,6 @@ async def change_password(
             detail={"message": "New password cannot be the same as the current password"},
         )
 
-    # Check password history (last 3 passwords)
     history_stmt = (
         select(PasswordHistory)
         .where(PasswordHistory.user_id == current_user.id)
@@ -198,7 +201,6 @@ async def change_password(
                 },
             )
 
-    # Store current password in history before changing (if exists)
     if current_user.hashed_password:
         history_entry = PasswordHistory(
             user_id=current_user.id,
@@ -206,7 +208,6 @@ async def change_password(
         )
         db.add(history_entry)
 
-        # Keep only last 3 passwords in history
         old_history_stmt = (
             select(PasswordHistory)
             .where(PasswordHistory.user_id == current_user.id)
@@ -218,10 +219,9 @@ async def change_password(
         for old_entry in old_history:
             await db.delete(old_entry)
 
-    # Hash and set new password
     current_user.hashed_password = get_password_hash(data.new_password)
+    current_user.password_changed_at = datetime.now(timezone.utc)
 
-    # Create credentials account if it doesn't exist
     account_stmt = select(Account).where(
         Account.user_id == current_user.id, Account.provider == "credentials"
     )
@@ -242,19 +242,19 @@ async def change_password(
 
 
 @router.delete("/me")
+@limiter.limit(RATE_LIMITS["user_delete"])
 async def delete_account(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Soft delete the current user's account (GDPR compliant)."""
-    # Soft delete: mark as deleted and anonymize
     current_user.is_deleted = True
     current_user.deleted_at = datetime.now(timezone.utc)
 
-    # Anonymize personal data
     current_user.name = None
-    current_user.email = f"deleted_{current_user.id}@deleted.com"
+    random_suffix = secrets.token_hex(8)
+    current_user.email = f"deleted_{random_suffix}@deleted.invalid"
     current_user.phone = None
     current_user.location = None
     current_user.bio = None
@@ -264,11 +264,9 @@ async def delete_account(
     current_user.industry = None
     current_user.linkedin_url = None
     current_user.portfolio_url = None
-
-    # Clear sensitive data
     current_user.hashed_password = None
+    current_user.password_changed_at = None
 
-    # Delete all accounts
     from sqlalchemy import delete
 
     await db.execute(delete(Account).where(Account.user_id == current_user.id))

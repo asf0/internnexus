@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -8,12 +9,36 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.auth.jwt import get_user_id_from_token
+from app.auth.jwt import decode_access_token
 from app.db import get_db
 from app.models import User
 
-# Security scheme for JWT tokens
 security = HTTPBearer(auto_error=False)
+
+
+def _validate_password_change(token_payload: dict, user: User) -> bool:
+    """Validate that token was issued after last password change.
+
+    Args:
+        token_payload: Decoded JWT payload
+        user: User object from database
+
+    Returns:
+        True if token is valid, False if password was changed after token issuance
+    """
+    token_pw_changed = token_payload.get("pw_changed")
+    user_pw_changed = user.password_changed_at
+
+    if token_pw_changed is None:
+        return True
+
+    if user_pw_changed is None:
+        return True
+
+    token_timestamp = token_pw_changed
+    user_timestamp = user_pw_changed.timestamp()
+
+    return token_timestamp >= user_timestamp
 
 
 async def get_current_user(
@@ -40,12 +65,29 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    user_id = get_user_id_from_token(token)
+    payload = decode_access_token(token)
 
-    if user_id is None:
+    if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -56,6 +98,13 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not _validate_password_change(payload, user):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalidated by password change. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -82,11 +131,27 @@ async def get_optional_user(
         return None
 
     token = credentials.credentials
-    user_id = get_user_id_from_token(token)
+    payload = decode_access_token(token)
 
-    if user_id is None:
+    if payload is None:
+        return None
+
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        return None
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
         return None
 
     result = await db.execute(select(User).filter(User.id == user_id))
     user = result.scalar_one_or_none()
+
+    if user is None:
+        return None
+
+    if not _validate_password_change(payload, user):
+        return None
+
     return user
