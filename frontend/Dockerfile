@@ -6,6 +6,7 @@ WORKDIR /app
 # Build arguments (must be passed at build time)
 ARG BACKEND_URL
 ARG NEXT_PUBLIC_BASE_URL
+RUN test -n "$NEXT_PUBLIC_BASE_URL" || (echo "NEXT_PUBLIC_BASE_URL is required" && exit 1)
 
 # Set as environment variables for the build
 ENV BACKEND_URL=$BACKEND_URL
