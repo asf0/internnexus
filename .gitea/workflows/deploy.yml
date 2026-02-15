@@ -9,11 +9,10 @@ jobs:
   deploy:
     runs-on: docker
     container:
-      image: node:24-slim
-      options: --volume /usr/bin/docker:/usr/bin/docker --volume /usr/local/lib/docker/cli-plugins:/usr/local/lib/docker/cli-plugins
+      image: docker:24-cli
     steps:
       - name: Install Git
-        run: apt update && apt install -y git curl
+        run: apk add --no-cache git curl
 
       - name: Checkout
         uses: actions/checkout@v4
