@@ -37,7 +37,11 @@ export async function matchResume(formData: FormData): Promise<unknown> {
   return response.json();
 }
 
-export async function fetchMatchedJobs(matchIds: string[], pageSize: number = 20): Promise<JobListResponse> {
+export async function fetchMatchedJobs(
+  matchIds: string[],
+  pageSize: number = 20,
+  search?: string
+): Promise<JobListResponse> {
   const session = await auth();
   
   if (!session?.backendToken) {
@@ -48,8 +52,17 @@ export async function fetchMatchedJobs(matchIds: string[], pageSize: number = 20
     return { items: [], total: 0, page: 1, page_size: pageSize };
   }
 
+  const params = new URLSearchParams({
+    match_ids: matchIds.join("|"),
+    page_size: pageSize.toString(),
+  });
+  
+  if (search?.trim()) {
+    params.set("search", search.trim());
+  }
+
   const response = await fetch(
-    `${BACKEND_URL}/jobs?match_ids=${matchIds.join("|")}&page_size=${pageSize}`,
+    `${BACKEND_URL}/jobs?${params.toString()}`,
     { 
       cache: "no-store",
       headers: {

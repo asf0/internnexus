@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 import base64
-import logging
-import os
 import secrets
 from typing import Any
-import base64
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-logger = logging.getLogger(__name__)
 
 AES_KEY_SIZE = 32
 AES_IV_SIZE = 16
@@ -53,7 +49,6 @@ class TokenEncryptor:
         """Load RSA public key from PEM string."""
         if not pem or not pem.strip():
             raise EncryptionError("Public key is empty or not configured")
-
         pem = pem.strip()
 
         try:
@@ -73,43 +68,17 @@ class TokenEncryptor:
         """Load RSA private key from PEM string."""
         if not pem or not pem.strip():
             raise EncryptionError("Private key is empty or not configured")
-
-        original_pem = pem
         pem = pem.strip()
-
         try:
-            logger.info(
-                f"Private key input: length={len(pem)}, first_80='{pem[:80]}', last_80='{pem[-80:]}'"
-            )
-
             if not pem.startswith("-----BEGIN"):
-                logger.info("Attempting base64 decode...")
-                try:
-                    decoded = base64.b64decode(pem, validate=True)
-                    logger.info(
-                        f"Base64 decoded: length={len(decoded)}, first_100_bytes={decoded[:100]}"
-                    )
-                    pem = decoded.decode("utf-8")
-                    logger.info(f"After decode: first_100_chars='{pem[:100]}'")
-                except Exception as decode_err:
-                    logger.error(f"Base64 decode failed: {decode_err}")
-                    raise
-
+                pem = base64.b64decode(pem).decode("utf-8")
             pem = pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
-
-            # Check for actual newlines
-            has_newlines = "\n" in pem
-            logger.info(
-                f"After newline replace: has_newlines={has_newlines}, first_line='{pem.split(chr(10))[0] if has_newlines else pem[:60]}'"
-            )
-
             return serialization.load_pem_private_key(
                 pem.encode("utf-8"),
                 password=None,
                 backend=default_backend(),
             )
         except Exception as exc:
-            logger.error(f"Failed to load private key. Original length: {len(original_pem)}")
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
     def encrypt(self, plaintext: str) -> str:

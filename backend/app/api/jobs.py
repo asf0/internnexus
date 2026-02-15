@@ -7,11 +7,13 @@ import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, case, distinct, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
+from app.config import get_settings
 from app.db import get_db
 from app.models import Job
 from app.rate_limiter import RATE_LIMITS, limiter
@@ -27,15 +29,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 VECTOR_SEARCH_THRESHOLD = 0.55
+VECTOR_MATCH_THRESHOLD = 0.45
 VECTOR_LIMIT = 100
 KEYWORD_BOOST = 0.1
 
 
 def _get_redis():
     try:
-        import redis.asyncio as redis
-        from app.config import get_settings
-
         settings = get_settings()
         return redis.from_url(settings.redis_url, decode_responses=True)
     except Exception:
@@ -144,7 +144,7 @@ async def _execute_keyword_search(
 
 
 async def _execute_vector_search(
-    db: AsyncSession, search: str, parsed: ParsedSearch
+    db: AsyncSession, search: str, parsed: ParsedSearch, threshold: float = VECTOR_SEARCH_THRESHOLD
 ) -> list[tuple[UUID, float]]:
     embedding = await _get_cached_embedding(search)
     if embedding is None:
@@ -162,9 +162,7 @@ async def _execute_vector_search(
         )
         .where(Job.is_active == True)  # noqa: E712
         .where(Job.description_embedding.isnot(None))
-        .where(
-            (1 - Job.description_embedding.cosine_distance(embedding)) >= VECTOR_SEARCH_THRESHOLD
-        )
+        .where((1 - Job.description_embedding.cosine_distance(embedding)) >= threshold)
         .order_by((1 - Job.description_embedding.cosine_distance(embedding)).desc())
         .limit(VECTOR_LIMIT)
     )
@@ -218,7 +216,8 @@ async def list_jobs(
         keyword_ids = await _execute_keyword_search(db, search, parsed, base_stmt)
 
         if not parsed.is_boolean:
-            vector_results = await _execute_vector_search(db, search, parsed)
+            threshold = VECTOR_MATCH_THRESHOLD if valid_ids else VECTOR_SEARCH_THRESHOLD
+            vector_results = await _execute_vector_search(db, search, parsed, threshold)
 
         vector_ids = {vid for vid, _ in vector_results}
         all_ids = keyword_ids | vector_ids

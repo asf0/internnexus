@@ -37,6 +37,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
   const [total, setTotal] = useState(0);
 
   const selectedSlug = searchParams.get("selected");
+  const searchQuery = searchParams.get("search") || "";
 
   const selectedJob = useMemo(() => {
     if (!selectedSlug) return null;
@@ -71,7 +72,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
           return;
         }
 
-        const data = await fetchMatchedJobs(pageIds, PAGE_SIZE);
+        const data = await fetchMatchedJobs(pageIds, PAGE_SIZE, searchQuery);
 
         const idOrder = new Map(pageIds.map((id, idx) => [id, idx]));
         const sortedJobs = [...data.items].sort(
@@ -86,7 +87,7 @@ export default function MatchedJobList({ totalPages: _totalPages, currentPage }:
     };
 
     loadMatchedJobs();
-  }, [currentPage]);
+  }, [currentPage, searchQuery]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
