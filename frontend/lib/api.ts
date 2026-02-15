@@ -16,6 +16,8 @@ interface JobFilters {
   match_ids?: string;
 }
 
+const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
+
 export async function fetchJobs(
   filters: JobFilters = {},
   authToken?: string
@@ -41,7 +43,7 @@ export async function fetchJobs(
     headers["Authorization"] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${BACKEND_URL}/jobs?${params.toString()}`, {
+  const response = await fetch(`${API_BASE}/jobs?${params.toString()}`, {
     cache: "no-store",
     headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
@@ -52,7 +54,7 @@ export async function fetchJobs(
 }
 
 export async function fetchCompanies(): Promise<string[]> {
-  const response = await fetch(`${BACKEND_URL}/jobs/filters/companies`, {
+  const response = await fetch(`${API_BASE}/jobs/filters/companies`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -60,7 +62,7 @@ export async function fetchCompanies(): Promise<string[]> {
 }
 
 export async function fetchLocations(): Promise<string[]> {
-  const response = await fetch(`${BACKEND_URL}/jobs/filters/locations`, {
+  const response = await fetch(`${API_BASE}/jobs/filters/locations`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -68,7 +70,7 @@ export async function fetchLocations(): Promise<string[]> {
 }
 
 export async function fetchCategories(): Promise<string[]> {
-  const response = await fetch(`${BACKEND_URL}/jobs/filters/categories`, {
+  const response = await fetch(`${API_BASE}/jobs/filters/categories`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
@@ -76,7 +78,7 @@ export async function fetchCategories(): Promise<string[]> {
 }
 
 export async function fetchJob(id: string): Promise<Job | null> {
-  const response = await fetch(`${BACKEND_URL}/jobs/${id}`, {
+  const response = await fetch(`${API_BASE}/jobs/${id}`, {
     cache: "no-store"
   });
   if (!response.ok) {
@@ -86,7 +88,7 @@ export async function fetchJob(id: string): Promise<Job | null> {
 }
 
 export async function fetchAllJobIds(): Promise<string[]> {
-  const response = await fetch(`${BACKEND_URL}/jobs?page_size=1000`, {
+  const response = await fetch(`${API_BASE}/jobs?page_size=1000`, {
     cache: "no-store"
   });
   if (!response.ok) {

@@ -3,13 +3,21 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone', // Enable runtime env var reading (no secrets baked into image)
+  output: 'standalone',
 
-  
-  // Security headers
+  async rewrites() {
+    const backendUrl = isDev ? 'http://localhost:8000' : 'http://backend:8000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/:path*`,
+      },
+    ];
+  },
+
   async headers() {
     const connectSrc = `connect-src 'self' ${isDev ? 'http://localhost:8000 ' : ''}https://*.asf0.dev`;
-    
+
     const headers = [
       { key: 'X-Frame-Options', value: 'DENY' },
       { key: 'X-Content-Type-Options', value: 'nosniff' },
