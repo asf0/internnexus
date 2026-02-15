@@ -30,8 +30,8 @@ class Settings(BaseSettings):
 
     # OAuth token encryption (RSA keys in PEM format)
     # Public key is required for encryption, private key for decryption
-    oauth_encryption_public_key: str = ""
-    oauth_encryption_private_key: str = ""
+    oauth_encryption_public_key_b64: str = ""
+    oauth_encryption_private_key_b64: str = ""
 
     # Redis configuration
     redis_url: str

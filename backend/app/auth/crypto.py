@@ -244,8 +244,8 @@ def get_encryptor() -> TokenEncryptor:
             raise EncryptionError("OAuth encryption public key not configured")
 
         _encryptor_instance = TokenEncryptor(
-            public_key_pem=settings.oauth_encryption_public_key,
-            private_key_pem=settings.oauth_encryption_private_key,
+            public_key_pem=settings.oauth_encryption_public_key_b64,
+            private_key_pem=settings.oauth_encryption_private_key_b64,
         )
 
     return _encryptor_instance
