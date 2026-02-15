@@ -74,13 +74,25 @@ class TokenEncryptor:
         if not pem or not pem.strip():
             raise EncryptionError("Private key is empty or not configured")
 
+        original_pem = pem
         pem = pem.strip()
 
         try:
             if not pem.startswith("-----BEGIN"):
-                pem = base64.b64decode(pem).decode("utf-8")
+                logger.debug(
+                    f"Private key appears to be base64-encoded, first 50 chars: {pem[:50]}"
+                )
+                decoded = base64.b64decode(pem)
+                logger.debug(
+                    f"Decoded bytes length: {len(decoded)}, first 100 bytes: {decoded[:100]}"
+                )
+                pem = decoded.decode("utf-8")
+                logger.debug(f"After base64 decode, first 100 chars: {pem[:100]}")
 
             pem = pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+            logger.debug(
+                f"Final PEM first line: {pem.split(chr(10))[0] if chr(10) in pem else pem[:50]}"
+            )
 
             return serialization.load_pem_private_key(
                 pem.encode("utf-8"),
@@ -88,6 +100,9 @@ class TokenEncryptor:
                 backend=default_backend(),
             )
         except Exception as exc:
+            logger.error(
+                f"Failed to load private key. Original input length: {len(original_pem)}, starts with '-----BEGIN': {original_pem.strip().startswith('-----BEGIN')}"
+            )
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
     def encrypt(self, plaintext: str) -> str:
