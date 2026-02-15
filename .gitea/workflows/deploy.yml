@@ -40,7 +40,7 @@ jobs:
           SIMPLIFY_JOBS_NEW_GRAD_URL=${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
           NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
           AUTH_URL=${{ vars.AUTH_URL }}
-          NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+          BACKEND_URL=${{ vars.BACKEND_URL }}
           NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL }}
           CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
           OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY_B64 }}

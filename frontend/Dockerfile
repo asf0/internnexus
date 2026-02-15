@@ -3,12 +3,12 @@ FROM oven/bun:1 AS base
 
 WORKDIR /app
 
-# Build arguments for NEXT_PUBLIC_* variables (must be passed at build time)
-ARG NEXT_PUBLIC_API_URL
+# Build arguments (must be passed at build time)
+ARG BACKEND_URL
 ARG NEXT_PUBLIC_BASE_URL
 
 # Set as environment variables for the build
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 
 # Copy package files
@@ -43,5 +43,4 @@ COPY --from=base /app/public ./public
 EXPOSE 3000
 
 # Run the standalone server
-# This reads env vars at runtime, not build time (secure!)
 CMD ["node", "server.js"]

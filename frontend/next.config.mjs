@@ -6,7 +6,7 @@ const nextConfig = {
   output: 'standalone',
 
   async rewrites() {
-    const backendUrl = isDev ? 'http://localhost:8000' : 'http://backend:8000';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
     return [
       {
         source: '/api/auth/:path*',
@@ -20,7 +20,8 @@ const nextConfig = {
   },
 
   async headers() {
-    const connectSrc = `connect-src 'self' ${isDev ? 'http://localhost:8000 ' : ''}https://*.asf0.dev`;
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    const connectSrc = `connect-src 'self' ${isDev ? backendUrl + ' ' : ''}https://*.asf0.dev`;
 
     const headers = [
       { key: 'X-Frame-Options', value: 'DENY' },
