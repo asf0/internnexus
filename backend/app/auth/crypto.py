@@ -51,6 +51,7 @@ class TokenEncryptor:
     def _load_public_key(self, pem: str) -> Any:
         """Load RSA public key from PEM string."""
         try:
+            pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
             return serialization.load_pem_public_key(
                 pem.encode("utf-8"),
                 backend=default_backend(),
@@ -61,6 +62,7 @@ class TokenEncryptor:
     def _load_private_key(self, pem: str) -> Any:
         """Load RSA private key from PEM string."""
         try:
+            pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
             return serialization.load_pem_private_key(
                 pem.encode("utf-8"),
                 password=None,
