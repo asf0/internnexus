@@ -1,0 +1,53 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+          OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
+          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER }}
+          EMBEDDING_MODEL=${{ secrets.EMBEDDING_MODEL }}
+          VISA_CLASSIFIER_MODEL=${{ secrets.VISA_CLASSIFIER_MODEL }}
+          CLOUDFLARED_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GREENHOUSE_API_URL=${{ secrets.GREENHOUSE_API_URL }}
+          LEVER_API_URL=${{ secrets.LEVER_API_URL }}
+          SIMPLIFY_JOBS_INTERN_URL=${{ secrets.SIMPLIFY_JOBS_INTERN_URL }}
+          SIMPLIFY_JOBS_NEW_GRAD_URL=${{ secrets.SIMPLIFY_JOBS_NEW_GRAD_URL }}
+          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+          AUTH_URL=${{ secrets.AUTH_URL }}
+          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+          OAUTH_ENCRYPTION_PUBLIC_KEY=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY }}
+          OAUTH_ENCRYPTION_PRIVATE_KEY=${{ secrets.OAUTH_ENCRYPTION_PRIVATE_KEY }}
+          EOF
+
+      - name: Deploy with Docker Compose
+        run: |
+          docker compose pull || true
+          docker compose up -d --build
+
+      - name: Health Check
+        run: |
+          sleep 10
+          curl -f http://localhost:8000/health || exit 1
+          curl -f http://localhost:3000/ || exit 1

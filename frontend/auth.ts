@@ -31,8 +31,8 @@ declare module "next-auth" {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      clientId: process.env.GH_CLIENT_ID as string,
+      clientSecret: process.env.GH_CLIENT_SECRET as string,
     }),
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID as string,

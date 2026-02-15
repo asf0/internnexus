@@ -40,12 +40,25 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
     environment:
-      # Override for Docker networking only
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
       - REDIS_URL=redis://redis:6379/0
+      - AUTH_SECRET=${AUTH_SECRET}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - VISA_CLASSIFIER_MODEL=${VISA_CLASSIFIER_MODEL}
+      - OAUTH_ENCRYPTION_PUBLIC_KEY=${OAUTH_ENCRYPTION_PUBLIC_KEY}
+      - OAUTH_ENCRYPTION_PRIVATE_KEY=${OAUTH_ENCRYPTION_PRIVATE_KEY}
+      - GREENHOUSE_API_URL=${GREENHOUSE_API_URL}
+      - LEVER_API_URL=${LEVER_API_URL}
+      - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
+      - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
       db:
         condition: service_healthy
@@ -62,18 +75,21 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # No args - all env vars passed at runtime via env_file
     container_name: internnexus-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     environment:
-      # Override for Docker networking only
       - BACKEND_URL=http://backend:8000
-      # Required for health checks to work with standalone output
       - HOSTNAME=0.0.0.0
+      - AUTH_SECRET=${AUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - AUTH_URL=${AUTH_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - GH_CLIENT_ID=${GH_CLIENT_ID}
+      - GH_CLIENT_SECRET=${GH_CLIENT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
       backend:
         condition: service_healthy
@@ -88,7 +104,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token  ${CLOUDFLARED_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
     depends_on:
       frontend:
         condition: service_healthy
