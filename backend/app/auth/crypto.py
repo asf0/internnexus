@@ -53,10 +53,15 @@ class TokenEncryptor:
         """Load RSA public key from PEM string."""
         if not pem or not pem.strip():
             raise EncryptionError("Public key is empty or not configured")
+
+        pem = pem.strip()
+
         try:
-            if self._is_base64(pem):
-                pem = base64.b64decode(pem).decode("utf-8") # Handle base64-encoded PEM
-            pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
+            if not pem.startswith("-----BEGIN"):
+                pem = base64.b64decode(pem).decode("utf-8")
+
+            pem = pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+
             return serialization.load_pem_public_key(
                 pem.encode("utf-8"),
                 backend=default_backend(),
@@ -68,10 +73,15 @@ class TokenEncryptor:
         """Load RSA private key from PEM string."""
         if not pem or not pem.strip():
             raise EncryptionError("Private key is empty or not configured")
+
+        pem = pem.strip()
+
         try:
-            if self._is_base64(pem):
-                pem = base64.b64decode(pem).decode("utf-8") 
-            pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
+            if not pem.startswith("-----BEGIN"):
+                pem = base64.b64decode(pem).decode("utf-8")
+
+            pem = pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+
             return serialization.load_pem_private_key(
                 pem.encode("utf-8"),
                 password=None,
@@ -80,18 +90,6 @@ class TokenEncryptor:
         except Exception as exc:
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
-    @staticmethod
-    def _is_base64(s: str) -> bool:
-        """Check if string is base64-encoded."""
-        # Quick heuristic: no spaces, no newlines, only base64 chars
-        if not s or '\n' in s or ' ' in s or '-' in s:
-            return False
-        try:
-            base64.b64decode(s, validate=True)
-            return True
-        except Exception:
-            return False
-        
     def encrypt(self, plaintext: str) -> str:
         """Encrypt a string using RSA+AES hybrid encryption.
 
