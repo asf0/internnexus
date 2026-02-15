@@ -51,6 +51,8 @@ class TokenEncryptor:
 
     def _load_public_key(self, pem: str) -> Any:
         """Load RSA public key from PEM string."""
+        if not pem or not pem.strip():
+            raise EncryptionError("Public key is empty or not configured")
         try:
             if self._is_base64(pem):
                 pem = base64.b64decode(pem).decode("utf-8") # Handle base64-encoded PEM
@@ -64,6 +66,8 @@ class TokenEncryptor:
 
     def _load_private_key(self, pem: str) -> Any:
         """Load RSA private key from PEM string."""
+        if not pem or not pem.strip():
+            raise EncryptionError("Private key is empty or not configured")
         try:
             if self._is_base64(pem):
                 pem = base64.b64decode(pem).decode("utf-8") 
@@ -80,7 +84,7 @@ class TokenEncryptor:
     def _is_base64(s: str) -> bool:
         """Check if string is base64-encoded."""
         # Quick heuristic: no spaces, no newlines, only base64 chars
-        if '\n' in s or ' ' in s or '-' in s:
+        if not s or '\n' in s or ' ' in s or '-' in s:
             return False
         try:
             base64.b64decode(s, validate=True)
