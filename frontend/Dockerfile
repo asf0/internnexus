@@ -3,6 +3,14 @@ FROM oven/bun:1 AS base
 
 WORKDIR /app
 
+# Build arguments for NEXT_PUBLIC_* variables (must be passed at build time)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BASE_URL
+
+# Set as environment variables for the build
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+
 # Copy package files
 COPY package.json bun.lock ./
 
@@ -13,8 +21,6 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Build the application
-# Env vars will be read at build time from environment (in CI/CD)
-# For runtime, we use standalone output which reads env vars at container startup
 RUN bun run build
 
 # Create public directory placeholder if it doesn't exist
