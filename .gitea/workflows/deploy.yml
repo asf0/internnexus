@@ -53,6 +53,6 @@ jobs:
 
       - name: Health Check
         run: |
-          sleep 10
-          curl -f http://localhost:8000/health || exit 1
-          curl -f http://localhost:3000/ || exit 1
+          sleep 15
+          docker exec internnexus-backend curl -f http://localhost:8000/health || exit 1
+          docker exec internnexus-frontend curl -f http://localhost:3000/ || exit 1
