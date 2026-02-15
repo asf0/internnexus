@@ -15,7 +15,7 @@ jobs:
         run: apk add --no-cache git curl
 
       - name: Checkout
-        uses: actions/checkout@v4
+        run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
 
       - name: Create .env file
         run: |
