@@ -113,6 +113,8 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema]) -> None:
                     "visa_sponsored": job.visa_sponsored,
                     "f1_friendly": job.f1_friendly,
                     "job_category": job.job_category,
+                    "job_type": job.job_type,
+                    "work_mode": job.work_mode,
                     "requires_sponsorship": job.requires_sponsorship,
                     "requires_us_citizenship": job.requires_us_citizenship,
                     "application_closed": job.application_closed,
@@ -134,6 +136,14 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema]) -> None:
                         excluded.description_text,
                     ),
                     else_=Job.description_text,
+                ),
+                "job_type": case(
+                    (Job.job_type.is_(None), excluded.job_type),
+                    else_=Job.job_type,
+                ),
+                "work_mode": case(
+                    (Job.work_mode.is_(None), excluded.work_mode),
+                    else_=Job.work_mode,
                 ),
                 "last_seen": datetime.now(timezone.utc),
                 "is_active": True,

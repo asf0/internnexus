@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from .utils import parse_iso_datetime
+from .utils import parse_iso_datetime, parse_job_type, parse_work_mode
 from ..schemas import JobSchema
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,11 @@ class WorkdayClient:
                 job.get("externalUrl")
                 or f"https://myworkdayjobs.com/{tenant}/job/{job.get('jobPostingId', '')}"
             )
+            job_info = job.get("jobPostingInfo", {}) or {}
+            time_type = job_info.get("timeType", "") or job.get("timeType", "")
+            remote_type = job_info.get("remoteType", "") or job.get("remoteType", "")
+            job_type = parse_job_type(time_type)
+            work_mode = parse_work_mode(remote_type)
             normalized.append(
                 JobSchema(
                     source="workday",
@@ -90,6 +95,8 @@ class WorkdayClient:
                     apply_url=apply_url,
                     description_text=description,
                     posted_at=parse_iso_datetime(job.get("postedOn")),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             )
         return normalized

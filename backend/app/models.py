@@ -30,6 +30,18 @@ class JobCategory(enum.Enum):
     hardware_engineering = "hardware_engineering"
 
 
+class JobType(enum.Enum):
+    internship = "internship"
+    full_time = "full_time"
+    part_time = "part_time"
+
+
+class WorkMode(enum.Enum):
+    remote = "remote"
+    hybrid = "hybrid"
+    on_site = "on_site"
+
+
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -51,6 +63,8 @@ class Job(Base):
     visa_sponsored = Column(Boolean, nullable=True)
     f1_friendly = Column(Boolean, nullable=True)
     job_category = Column(Enum(JobCategory, name="job_category"), nullable=True)
+    job_type = Column(Enum(JobType, name="job_type"), nullable=True)
+    work_mode = Column(Enum(WorkMode, name="work_mode"), nullable=True)
     requires_sponsorship = Column(Boolean, nullable=True, server_default="false")
     requires_us_citizenship = Column(Boolean, nullable=True, server_default="false")
     application_closed = Column(Boolean, nullable=True, server_default="false")

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from .utils import parse_iso_datetime
+from .utils import parse_iso_datetime, parse_job_type, parse_work_mode
 from ..schemas import JobSchema
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,10 @@ class AshbyClient:
             apply_url = job.get("jobUrl") or job.get("applicationUrl", "")
             if not apply_url:
                 apply_url = f"https://jobs.ashbyhq.com/{slug}/{job.get('id', '')}"
+            employment_type = job.get("employmentType", "")
+            location_type = job.get("locationType", "")
+            job_type = parse_job_type(employment_type)
+            work_mode = parse_work_mode(location_type)
             normalized.append(
                 JobSchema(
                     source="ashby",
@@ -83,6 +87,8 @@ class AshbyClient:
                     apply_url=apply_url,
                     description_text=description,
                     posted_at=parse_iso_datetime(job.get("publishedAt")),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             )
         return normalized

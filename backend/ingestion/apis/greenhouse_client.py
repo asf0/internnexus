@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from app.config import get_settings
-from .utils import parse_iso_datetime
+from .utils import parse_iso_datetime, detect_job_type_from_title, detect_work_mode_from_text
 from ..schemas import JobSchema
 
 
@@ -25,15 +25,21 @@ class GreenhouseClient:
     def _normalize_jobs(self, company_slug: str, jobs: list[dict[str, Any]]) -> list[JobSchema]:
         normalized: list[JobSchema] = []
         for job in jobs:
+            title = job.get("title", "").strip()
+            location = (job.get("location", {}) or {}).get("name", "").strip()
+            job_type = detect_job_type_from_title(title)
+            work_mode = detect_work_mode_from_text(title, location)
             normalized.append(
                 JobSchema(
                     source="greenhouse",
-                    title=job.get("title", "").strip(),
+                    title=title,
                     company=job.get("company", {}).get("name") or company_slug,
-                    location=(job.get("location", {}) or {}).get("name", "").strip(),
+                    location=location,
                     apply_url=job.get("absolute_url", ""),
                     description_text=job.get("content", "") or "",
                     posted_at=parse_iso_datetime(job.get("updated_at")),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             )
         return normalized

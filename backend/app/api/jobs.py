@@ -270,20 +270,48 @@ async def list_jobs(
         stmt = stmt.where(Job.f1_friendly == f1_friendly)
 
     if job_type:
-        if job_type == "internship":
-            stmt = stmt.where(Job.title.ilike("%intern%"))
-        elif job_type == "part-time":
-            stmt = stmt.where(Job.title.ilike("%part%time%"))
-        elif job_type == "full-time":
-            stmt = stmt.where(Job.title.ilike("%full%time%"))
+        job_types = [jt.strip() for jt in job_type.split("|")]
+        conditions = []
+        for jt in job_types:
+            if jt == "internship":
+                conditions.append(or_(Job.job_type == "internship", Job.title.ilike("%intern%")))
+            elif jt == "full-time":
+                conditions.append(or_(Job.job_type == "full_time", Job.title.ilike("%full%time%")))
+            elif jt == "part-time":
+                conditions.append(or_(Job.job_type == "part_time", Job.title.ilike("%part%time%")))
+        if conditions:
+            stmt = stmt.where(or_(*conditions))
 
     if work_mode:
-        if work_mode == "remote":
-            stmt = stmt.where(or_(Job.title.ilike("%remote%"), Job.location.ilike("%remote%")))
-        elif work_mode == "hybrid":
-            stmt = stmt.where(or_(Job.title.ilike("%hybrid%"), Job.location.ilike("%hybrid%")))
-        elif work_mode == "on-site":
-            stmt = stmt.where(or_(Job.title.ilike("%on-site%"), Job.location.ilike("%in-office%")))
+        modes = [wm.strip() for wm in work_mode.split("|")]
+        conditions = []
+        for wm in modes:
+            if wm == "remote":
+                conditions.append(
+                    or_(
+                        Job.work_mode == "remote",
+                        Job.title.ilike("%remote%"),
+                        Job.location.ilike("%remote%"),
+                    )
+                )
+            elif wm == "hybrid":
+                conditions.append(
+                    or_(
+                        Job.work_mode == "hybrid",
+                        Job.title.ilike("%hybrid%"),
+                        Job.location.ilike("%hybrid%"),
+                    )
+                )
+            elif wm == "on-site":
+                conditions.append(
+                    or_(
+                        Job.work_mode == "on_site",
+                        Job.title.ilike("%on-site%"),
+                        Job.location.ilike("%in-office%"),
+                    )
+                )
+        if conditions:
+            stmt = stmt.where(or_(*conditions))
 
     if posted_within:
         now = datetime.now(timezone.utc)

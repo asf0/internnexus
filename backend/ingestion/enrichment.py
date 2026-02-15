@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Literal
 
 from app.services.embedding_service import EmbeddingService
 from ingestion.data.constants import US_STATES
@@ -99,8 +100,18 @@ class LegendAttributeDetector:
 class CategoryDetector:
     """Detect job category from title and description."""
 
-    def detect_category(self, title: str, description: str) -> str | None:
-        """Detect job category based on title and description."""
+    def detect_category(
+        self, title: str, description: str
+    ) -> (
+        Literal[
+            "software_engineering",
+            "product_management",
+            "data_science_ai",
+            "quantitative_finance",
+            "hardware_engineering",
+        ]
+        | None
+    ):
         title_lower = title.lower()
         description_lower = description.lower() if description else ""
 
@@ -168,9 +179,58 @@ class CategoryDetector:
         return None
 
 
+class JobTypeDetector:
+    """Detect job type from title and description."""
+
+    def detect_job_type(
+        self, title: str, description: str
+    ) -> Literal["internship", "full_time", "part_time"] | None:
+        title_lower = title.lower()
+        desc_lower = description.lower() if description else ""
+
+        if "intern" in title_lower:
+            return "internship"
+        if re.search(r"part[\s-]?time", title_lower):
+            return "part_time"
+        if re.search(r"part[\s-]?time", desc_lower):
+            return "part_time"
+        return None
+
+
+class WorkModeDetector:
+    """Detect work mode from title, location and description."""
+
+    def detect_work_mode(
+        self, title: str, location: str, description: str
+    ) -> Literal["remote", "hybrid", "on_site"] | None:
+        title_lower = title.lower()
+        location_lower = location.lower() if location else ""
+        desc_lower = description.lower() if description else ""
+
+        combined = f"{title_lower} {location_lower} {desc_lower}"
+
+        if "remote" in combined:
+            return "remote"
+        if "hybrid" in combined:
+            return "hybrid"
+        if any(p in combined for p in ["on-site", "onsite", "in-office", "in office"]):
+            return "on_site"
+        return None
+
+
 async def enrich_jobs(
     jobs: list[JobSchema],
-    category_context: dict[str, str] | None = None,
+    category_context: dict[
+        str,
+        Literal[
+            "software_engineering",
+            "product_management",
+            "data_science_ai",
+            "quantitative_finance",
+            "hardware_engineering",
+        ],
+    ]
+    | None = None,
     skip_embedding: bool = False,
 ) -> list[JobSchema]:
     """Enrich jobs with visa info, categories, and other attributes.
@@ -192,27 +252,20 @@ async def enrich_jobs(
 
     legend_detector = LegendAttributeDetector()
     category_detector = CategoryDetector()
+    job_type_detector = JobTypeDetector()
+    work_mode_detector = WorkModeDetector()
 
     category_context = category_context or {}
 
     for job in jobs:
         # Normalize location and parse into city/state/country
         location_data = normalize_location(job.location)
-        job.location = (
-            location_data.get("full") or job.location
-        )  # Keep original if normalization failed
+        job.location = location_data.get("full") or job.location
         job.city = location_data.get("city")
         job.state = location_data.get("state")
         job.country = location_data.get("country")
 
         if job.description_text:
-            # Classify visa sponsorship (skip if no API keys available)
-            # if classifier:
-            #     visa = classifier.classify(job.description_text)
-            #     job.visa_sponsored = visa.get("visa")
-            #     job.f1_friendly = visa.get("f1")
-
-            # Embed description (only if embedder is available and not skipped)
             if embedder:
                 try:
                     job.description_embedding = await embedder.embed(job.description_text)
@@ -220,7 +273,6 @@ async def enrich_jobs(
                     logger.warning(f"Failed to embed job {job.title} at {job.company}: {e}")
                     job.description_embedding = None
 
-            # Detect legend attributes
             job.requires_sponsorship = legend_detector.detect_requires_sponsorship(
                 job.description_text, job.title
             )
@@ -234,7 +286,13 @@ async def enrich_jobs(
                 job.description_text, job.title
             )
 
-        # Detect FAANG+ by company
+            if not job.job_type:
+                job.job_type = job_type_detector.detect_job_type(job.title, job.description_text)
+            if not job.work_mode:
+                job.work_mode = work_mode_detector.detect_work_mode(
+                    job.title, job.location, job.description_text
+                )
+
         job.is_faang_plus = legend_detector.detect_is_faang_plus(job.company)
 
         # Detect or use provided category

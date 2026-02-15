@@ -2,7 +2,6 @@
 
 import { auth } from "@/auth";
 import { BACKEND_URL } from "@/lib/config";
-import type { Job, JobListResponse } from "@/lib/types";
 
 export async function matchResume(formData: FormData): Promise<unknown> {
   const session = await auth();
@@ -35,45 +34,4 @@ export async function matchResume(formData: FormData): Promise<unknown> {
   }
 
   return response.json();
-}
-
-export async function fetchMatchedJobs(
-  matchIds: string[],
-  pageSize: number = 20,
-  search?: string
-): Promise<JobListResponse> {
-  const session = await auth();
-  
-  if (!session?.backendToken) {
-    return { items: [], total: 0, page: 1, page_size: pageSize };
-  }
-
-  if (matchIds.length === 0) {
-    return { items: [], total: 0, page: 1, page_size: pageSize };
-  }
-
-  const params = new URLSearchParams({
-    match_ids: matchIds.join("|"),
-    page_size: pageSize.toString(),
-  });
-  
-  if (search?.trim()) {
-    params.set("search", search.trim());
-  }
-
-  const response = await fetch(
-    `${BACKEND_URL}/jobs?${params.toString()}`,
-    { 
-      cache: "no-store",
-      headers: {
-        "Authorization": `Bearer ${session.backendToken}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    return { items: [], total: 0, page: 1, page_size: pageSize };
-  }
-
-  return (await response.json()) as JobListResponse;
 }

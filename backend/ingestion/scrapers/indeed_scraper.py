@@ -9,10 +9,12 @@ import asyncio
 import logging
 import random
 import re
+from typing import Literal
 from urllib.parse import quote_plus
 
 from .stealth_browser import StealthBrowser
 from ..schemas import JobSchema
+from ..apis.utils import detect_job_type_from_title, detect_work_mode_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,21 @@ LOCATION_CLEANUP_PATTERNS = [
     r"Temporary",
     r"Internship",
 ]
+
+
+def _extract_job_type_from_location(
+    location: str,
+) -> Literal["internship", "full_time", "part_time"] | None:
+    if not location:
+        return None
+    location_lower = location.lower()
+    if "internship" in location_lower:
+        return "internship"
+    if re.search(r"part[\s-]?time", location_lower):
+        return "part_time"
+    if re.search(r"full[\s-]?time", location_lower):
+        return "full_time"
+    return None
 
 
 def _clean_location_text(location: str) -> str:
@@ -180,14 +197,19 @@ class IndeedScraper:
             if company_el:
                 company = await company_el.inner_text()
             location = base_data.get("location", "")
+            raw_location = location
             location_el = await page.query_selector(
                 ".jobsearch-JobInfoHeader-subtitle .jobsearch-JobInfoHeader-subtitleLocation, [data-testid='inlineHeader-companyLocation']"
             )
             if location_el:
-                location = await location_el.inner_text()
-                location = _clean_location_text(location)
+                raw_location = await location_el.inner_text()
+                location = _clean_location_text(raw_location)
             if not title or not company:
                 return None
+            job_type = _extract_job_type_from_location(raw_location) or detect_job_type_from_title(
+                title
+            )
+            work_mode = detect_work_mode_from_text(title, location)
             return JobSchema(
                 source="indeed_scrape",
                 title=title.strip(),
@@ -195,17 +217,27 @@ class IndeedScraper:
                 location=location.strip() or "Remote",
                 apply_url=job_url,
                 description_text=description.strip(),
+                job_type=job_type,
+                work_mode=work_mode,
             )
         except Exception as exc:
             logger.debug(f"Failed to fetch Indeed job {job_id}: {exc}")
             if base_data.get("title") and base_data.get("company"):
+                raw_location = base_data.get("location", "")
+                job_type = _extract_job_type_from_location(
+                    raw_location
+                ) or detect_job_type_from_title(base_data["title"])
+                location = _clean_location_text(raw_location)
+                work_mode = detect_work_mode_from_text(base_data["title"], location)
                 return JobSchema(
                     source="indeed_scrape",
                     title=base_data["title"],
                     company=base_data["company"],
-                    location=base_data.get("location", "Remote"),
+                    location=location or "Remote",
                     apply_url=f"https://www.indeed.com/viewjob?jk={job_id}",
                     description_text=base_data.get("description", ""),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             return None
 

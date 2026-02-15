@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from app.config import get_settings
-from .utils import parse_unix_timestamp
+from .utils import parse_unix_timestamp, parse_job_type, parse_work_mode
 from ..schemas import JobSchema
 
 
@@ -25,15 +25,23 @@ class LeverClient:
     def _normalize_jobs(self, company_slug: str, jobs: list[dict[str, Any]]) -> list[JobSchema]:
         normalized: list[JobSchema] = []
         for job in jobs:
+            title = job.get("text", "").strip()
+            location = (job.get("categories", {}) or {}).get("location", "").strip()
+            commitment = (job.get("categories", {}) or {}).get("commitment", "")
+            workplace_type = (job.get("categories", {}) or {}).get("workplaceType", "")
+            job_type = parse_job_type(commitment)
+            work_mode = parse_work_mode(workplace_type)
             normalized.append(
                 JobSchema(
                     source="lever",
-                    title=job.get("text", "").strip(),
+                    title=title,
                     company=company_slug,
-                    location=(job.get("categories", {}) or {}).get("location", "").strip(),
+                    location=location,
                     apply_url=job.get("hostedUrl", ""),
                     description_text=job.get("description", "") or "",
                     posted_at=parse_unix_timestamp(job.get("createdAt")),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             )
         return normalized

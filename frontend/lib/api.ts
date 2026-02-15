@@ -16,9 +16,12 @@ interface JobFilters {
   match_ids?: string;
 }
 
-export async function fetchJobs(filters: JobFilters = {}): Promise<JobListResponse> {
+export async function fetchJobs(
+  filters: JobFilters = {},
+  authToken?: string
+): Promise<JobListResponse> {
   const params = new URLSearchParams();
-  
+
   if (filters.page) params.set("page", filters.page.toString());
   if (filters.search) params.set("search", filters.search);
   if (filters.company) params.set("company", filters.company);
@@ -30,11 +33,17 @@ export async function fetchJobs(filters: JobFilters = {}): Promise<JobListRespon
   if (filters.work_mode) params.set("work_mode", filters.work_mode);
   if (filters.posted_within) params.set("posted_within", filters.posted_within);
   if (filters.match_ids) params.set("match_ids", filters.match_ids);
-  
+
   params.set("page_size", filters.page_size?.toString() || "20");
-  
+
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${BACKEND_URL}/jobs?${params.toString()}`, {
-    cache: "no-store"
+    cache: "no-store",
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
   if (!response.ok) {
     return { items: [], total: 0, page: 1, page_size: 20 };

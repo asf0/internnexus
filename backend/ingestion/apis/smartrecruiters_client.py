@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from .utils import parse_iso_datetime
+from .utils import parse_iso_datetime, parse_job_type, parse_work_mode
 from ..schemas import JobSchema
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,14 @@ class SmartRecruitersClient:
             if not apply_url:
                 job_id = job.get("id", "")
                 apply_url = f"https://jobs.smartrecruiters.com/{slug}/{job_id}"
+            employment_type = (
+                job.get("typeOfEmployment", {}).get("label", "")
+                if isinstance(job.get("typeOfEmployment"), dict)
+                else job.get("typeOfEmployment", "")
+            )
+            workplace_type = job.get("workplaceType", "")
+            job_type = parse_job_type(employment_type)
+            work_mode = parse_work_mode(workplace_type)
             normalized.append(
                 JobSchema(
                     source="smartrecruiters",
@@ -80,6 +88,8 @@ class SmartRecruitersClient:
                     apply_url=apply_url,
                     description_text=description_text,
                     posted_at=parse_iso_datetime(job.get("releasedDate")),
+                    job_type=job_type,
+                    work_mode=work_mode,
                 )
             )
         return normalized

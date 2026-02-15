@@ -1,7 +1,6 @@
 import UserMenu from "../components/UserMenu";
 import Toolbar from "../components/Toolbar";
 import JobList from "../components/JobList";
-import MatchedJobList from "../components/MatchedJobList";
 import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "../lib/api";
 import { BASE_URL } from "../lib/config";
 import Link from "next/link";
@@ -87,19 +86,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       <Toolbar companies={companies} locations={locations} categories={categories} />
 
-      {isMatched ? (
-        <MatchedJobList 
-          totalPages={totalPages} 
-          currentPage={currentPage} 
-        />
-      ) : (
-        <JobList 
-          jobs={data.items} 
-          total={data.total}
-          totalPages={totalPages} 
-          currentPage={currentPage} 
-        />
-      )}
+      <JobList 
+        jobs={data.items}
+        total={data.total}
+        totalPages={totalPages}
+        currentPage={currentPage}
+        matched={isMatched}
+      />
     </div>
   );
 }

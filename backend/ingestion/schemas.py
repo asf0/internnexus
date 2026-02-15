@@ -16,6 +16,8 @@ JobCategory = Literal[
     "quantitative_finance",
     "hardware_engineering",
 ]
+JobType = Literal["internship", "full_time", "part_time"]
+WorkMode = Literal["remote", "hybrid", "on_site"]
 
 
 class JobSchema(BaseModel):
@@ -32,6 +34,8 @@ class JobSchema(BaseModel):
     visa_sponsored: bool | None = None
     f1_friendly: bool | None = None
     job_category: JobCategory | None = None
+    job_type: JobType | None = None
+    work_mode: WorkMode | None = None
     requires_sponsorship: bool | None = None
     requires_us_citizenship: bool | None = None
     application_closed: bool | None = None

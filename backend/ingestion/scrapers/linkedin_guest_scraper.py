@@ -76,6 +76,19 @@ def _clean_location_text(location: str) -> str:
     return cleaned
 
 
+def _clean_description_text(description: str) -> str:
+    """Remove 'Show more/Show less' button from end of LinkedIn description."""
+    if not description:
+        return description
+
+    pattern = r"\s*<button[^>]*show-more-less-html__button[^>]*>.*?</button>\s*$"
+    cleaned = re.sub(pattern, "", description, flags=re.IGNORECASE | re.DOTALL)
+
+    cleaned = re.sub(r"\s*</(?:section|div)>\s*$", "", cleaned, flags=re.IGNORECASE)
+
+    return cleaned.strip()
+
+
 def _split_into_chunks(items: list, num_chunks: int) -> list[list]:
     """Split a list into roughly equal chunks."""
     chunk_size = max(1, len(items) // num_chunks)
@@ -182,6 +195,7 @@ class LinkedInGuestScraper:
             )
             if desc_el:
                 description = await desc_el.inner_html()
+                description = _clean_description_text(description)
 
             if not title or not company:
                 logger.debug(f"Skipping job {job_id}: missing title or company")
