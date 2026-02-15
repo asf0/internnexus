@@ -10,9 +10,13 @@ jobs:
     runs-on: docker
     container:
       image: node:24-slim
+      options: --volume /usr/bin/docker:/usr/bin/docker --volume /usr/local/lib/docker/cli-plugins:/usr/local/lib/docker/cli-plugins
     steps:
-      - name: Install Docker CLI
-        run: apt update && apt install -y docker.io
+      - name: Install Git
+        run: apt update && apt install -y git curl
+
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Create .env file
         run: |
