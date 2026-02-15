@@ -78,20 +78,29 @@ class TokenEncryptor:
         pem = pem.strip()
 
         try:
+            logger.info(
+                f"Private key input: length={len(pem)}, first_80='{pem[:80]}', last_80='{pem[-80:]}'"
+            )
+
             if not pem.startswith("-----BEGIN"):
-                logger.debug(
-                    f"Private key appears to be base64-encoded, first 50 chars: {pem[:50]}"
-                )
-                decoded = base64.b64decode(pem)
-                logger.debug(
-                    f"Decoded bytes length: {len(decoded)}, first 100 bytes: {decoded[:100]}"
-                )
-                pem = decoded.decode("utf-8")
-                logger.debug(f"After base64 decode, first 100 chars: {pem[:100]}")
+                logger.info("Attempting base64 decode...")
+                try:
+                    decoded = base64.b64decode(pem, validate=True)
+                    logger.info(
+                        f"Base64 decoded: length={len(decoded)}, first_100_bytes={decoded[:100]}"
+                    )
+                    pem = decoded.decode("utf-8")
+                    logger.info(f"After decode: first_100_chars='{pem[:100]}'")
+                except Exception as decode_err:
+                    logger.error(f"Base64 decode failed: {decode_err}")
+                    raise
 
             pem = pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
-            logger.debug(
-                f"Final PEM first line: {pem.split(chr(10))[0] if chr(10) in pem else pem[:50]}"
+
+            # Check for actual newlines
+            has_newlines = "\n" in pem
+            logger.info(
+                f"After newline replace: has_newlines={has_newlines}, first_line='{pem.split(chr(10))[0] if has_newlines else pem[:60]}'"
             )
 
             return serialization.load_pem_private_key(
@@ -100,9 +109,7 @@ class TokenEncryptor:
                 backend=default_backend(),
             )
         except Exception as exc:
-            logger.error(
-                f"Failed to load private key. Original input length: {len(original_pem)}, starts with '-----BEGIN': {original_pem.strip().startswith('-----BEGIN')}"
-            )
+            logger.error(f"Failed to load private key. Original length: {len(original_pem)}")
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
     def encrypt(self, plaintext: str) -> str:
