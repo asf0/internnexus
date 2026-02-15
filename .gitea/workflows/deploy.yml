@@ -42,8 +42,8 @@ jobs:
           AUTH_URL=${{ secrets.AUTH_URL }}
           NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
-          OAUTH_ENCRYPTION_PUBLIC_KEY=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY_B64 }}
-          OAUTH_ENCRYPTION_PRIVATE_KEY=${{ secrets.OAUTH_ENCRYPTION_PRIVATE_KEY_B64 }}
+          OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY_B64 }}
+          OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PRIVATE_KEY_B64 }}
           EOF
 
       - name: Deploy with Docker Compose
