@@ -7,6 +7,7 @@ import logging
 import os
 import secrets
 from typing import Any
+import base64
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -51,6 +52,8 @@ class TokenEncryptor:
     def _load_public_key(self, pem: str) -> Any:
         """Load RSA public key from PEM string."""
         try:
+            if self._is_base64(pem):
+                pem = base64.b64decode(pem).decode("utf-8")
             pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
             return serialization.load_pem_public_key(
                 pem.encode("utf-8"),
@@ -62,6 +65,8 @@ class TokenEncryptor:
     def _load_private_key(self, pem: str) -> Any:
         """Load RSA private key from PEM string."""
         try:
+            if self._is_base64(pem):
+                pem = base64.b64decode(pem).decode("utf-8") 
             pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
             return serialization.load_pem_private_key(
                 pem.encode("utf-8"),
@@ -71,6 +76,18 @@ class TokenEncryptor:
         except Exception as exc:
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
+    @staticmethod
+    def _is_base64(s: str) -> bool:
+        """Check if string is base64-encoded."""
+        # Quick heuristic: no spaces, no newlines, only base64 chars
+        if '\n' in s or ' ' in s or '-' in s:
+            return False
+        try:
+            base64.b64decode(s, validate=True)
+            return True
+        except Exception:
+            return False
+        
     def encrypt(self, plaintext: str) -> str:
         """Encrypt a string using RSA+AES hybrid encryption.
 
