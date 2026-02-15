@@ -46,6 +46,8 @@ COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY ingestion/ ./ingestion/
 COPY alembic.ini .
+COPY run_pipeline.py .
+COPY pipeline.yaml .
 
 # Expose port
 EXPOSE 8000
