@@ -6,7 +6,7 @@ const nextConfig = {
   output: 'standalone',
 
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_URL;
     return [
       {
         source: '/api/auth/:path*',
@@ -20,7 +20,7 @@ const nextConfig = {
   },
 
   async headers() {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_URL;
     const connectSrc = `connect-src 'self' ${isDev ? backendUrl + ' ' : ''}https://*.asf0.dev`;
 
     const headers = [

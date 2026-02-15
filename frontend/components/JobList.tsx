@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
 import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
 import Pagination from "./ui/Pagination";
 import { LoadingSpinner } from "./ui";
 import { Badge } from "./ui";
-import { fetchJobs } from "../lib/api";
+import { fetchMatchedJobs } from "../app/actions/jobs";
 import { CATEGORY_LABEL_MAP } from "../lib/constants";
 import { generateJobSlug, findJobBySlug } from "../lib/utils";
 import type { Job } from "../lib/types";
@@ -41,7 +40,6 @@ export default function JobList({
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
 
   const [clientJobs, setClientJobs] = useState<Job[]>([]);
   const [matchScoresMap, setMatchScoresMap] = useState<Map<string, number>>(new Map());
@@ -94,7 +92,7 @@ export default function JobList({
           return;
         }
 
-        const data = await fetchJobs({
+        const data = await fetchMatchedJobs({
           page: currentPage,
           page_size: PAGE_SIZE,
           search: searchQuery,
@@ -107,10 +105,16 @@ export default function JobList({
           work_mode: workMode,
           posted_within: postedWithin,
           match_ids: matchIds.join("|"),
-        }, session?.backendToken);
+        });
 
-        setClientJobs(data.items);
-        setClientTotal(data.total);
+        if ("error" in data) {
+          console.error("Failed to load matched jobs:", data.error);
+          setClientJobs([]);
+          setClientTotal(0);
+        } else {
+          setClientJobs(data.items);
+          setClientTotal(data.total);
+        }
       } catch (error) {
         console.error("Failed to load matched jobs:", error);
       } finally {
@@ -131,7 +135,6 @@ export default function JobList({
     jobType,
     workMode,
     postedWithin,
-    session?.backendToken,
   ]);
 
   const handleJobClick = useCallback(

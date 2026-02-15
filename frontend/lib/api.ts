@@ -19,8 +19,7 @@ interface JobFilters {
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
 
 export async function fetchJobs(
-  filters: JobFilters = {},
-  authToken?: string
+  filters: JobFilters = {}
 ): Promise<JobListResponse> {
   const params = new URLSearchParams();
 
@@ -38,14 +37,8 @@ export async function fetchJobs(
 
   params.set("page_size", filters.page_size?.toString() || "20");
 
-  const headers: Record<string, string> = {};
-  if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
-  }
-
   const response = await fetch(`${API_BASE}/jobs?${params.toString()}`, {
     cache: "no-store",
-    headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
   if (!response.ok) {
     return { items: [], total: 0, page: 1, page_size: 20 };
