@@ -53,7 +53,7 @@ class TokenEncryptor:
         """Load RSA public key from PEM string."""
         try:
             if self._is_base64(pem):
-                pem = base64.b64decode(pem).decode("utf-8")
+                pem = base64.b64decode(pem).decode("utf-8") # Handle base64-encoded PEM
             pem = pem.replace("\\n", "\n")  # Handle escaped newlines if present
             return serialization.load_pem_public_key(
                 pem.encode("utf-8"),
