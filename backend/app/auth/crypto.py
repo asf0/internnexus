@@ -240,7 +240,7 @@ def get_encryptor() -> TokenEncryptor:
 
         settings = get_settings()
 
-        if not settings.oauth_encryption_public_key:
+        if not settings.oauth_encryption_public_key_b64:
             raise EncryptionError("OAuth encryption public key not configured")
 
         _encryptor_instance = TokenEncryptor(
