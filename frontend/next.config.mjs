@@ -9,6 +9,10 @@ const nextConfig = {
     const backendUrl = isDev ? 'http://localhost:8000' : 'http://backend:8000';
     return [
       {
+        source: '/api/auth/:path*',
+        destination: '/api/auth/:path*',
+      },
+      {
         source: '/api/:path*',
         destination: `${backendUrl}/:path*`,
       },
