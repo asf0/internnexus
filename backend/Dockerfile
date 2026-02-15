@@ -39,7 +39,9 @@ RUN uv pip install --system --no-cache \
     python-jose[cryptography] \
     argon2-cffi \
     email-validator \
-    geostring
+    geostring \
+    pycountry \
+    pyyaml
 
 # Copy application code
 COPY app/ ./app/
