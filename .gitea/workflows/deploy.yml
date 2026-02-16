@@ -51,7 +51,7 @@ jobs:
         run: |
           docker compose pull || true
           docker compose up -d --build backend frontend
-          docker compose up -d pipeline db redis cloudflared
+          docker compose up -d db redis cloudflared
 
       - name: Health Check
         run: |
