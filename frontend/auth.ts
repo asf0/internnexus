@@ -9,8 +9,6 @@ const backendBaseUrl = process.env.BACKEND_URL;
 // Extend the session type to include accessToken and user.id
 declare module "next-auth" {
   interface Session {
-    accessToken?: string
-    backendToken?: string  // Our backend JWT token
     user: {
       id?: string
     } & DefaultSession["user"]
@@ -144,8 +142,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token
     },
     async session({ session, token }) {
-      // Send backend JWT to client
-      session.backendToken = token.backendToken as string
+      // Only expose user ID - backendToken stays in server-side JWT only
       session.user.id = token.id as string
       return session
     }

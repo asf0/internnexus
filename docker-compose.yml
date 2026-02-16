@@ -113,6 +113,7 @@ services:
       - "3000:3000"
     environment:
       - HOSTNAME=0.0.0.0
+      - BACKEND_URL=${BACKEND_URL}
       - AUTH_SECRET=${AUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - AUTH_URL=${AUTH_URL}

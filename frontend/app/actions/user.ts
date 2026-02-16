@@ -1,22 +1,22 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getBackendToken } from "@/lib/auth.server";
 import { revalidatePath } from "next/cache";
 import { BACKEND_URL } from "@/lib/config";
 import { parseApiError } from "@/lib/utils";
 import type { UserProfile, UpdateUserData } from "@/lib/types/user";
 
 export async function fetchUserProfile(): Promise<UserProfile | null> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
 
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return null;
   }
 
   try {
     const response = await fetch(`${BACKEND_URL}/users/me`, {
       headers: {
-        Authorization: `Bearer ${session.backendToken}`,
+        Authorization: `Bearer ${backendToken}`,
       },
     });
 
@@ -40,9 +40,9 @@ export interface ChangePasswordData {
 }
 
 export async function updateUserProfile(data: UpdateUserData): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
 
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return { success: false, error: "Not authenticated" };
   }
 
@@ -51,7 +51,7 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.backendToken}`,
+        Authorization: `Bearer ${backendToken}`,
       },
       body: JSON.stringify(data),
     });
@@ -71,9 +71,9 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
 }
 
 export async function changePassword(data: ChangePasswordData): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
 
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return { success: false, error: "Not authenticated" };
   }
 
@@ -82,7 +82,7 @@ export async function changePassword(data: ChangePasswordData): Promise<{ succes
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.backendToken}`,
+        Authorization: `Bearer ${backendToken}`,
       },
       body: JSON.stringify(data),
     });
@@ -100,9 +100,9 @@ export async function changePassword(data: ChangePasswordData): Promise<{ succes
 }
 
 export async function deleteAccount(): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
 
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return { success: false, error: "Not authenticated" };
   }
 
@@ -110,7 +110,7 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
     const response = await fetch(`${BACKEND_URL}/users/me`, {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${session.backendToken}`,
+        Authorization: `Bearer ${backendToken}`,
       },
     });
 

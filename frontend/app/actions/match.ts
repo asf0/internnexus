@@ -1,12 +1,12 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 
 export async function matchResume(formData: FormData): Promise<unknown> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
   
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return { error: "Authentication required. Please sign in." };
   }
 
@@ -21,7 +21,7 @@ export async function matchResume(formData: FormData): Promise<unknown> {
   const response = await fetch(`${BACKEND_URL}/match`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${session.backendToken}`,
+      "Authorization": `Bearer ${backendToken}`,
     },
     body,
   });

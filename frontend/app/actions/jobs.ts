@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 import type { JobListResponse } from "@/lib/types";
 
@@ -22,9 +22,9 @@ interface MatchedJobsFilters {
 export async function fetchMatchedJobs(
   filters: MatchedJobsFilters
 ): Promise<JobListResponse | { error: string }> {
-  const session = await auth();
+  const backendToken = await getBackendToken();
 
-  if (!session?.backendToken) {
+  if (!backendToken) {
     return { error: "Authentication required" };
   }
 
@@ -48,7 +48,7 @@ export async function fetchMatchedJobs(
     const response = await fetch(`${BACKEND_URL}/jobs?${params.toString()}`, {
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${session.backendToken}`,
+        Authorization: `Bearer ${backendToken}`,
       },
     });
 
