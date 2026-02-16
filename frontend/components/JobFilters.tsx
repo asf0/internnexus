@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState } from "react";
+import { useTransition } from "react";
 import MultiSelect from "./MultiSelect";
 import { SingleSelect, Input, Button } from "./ui";
 import { CATEGORY_LABEL_MAP } from "../lib/constants";
