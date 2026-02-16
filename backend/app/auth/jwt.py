@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -79,29 +79,6 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         payload = jwt.decode(token, settings.auth_secret, algorithms=[settings.jwt_algorithm])
         return payload
     except JWTError:
-        return None
-
-
-def get_user_id_from_token(token: str) -> UUID | None:
-    """Extract user_id from a JWT token.
-
-    Args:
-        token: The JWT token string
-
-    Returns:
-        The user UUID if valid, None otherwise
-    """
-    payload = decode_access_token(token)
-    if payload is None:
-        return None
-
-    user_id = payload.get("sub")
-    if user_id is None:
-        return None
-
-    try:
-        return UUID(user_id)
-    except ValueError:
         return None
 
 

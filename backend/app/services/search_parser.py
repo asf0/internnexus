@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
 
 
 class TokenType(Enum):
@@ -220,26 +219,6 @@ def parse_search_query(query: str) -> ParsedSearch:
         import logging
 
         logging.getLogger(__name__).warning(f"Failed to parse boolean query '{query}': {e}")
-        simple_terms = re.findall(r"\b\w+\b", query)
-        return ParsedSearch(is_boolean=False, original_query=query, simple_terms=simple_terms)
-
-    try:
-        lexer = SearchLexer(query)
-        parser = SearchParser(lexer.tokens)
-        expr = parser.parse()
-        # Log the parsed expression for debugging
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(
-            f"Parsed boolean query '{query}' -> operator={expr.operator}, terms={expr.terms}"
-        )
-        return ParsedSearch(is_boolean=True, original_query=query, expression=expr)
-    except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to parse boolean query '{query}': {e}")
         simple_terms = re.findall(r"\b\w+\b", query)
         return ParsedSearch(is_boolean=False, original_query=query, simple_terms=simple_terms)
 

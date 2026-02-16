@@ -56,9 +56,3 @@ US_STATES = {
     "WY": "Wyoming",
     "DC": "District of Columbia",
 }
-
-# Reverse lookup: full name to abbreviation
-STATE_NAMES_TO_ABBR = {v.lower(): k for k, v in US_STATES.items()}
-
-# Full state names set for quick lookup
-US_STATE_NAMES = set(v.lower() for v in US_STATES.values())
