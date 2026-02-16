@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -64,8 +65,42 @@ class JobSearchService:
         self.job_repo = JobRepository(session)
         self.cache = cache
 
+    def _cache_key(self, params: JobSearchParams) -> str:
+        """Generate cache key from all parameters."""
+        key_parts = [
+            f"page:{params.page}",
+            f"size:{params.page_size}",
+            f"search:{params.search or ''}",
+            f"company:{params.company or ''}",
+            f"location:{params.location or ''}",
+            f"category:{params.category or ''}",
+            f"visa:{params.visa_sponsored}",
+            f"f1:{params.f1_friendly}",
+            f"type:{params.job_type or ''}",
+            f"mode:{params.work_mode or ''}",
+            f"posted:{params.posted_within or ''}",
+            f"match:{params.match_ids or ''}",
+        ]
+        return "jobs:" + hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
     async def search(self, params: JobSearchParams) -> JobListResponse:
         """Execute job search with given parameters."""
+        cache_key = self._cache_key(params)
+
+        if self.cache:
+            cached = await self.cache.get(cache_key)
+            if cached:
+                return JobListResponse(**cached)
+
+        result = await self._execute_search(params)
+
+        if self.cache:
+            await self.cache.set(cache_key, result.model_dump(), ttl=300)
+
+        return result
+
+    async def _execute_search(self, params: JobSearchParams) -> JobListResponse:
+        """Execute the actual search query."""
         base_stmt = select(Job).where(Job.is_active == True)  # noqa: E712
 
         valid_ids = self._parse_match_ids(params.match_ids)
@@ -75,7 +110,7 @@ class JobSearchService:
 
         if params.search:
             parsed = parse_search_query(params.search)
-            keyword_ids, vector_results = await self._execute_search(
+            keyword_ids, vector_results = await self._run_search_query(
                 params.search, parsed, base_stmt, valid_ids
             )
             result_order = self._merge_results(keyword_ids, vector_results, valid_ids)
@@ -107,7 +142,7 @@ class JobSearchService:
                     continue
         return valid_ids
 
-    async def _execute_search(
+    async def _run_search_query(
         self,
         search: str,
         parsed: ParsedSearch,
