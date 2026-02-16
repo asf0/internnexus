@@ -4,9 +4,14 @@ import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 
 export async function matchResume(formData: FormData): Promise<unknown> {
+  console.log("[matchResume] Starting match...");
+  
   const backendToken = await getBackendToken();
   
+  console.log("[matchResume] Token result:", { hasToken: !!backendToken, tokenLength: backendToken?.length });
+  
   if (!backendToken) {
+    console.log("[matchResume] No backend token - returning auth error");
     return { error: "Authentication required. Please sign in." };
   }
 
