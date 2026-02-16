@@ -9,45 +9,28 @@ import { decode } from "next-auth/jwt";
 export async function getBackendToken(): Promise<string | undefined> {
   const cookieStore = await cookies();
   
-  // Log all available cookies for debugging
-  const allCookies = cookieStore.getAll();
-  console.log("[getBackendToken] All cookies:", allCookies.map(c => c.name));
-  
   const secureAuthjsCookie = cookieStore.get("__Secure-authjs.session-token")?.value;
   const authjsCookie = cookieStore.get("authjs.session-token")?.value;
   const legacyCookie = cookieStore.get("next-auth.session-token")?.value;
   
-  console.log("[getBackendToken] Cookie check:", {
-    secureAuthjsCookieLength: secureAuthjsCookie?.length || 0,
-    authjsCookieLength: authjsCookie?.length || 0,
-    legacyCookieLength: legacyCookie?.length || 0,
-  });
-  
   const authCookie = secureAuthjsCookie || authjsCookie || legacyCookie;
+  const cookieName = secureAuthjsCookie ? "__Secure-authjs.session-token" 
+    : authjsCookie ? "authjs.session-token" 
+    : "next-auth.session-token";
   
   if (!authCookie) {
-    console.log("[getBackendToken] No auth cookie found!");
     return undefined;
   }
 
   try {
-    console.log("[getBackendToken] Attempting decode with AUTH_SECRET length:", process.env.AUTH_SECRET?.length);
-    
     const decoded = await decode({
       token: authCookie,
       secret: process.env.AUTH_SECRET!,
-      salt: "__Secure-authjs.session-token",
-    });
-    
-    console.log("[getBackendToken] Decode result:", {
-      hasToken: !!decoded,
-      hasBackendToken: decoded && "backendToken" in decoded,
-      tokenKeys: decoded ? Object.keys(decoded) : [],
+      salt: cookieName,
     });
     
     return decoded?.backendToken as string | undefined;
-  } catch (error) {
-    console.error("[getBackendToken] Decode error:", error);
+  } catch {
     return undefined;
   }
 }

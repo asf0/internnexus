@@ -29,7 +29,9 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
 
     return await response.json();
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error fetching user profile:", error);
+    }
     return null;
   }
 }
@@ -65,7 +67,9 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Error updating user profile:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error updating user profile:", error);
+    }
     return { success: false, error: "An unexpected error occurred" };
   }
 }
@@ -94,7 +98,9 @@ export async function changePassword(data: ChangePasswordData): Promise<{ succes
 
     return { success: true };
   } catch (error) {
-    console.error("Error changing password:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error changing password:", error);
+    }
     return { success: false, error: "An unexpected error occurred" };
   }
 }
@@ -121,7 +127,9 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting account:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error deleting account:", error);
+    }
     return { success: false, error: "An unexpected error occurred" };
   }
 }

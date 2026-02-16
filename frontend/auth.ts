@@ -3,6 +3,7 @@ import GitHub from "next-auth/providers/github"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import type { DefaultSession } from "next-auth"
+import { SESSION_MAX_AGE_SECONDS, SESSION_UPDATE_AGE_SECONDS } from "@/lib/constants"
 
 const backendBaseUrl = process.env.BACKEND_URL;
 
@@ -28,17 +29,6 @@ declare module "next-auth" {
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
-  cookies: {
-      pkceCodeVerifier: {
-        name: 'authjs.pkce.code_verifier',
-        options: {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          secure: false, // Critical for localhost http
-        },
-      },
-    },
   providers: [
     GitHub({
       clientId: process.env.GH_CLIENT_ID as string,
@@ -83,7 +73,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             backendToken: data.access_token,
           }
         } catch (error) {
-          console.error("Login error:", error)
+          if (process.env.NODE_ENV !== "production") {
+            console.error("Login error:", error)
+          }
           return null
         }
       }
@@ -121,7 +113,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
           
           if (!response.ok) {
-            console.error("OAuth callback failed:", await response.text())
+            if (process.env.NODE_ENV !== "production") {
+              console.error("OAuth callback failed:", await response.text())
+            }
             throw new Error("Failed to exchange OAuth token")
           }
           
@@ -129,7 +123,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.backendToken = data.access_token
           token.id = data.user.id
         } catch (error) {
-          console.error("OAuth exchange error:", error)
+          if (process.env.NODE_ENV !== "production") {
+            console.error("OAuth exchange error:", error)
+          }
         }
       }
       
@@ -150,7 +146,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    updateAge: SESSION_UPDATE_AGE_SECONDS,
   },
   secret: process.env.AUTH_SECRET,
 })

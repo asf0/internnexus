@@ -61,7 +61,9 @@ export async function fetchMatchedJobs(
 
     return (await response.json()) as JobListResponse;
   } catch (error) {
-    console.error("Error fetching matched jobs:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error fetching matched jobs:", error);
+    }
     return { items: [], total: 0, page: 1, page_size: 20 };
   }
 }
