@@ -13,17 +13,17 @@ export async function getBackendToken(): Promise<string | undefined> {
   const allCookies = cookieStore.getAll();
   console.log("[getBackendToken] All cookies:", allCookies.map(c => c.name));
   
-  const secureCookie = cookieStore.get("__Secure-next-auth.session-token")?.value;
+  const secureAuthjsCookie = cookieStore.get("__Secure-authjs.session-token")?.value;
   const authjsCookie = cookieStore.get("authjs.session-token")?.value;
   const legacyCookie = cookieStore.get("next-auth.session-token")?.value;
   
   console.log("[getBackendToken] Cookie check:", {
-    secureCookieLength: secureCookie?.length || 0,
+    secureAuthjsCookieLength: secureAuthjsCookie?.length || 0,
     authjsCookieLength: authjsCookie?.length || 0,
     legacyCookieLength: legacyCookie?.length || 0,
   });
   
-  const authCookie = secureCookie || authjsCookie || legacyCookie;
+  const authCookie = secureAuthjsCookie || authjsCookie || legacyCookie;
   
   if (!authCookie) {
     console.log("[getBackendToken] No auth cookie found!");
