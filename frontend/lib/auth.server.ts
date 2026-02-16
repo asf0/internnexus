@@ -9,21 +9,18 @@ import { decode } from "next-auth/jwt";
 export async function getBackendToken(): Promise<string | undefined> {
   const cookieStore = await cookies();
   
-  // Get the auth cookie - Auth.js stores JWT in __Secure-next-auth.session-token (HTTPS)
-  // or next-auth.session-token (HTTP/localhost)
   const authCookie = 
     cookieStore.get("__Secure-next-auth.session-token")?.value ||
+    cookieStore.get("authjs.session-token")?.value ||
     cookieStore.get("next-auth.session-token")?.value;
   
-  if (!authCookie) {
-    return undefined;
-  }
+  if (!authCookie) return undefined;
 
   try {
     const token = await decode({
       token: authCookie,
       secret: process.env.AUTH_SECRET!,
-      salt: "next-auth.session-token",
+      salt: "authjs.session-token",
     });
     
     return token?.backendToken as string | undefined;
