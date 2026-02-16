@@ -1,38 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
-import { useSession } from "next-auth/react";
 import { useDebounce } from "use-debounce";
 import MultiSelect from "./MultiSelect";
 import { Button, Input, SingleSelect } from "./ui";
 import { matchResume } from "../app/actions/match";
+import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "../lib/constants";
+import type { MatchResponse } from "@/lib/types/job";
 
 interface ToolbarProps {
   companies: string[];
   locations: string[];
   categories?: string[];
+  isAuthenticated?: boolean;
 }
 
-const categoryLabelMap: Record<string, string> = {
-  "software_engineering": "Software Engineering",
-  "product_management": "Product Management",
-  "data_science_ai": "Data Science & AI",
-  "quantitative_finance": "Quantitative Finance",
-  "hardware_engineering": "Hardware Engineering",
-};
-
-export default function Toolbar({ companies, locations, categories = [] }: ToolbarProps) {
+export default function Toolbar({ companies, locations, categories = [], isAuthenticated = false }: ToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const { data: session } = useSession();
   
   const [showFilters, setShowFilters] = useState(false);
   const [showResume, setShowResume] = useState(false);
-  const [matchResult, setMatchResult] = useState<any>(null);
+  const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
   const [isMatching, setIsMatching] = useState(false);
   
   // Local state for search input with debouncing
@@ -111,24 +103,24 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
     try {
       const response = await matchResume(formData);
       setMatchResult(response);
-      if (response && typeof response === "object" && "matches" in response) {
-        const matches = (response as { matches?: Array<{ job_id: string; match_percentage: number }> }).matches || [];
+      if (response && "matches" in response && response.matches) {
+        const matches = response.matches;
         const matchIds = matches.map((match) => match.job_id).filter(Boolean);
         
         const scoresMap: Record<string, number> = {};
         matches.forEach((match) => {
           scoresMap[match.job_id] = match.match_percentage;
         });
-        localStorage.setItem("matchScores", JSON.stringify(scoresMap));
-        localStorage.setItem("matchIds", JSON.stringify(matchIds));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_IDS, JSON.stringify(matchIds));
         
         const params = new URLSearchParams(searchParams.toString());
         if (matchIds.length > 0) {
           params.set("matched", "true");
         } else {
           params.delete("matched");
-          localStorage.removeItem("matchScores");
-          localStorage.removeItem("matchIds");
+          localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+          localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
         }
         params.delete("page");
         startTransition(() => {
@@ -201,7 +193,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
         </Button>
 
         {/* Resume Upload Toggle Button - Only show if logged in */}
-        {session?.user && (
+        {isAuthenticated && (
           <Button
             variant={isResumeActive ? "primary" : "secondary"}
             onClick={() => setShowResume(!showResume)}
@@ -248,11 +240,11 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
 
             {/* Category */}
             <MultiSelect
-              options={categories.length > 0 ? categories : Object.keys(categoryLabelMap)}
+              options={categories.length > 0 ? categories : Object.keys(CATEGORY_LABEL_MAP)}
               selected={currentCategories}
               onChange={(values) => updateMultiSelect("category", values)}
               placeholder="Category"
-              labelMap={categoryLabelMap}
+              labelMap={CATEGORY_LABEL_MAP}
             />
 
             {/* Job Type */}
@@ -284,7 +276,7 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
       )}
 
       {/* Resume Upload Panel - Only show if logged in */}
-      {session?.user && showResume && (
+      {isAuthenticated && showResume && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
           <form
             action={handleResumeSubmit}
@@ -315,8 +307,8 @@ export default function Toolbar({ companies, locations, categories = [] }: Toolb
                   const params = new URLSearchParams(searchParams.toString());
                   params.delete("matched");
                   params.delete("page");
-                  localStorage.removeItem("matchScores");
-                  localStorage.removeItem("matchIds");
+                  localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+                  localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
                   startTransition(() => {
                     router.push(`/?${params.toString()}`);
                   });

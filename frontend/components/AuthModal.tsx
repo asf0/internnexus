@@ -1,11 +1,13 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { Github, Mail, UserPlus, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import PasswordInput, { calculateStrength } from "./PasswordInput";
 import Modal from "./Modal";
 import { Button, Input, Alert } from "./ui";
+import { loginSchema, registrationSchema } from "@/lib/validation";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,7 +23,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const { update } = useSession();
+  const router = useRouter();
 
   // Reset state when modal opens
   useEffect(() => {
@@ -51,24 +53,32 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const data = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    };
+
+    const result = loginSchema.safeParse(data);
+    if (!result.success) {
+      setError(result.error.issues[0].message);
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
+      const authResult = await signIn("credentials", {
+        email: result.data.email,
+        password: result.data.password,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (authResult?.error) {
         setError("Invalid email or password");
         setIsLoading(false);
         return;
       }
 
-      // Update session and close modal
-      await update();
+      router.refresh();
       onClose();
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -80,36 +90,37 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
     e.preventDefault();
     setError(null);
     
-    // Validate password strength
-    const strength = calculateStrength(password);
-    if (strength.score < 100) {
-      setError("Please meet all password requirements");
-      return;
-    }
-    
-    // Validate password confirmation
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      password: password,
+      confirm_password: confirmPassword,
+    };
+
+    const result = registrationSchema.safeParse(data);
+    if (!result.success) {
+      setError(result.error.issues[0].message);
       return;
     }
     
     setIsLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const name = formData.get("name") as string;
-
     try {
       const response = await fetch(`${backendBaseUrl}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({
+          email: result.data.email,
+          password: result.data.password,
+          name: result.data.name,
+        }),
       });
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (!response.ok) {
-        const detail = data.detail || {};
+        const detail = responseData.detail || {};
         if (detail.error === "EMAIL_REGISTERED_WITH_OAUTH") {
           setError(
             `${detail.message} Please sign in with your OAuth provider or go to Settings to set a password.`
@@ -121,21 +132,19 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
         return;
       }
 
-      // Registration successful - sign in with credentials
-      const result = await signIn("credentials", {
-        email,
-        password,
+      const authResult = await signIn("credentials", {
+        email: result.data.email,
+        password: result.data.password,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (authResult?.error) {
         setError("Account created but sign in failed. Please try signing in.");
         setIsLoading(false);
         return;
       }
 
-      // Update session and close modal
-      await update();
+      router.refresh();
       onClose();
     } catch {
       setError("An unexpected error occurred. Please try again.");

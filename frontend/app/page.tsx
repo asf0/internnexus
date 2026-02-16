@@ -4,6 +4,7 @@ import JobList from "../components/JobList";
 import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "../lib/api";
 import { BASE_URL } from "../lib/config";
 import Link from "next/link";
+import { auth } from "@/auth";
 
 interface HomePageProps {
   searchParams: Promise<{ 
@@ -26,8 +27,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const currentPage = parseInt(params.page || "1", 10);
   const isMatched = params.matched === "true";
+  const session = await auth();
   
-  // Only fetch jobs if not in matched mode (matched mode fetches client-side)
   const [data, companies, locations, categories] = await Promise.all([
     isMatched 
       ? Promise.resolve({ items: [], total: 0, page: 1, page_size: 20 })
@@ -80,11 +81,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <UserMenu />
+          <UserMenu user={session?.user} />
         </div>
       </header>
 
-      <Toolbar companies={companies} locations={locations} categories={categories} />
+      <Toolbar 
+        companies={companies} 
+        locations={locations} 
+        categories={categories}
+        isAuthenticated={!!session?.user}
+      />
 
       <JobList 
         jobs={data.items}

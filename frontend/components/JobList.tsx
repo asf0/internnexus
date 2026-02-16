@@ -9,9 +9,9 @@ import Pagination from "./ui/Pagination";
 import { LoadingSpinner } from "./ui";
 import { Badge } from "./ui";
 import { fetchMatchedJobs } from "../app/actions/jobs";
-import { CATEGORY_LABEL_MAP } from "../lib/constants";
+import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "../lib/constants";
 import { generateJobSlug, findJobBySlug } from "../lib/utils";
-import type { Job } from "../lib/types";
+import type { Job } from "@/lib/types/job";
 
 interface JobListProps {
   jobs?: Job[];
@@ -72,8 +72,8 @@ export default function JobList({
     const loadMatchedJobs = async () => {
       setIsLoading(true);
       try {
-        const storedIds = localStorage.getItem("matchIds");
-        const storedScores = localStorage.getItem("matchScores");
+        const storedIds = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
+        const storedScores = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
 
         if (!storedIds) {
           setClientJobs([]);
@@ -108,7 +108,9 @@ export default function JobList({
         });
 
         if ("error" in data) {
-          console.error("Failed to load matched jobs:", data.error);
+          if (process.env.NODE_ENV !== "production") {
+            console.error("Failed to load matched jobs:", data.error);
+          }
           setClientJobs([]);
           setClientTotal(0);
         } else {
@@ -116,7 +118,9 @@ export default function JobList({
           setClientTotal(data.total);
         }
       } catch (error) {
-        console.error("Failed to load matched jobs:", error);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to load matched jobs:", error);
+        }
       } finally {
         setIsLoading(false);
       }

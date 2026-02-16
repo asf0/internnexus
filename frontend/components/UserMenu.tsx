@@ -1,24 +1,21 @@
 "use client"
 
-import { useSession, signOut } from "next-auth/react"
+import { signOut } from "next-auth/react"
 import { User, LogOut, ChevronDown, Settings, UserCircle } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
 import AuthModal from "./AuthModal"
 
-export default function UserMenu() {
-  const { data: session, status } = useSession()
+interface UserMenuProps {
+  user?: { name?: string | null; email?: string | null; image?: string | null } | null
+}
+
+export default function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login")
 
-  if (status === "loading") {
-    return (
-      <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
-    )
-  }
-
-  if (!session) {
+  if (!user) {
     return (
       <>
         <button
@@ -45,10 +42,10 @@ export default function UserMenu() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
       >
-        {session.user?.image ? (
+        {user.image ? (
           <img
-            src={session.user.image}
-            alt={session.user.name || "User"}
+            src={user.image}
+            alt={user.name || "User"}
             className="h-8 w-8 rounded-full"
           />
         ) : (
@@ -57,7 +54,7 @@ export default function UserMenu() {
           </div>
         )}
         <span className="text-sm font-medium text-slate-700 dark:text-md-on-surface hidden sm:block">
-          {session.user?.name || session.user?.email}
+          {user.name || user.email}
         </span>
         <ChevronDown className="h-4 w-4 text-slate-500" />
       </button>
@@ -72,10 +69,10 @@ export default function UserMenu() {
             {/* User Info Header */}
             <div className="px-4 py-3 border-b border-slate-200 dark:border-md-outline-variant">
               <p className="text-sm font-medium text-slate-900 dark:text-md-on-surface">
-                {session.user?.name || "User"}
+                {user.name || "User"}
               </p>
               <p className="text-xs text-slate-500 dark:text-md-on-surface-variant truncate">
-                {session.user?.email}
+                {user.email}
               </p>
             </div>
 
