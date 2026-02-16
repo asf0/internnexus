@@ -19,7 +19,6 @@ interface HomePageProps {
     work_mode?: string;
     posted_within?: string;
     matched?: string;
-    selected?: string;
   }>;
 }
 
