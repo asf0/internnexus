@@ -1,14 +1,15 @@
 # InternNexus
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.128-green)](https://fastapi.tiangolo.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue)](https://www.postgresql.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.x-black)](https://bun.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > Production-ready internship aggregator with AI-powered job matching
 
-**Live Demo:** [demo-link] | **Documentation:** [docs/](docs/)
+**Live Demo:** [jobfinder.asf0.dev](https://jobfinder.asf0.dev) | **Documentation:** [docs/](docs/)
 
 InternNexus aggregates internship opportunities from multiple job boards (Greenhouse, Lever) and provides intelligent filtering, categorization, and AI-powered resume matching.
 
@@ -58,6 +59,8 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 
 ### Prerequisites
 - Docker & Docker Compose
+- [bun](https://bun.sh/) (frontend package manager)
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.12+
 - Ollama or LM Studio (for embeddings)
 
@@ -65,8 +68,8 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 ```bash
 git clone <repository-url>
 cd internjobs
-cp backend/.env.example backend/.env
-# Edit backend/.env with your settings
+cp .env.example .env
+# Edit .env with your settings
 ```
 
 ### 2. Start Infrastructure
@@ -77,7 +80,7 @@ docker-compose up -d  # PostgreSQL + Redis
 ### 3. Install & Run Backend
 ```bash
 cd backend
-uv pip install -e ".[dev]"
+uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
@@ -88,7 +91,7 @@ uv run uvicorn app.main:app --reload
 ```bash
 cd frontend
 bun install
-bun run dev
+bun dev
 ```
 
 ### 5. Ingest Jobs
@@ -103,7 +106,7 @@ uv run python run_pipeline.py --skip-discover
 
 ## 📊 Data Pipeline
 
-The ingestion system runs 4 sequential steps:
+The ingestion system runs 5 sequential steps:
 
 | Step | Action | Description |
 |------|--------|-------------|
@@ -111,6 +114,7 @@ The ingestion system runs 4 sequential steps:
 | 2 | **Ingest** | Fetch jobs from APIs, deduplicate, enrich |
 | 3 | **Cleanup** | Normalize location data (city/state/country) |
 | 4 | **Embed** | Generate vector embeddings for matching |
+| 5 | **Delete old** | Remove jobs older than configured days |
 
 ```bash
 # Run full pipeline
@@ -119,11 +123,26 @@ uv run run_pipeline.py
 # Skip discovery (faster, uses cached companies)
 uv run run_pipeline.py --skip-discover
 
-# Run continuously every hour
-uv run run_pipeline.py --continuous --interval 3600
+# Run continuously (interval from config)
+uv run run_pipeline.py -c
 
-# Resume interrupted run
-uv run run_pipeline.py --resume
+# Run with custom interval
+uv run run_pipeline.py -c --interval 3600
+
+# Single step execution
+uv run run_pipeline.py --step discover
+uv run run_pipeline.py --step ingest
+uv run run_pipeline.py --step cleanup
+uv run run_pipeline.py --step embed
+
+# Utility commands
+uv run run_pipeline.py --dry-run    # Preview without changes
+uv run run_pipeline.py --resume     # Resume failed run
+uv run run_pipeline.py --check      # Health checks only
+uv run run_pipeline.py --fresh      # Clear incomplete runs
+
+# Re-process ALL locations (careful!)
+uv run run_pipeline.py --step cleanup --all
 ```
 
 ---
@@ -144,9 +163,9 @@ uv run run_pipeline.py --resume
 
 ```bash
 cd backend
-pytest                    # Run all tests
-pytest --cov=app         # With coverage
-pytest -v               # Verbose output
+uv run pytest                    # Run all tests
+uv run pytest --cov=app         # With coverage
+uv run pytest -v                # Verbose output
 ```
 
 ---
@@ -157,15 +176,15 @@ Key environment variables:
 
 ```env
 # Database
-POSTGRES_DB=internjobs
-POSTGRES_USER=postgres
+POSTGRES_DB=internnexus
+POSTGRES_USER=internnexus
 POSTGRES_PASSWORD=secure_password
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# JWT
-JWT_SECRET=your-super-secret-key
+# Auth (min 32 characters)
+AUTH_SECRET=your-super-secret-key-min-32-chars
 
 # AI Provider (Ollama recommended)
 EMBEDDING_PROVIDER=ollama
@@ -209,7 +228,7 @@ git clone https://github.com/your-username/internjobs.git
 git checkout -b feature/your-feature
 
 # 3. Make changes and test
-pytest
+uv run pytest
 
 # 4. Commit and push
 git commit -m "Add your feature"

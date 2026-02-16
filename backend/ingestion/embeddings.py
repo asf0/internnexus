@@ -190,6 +190,11 @@ async def generate_embeddings(
         logger.info("No jobs need embeddings")
         return 0, 0
 
+    # Calculate expected batches with safety margin to prevent infinite loops
+    expected_batches = (total_jobs // batch_size) + 1
+    max_batches = expected_batches * 2  # 2x safety margin for retries
+    logger.info(f"Expected ~{expected_batches} batches (max: {max_batches})")
+
     semaphore = asyncio.Semaphore(PARALLEL_BATCHES)
     batch_num = 0
 
@@ -202,6 +207,16 @@ async def generate_embeddings(
             return result
 
     while True:
+        # Safety check to prevent infinite loops when jobs keep getting skipped
+        if batch_num >= max_batches:
+            logger.warning(f"Reached max_batches limit ({max_batches}). Stopping.")
+            remaining_skipped = total_jobs - total_success - total_errors - total_skipped
+            if remaining_skipped > 0:
+                logger.warning(
+                    f"{remaining_skipped} jobs were skipped due to empty/short descriptions"
+                )
+            break
+
         pending_batches = []
 
         for _ in range(PARALLEL_BATCHES):
