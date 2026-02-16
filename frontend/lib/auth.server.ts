@@ -36,7 +36,7 @@ export async function getBackendToken(): Promise<string | undefined> {
     const decoded = await decode({
       token: authCookie,
       secret: process.env.AUTH_SECRET!,
-      salt: "authjs.session-token",
+      salt: "__Secure-authjs.session-token",
     });
     
     console.log("[getBackendToken] Decode result:", {
