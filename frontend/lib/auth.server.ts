@@ -23,6 +23,7 @@ export async function getBackendToken(): Promise<string | undefined> {
     const token = await decode({
       token: authCookie,
       secret: process.env.AUTH_SECRET!,
+      salt: "next-auth.session-token",
     });
     
     return token?.backendToken as string | undefined;
