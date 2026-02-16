@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import JobDetailPanel from "./JobDetailPanel";
-import type { Job } from "../lib/types";
+import type { Job } from "@/lib/types";
 
 interface JobDetailPanelContainerProps {
   job: Job | null;

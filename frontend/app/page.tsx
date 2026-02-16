@@ -1,7 +1,7 @@
-import UserMenu from "../components/UserMenu";
-import Toolbar from "../components/Toolbar";
-import JobList from "../components/JobList";
-import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "../lib/api";
+import { UserMenu } from "@/components/common";
+import { Toolbar } from "@/components/toolbar";
+import { JobList } from "@/components/jobs";
+import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "@/lib/api";
 import { BASE_URL } from "../lib/config";
 import Link from "next/link";
 import { auth } from "@/auth";

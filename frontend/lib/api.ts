@@ -1,20 +1,5 @@
 import { BACKEND_URL } from "./config";
-import type { Job, JobListResponse } from "./types";
-
-interface JobFilters {
-  page?: number;
-  page_size?: number;
-  search?: string;
-  company?: string;
-  location?: string;
-  category?: string;
-  visa_sponsored?: string;
-  f1_friendly?: string;
-  job_type?: string;
-  work_mode?: string;
-  posted_within?: string;
-  match_ids?: string;
-}
+import type { Job, JobListResponse, JobFilters } from "./types";
 
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
 

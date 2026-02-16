@@ -1,7 +1,7 @@
 "use client";
 
 import Modal from "./Modal";
-import { Badge, Card, CardContent } from "./ui";
+import { Badge, Card, CardContent } from "@/components/ui";
 
 interface AboutModalProps {
   isOpen: boolean;

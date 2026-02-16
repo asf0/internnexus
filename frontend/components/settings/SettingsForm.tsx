@@ -20,8 +20,8 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import { updateUserProfile, changePassword, deleteAccount } from "@/app/actions/user"
-import PasswordInput, { calculateStrength } from "@/components/PasswordInput"
-import Modal from "@/components/Modal"
+import { PasswordInput, calculateStrength } from "@/components/common"
+import { Modal } from "@/components/modals"
 import { Button, Input, Card, CardContent, Badge, IconContainer, Alert, FormField } from "@/components/ui"
 import { DELETE_CONFIRM_TEXT } from "@/lib/constants"
 import type { UserProfile } from "@/lib/types/user"

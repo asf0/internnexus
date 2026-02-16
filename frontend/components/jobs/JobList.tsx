@@ -3,14 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
 import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
-import Pagination from "./ui/Pagination";
-import { LoadingSpinner } from "./ui";
-import { Badge } from "./ui";
-import { fetchMatchedJobs } from "../app/actions/jobs";
-import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "../lib/constants";
-import { generateJobSlug, findJobBySlug } from "../lib/utils";
+import { JobCard } from "./JobCard";
+import Pagination from "@/components/ui/Pagination";
+import { LoadingSpinner } from "@/components/ui";
+import { fetchMatchedJobs } from "@/app/actions/jobs";
+import { LOCAL_STORAGE_KEYS, DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { generateJobSlug, findJobBySlug } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
 interface JobListProps {
@@ -20,15 +19,6 @@ interface JobListProps {
   currentPage: number;
   matched?: boolean;
 }
-
-const getMatchColor = (percentage: number) => {
-  if (percentage >= 80) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-  if (percentage >= 60) return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-  if (percentage >= 40) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-  return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
-};
-
-const PAGE_SIZE = 20;
 
 export default function JobList({
   jobs: serverJobs,
@@ -59,7 +49,7 @@ export default function JobList({
 
   const jobs = matched ? clientJobs : (serverJobs || []);
   const total = matched ? clientTotal : (serverTotal || 0);
-  const totalPagesComputed = matched ? Math.ceil(clientTotal / PAGE_SIZE) : (serverTotalPages || 1);
+  const totalPagesComputed = matched ? Math.ceil(clientTotal / DEFAULT_PAGE_SIZE) : (serverTotalPages || 1);
 
   const selectedJob = useMemo(() => {
     if (!selectedSlug) return null;
@@ -94,7 +84,7 @@ export default function JobList({
 
         const data = await fetchMatchedJobs({
           page: currentPage,
-          page_size: PAGE_SIZE,
+          page_size: DEFAULT_PAGE_SIZE,
           search: searchQuery,
           company,
           location,
@@ -196,55 +186,13 @@ export default function JobList({
           {jobs.map((job) => {
             const matchPercentage = matched ? matchScoresMap.get(job.id) : undefined;
             return (
-              <article
+              <JobCard
                 key={job.id}
+                job={job}
+                isSelected={selectedJob?.id === job.id}
+                matchPercentage={matchPercentage}
                 onClick={() => handleJobClick(job)}
-                className={`mb-3 cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${
-                  selectedJob?.id === job.id
-                    ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950"
-                    : "border-slate-200 bg-white hover:border-slate-300 dark:border-md-outline-variant dark:bg-md-surface-container-low dark:hover:border-slate-600"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-md-on-surface">{job.title}</h3>
-                      {job.is_faang_plus && (
-                        <Flame className="h-4 w-4 text-orange-500" />
-                      )}
-                      {matchPercentage !== undefined && (
-                        <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getMatchColor(matchPercentage)}`}>
-                          <TrendingUp className="h-3 w-3" />
-                          {matchPercentage.toFixed(1)}%
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-sm text-slate-600 dark:text-md-on-surface-variant">
-                      <span className="flex items-center gap-1">
-                        <Building2 className="h-4 w-4" />
-                        {job.company}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.location}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {job.job_category && (
-                        <Badge variant="default">
-                          {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
-                        </Badge>
-                      )}
-                      {job.visa_sponsored && (
-                        <Badge variant="visa">Visa</Badge>
-                      )}
-                      {job.f1_friendly && (
-                        <Badge variant="f1">F1</Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </article>
+              />
             );
           })}
 

@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getUserProfile } from "@/app/actions/user"
-import SettingsForm from "@/components/SettingsForm"
+import { SettingsForm } from "@/components/settings";
 import { Loader2 } from "lucide-react"
 
 export default async function SettingsPage() {

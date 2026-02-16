@@ -30,15 +30,18 @@ export interface JobListResponse {
 }
 
 export interface JobFilters {
+  page?: number;
+  page_size?: number;
   search?: string;
   company?: string;
   location?: string;
   category?: string;
-  visa_sponsored?: boolean;
-  f1_friendly?: boolean;
+  visa_sponsored?: string;
+  f1_friendly?: string;
   job_type?: string;
   work_mode?: string;
   posted_within?: string;
+  match_ids?: string;
 }
 
 export interface MatchResult {

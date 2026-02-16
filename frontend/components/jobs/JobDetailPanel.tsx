@@ -2,9 +2,9 @@
 
 import { X, MapPin, Building2, ExternalLink, Calendar, Flame, GraduationCap, Globe, Flag } from "lucide-react";
 import DOMPurify from 'isomorphic-dompurify';
-import { Badge, LoadingSpinner } from "./ui";
-import { CATEGORY_LABEL_MAP } from "../lib/constants";
-import type { Job } from "../lib/types";
+import { Badge, LoadingSpinner } from "@/components/ui";
+import { CATEGORY_LABEL_MAP } from "@/lib/constants";
+import type { Job } from "@/lib/types";
 
 interface JobDetailPanelProps {
   job: Job | null;

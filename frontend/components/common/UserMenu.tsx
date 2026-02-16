@@ -4,7 +4,7 @@ import { signOut } from "next-auth/react"
 import { User, LogOut, ChevronDown, Settings, UserCircle } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
-import AuthModal from "./AuthModal"
+import { AuthModal } from "@/components/auth"
 
 interface UserMenuProps {
   user?: { name?: string | null; email?: string | null; image?: string | null } | null

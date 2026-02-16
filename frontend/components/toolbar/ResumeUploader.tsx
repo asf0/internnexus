@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { matchResume } from "../app/actions/match";
+import { matchResume } from "@/app/actions/match";
 import { Building2, MapPin, TrendingUp } from "lucide-react";
-import { getMatchColor } from "../lib/utils";
-import type { MatchResponse } from "../lib/types/job";
+import { getMatchColor } from "@/lib/utils";
+import type { MatchResponse } from "@/lib/types/job";
 
 export default function ResumeUploader(){
   const [result, setResult] = useState<MatchResponse | null>(null);

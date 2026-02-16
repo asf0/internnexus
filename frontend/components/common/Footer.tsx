@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { Github, Linkedin, Mail } from "lucide-react";
-import AboutModal from "./AboutModal";
-import PrivacyModal from "./PrivacyModal";
-import TermsModal from "./TermsModal";
-import { Button } from "./ui";
+import { AboutModal, PrivacyModal, TermsModal } from "@/components/modals";
+import { Button } from "@/components/ui";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();

@@ -4,10 +4,10 @@ import { useState, useEffect, useRef, useTransition } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
-import MultiSelect from "./MultiSelect";
-import { Button, Input, SingleSelect } from "./ui";
-import { matchResume } from "../app/actions/match";
-import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "../lib/constants";
+import { MultiSelect } from "@/components/common";
+import { Button, Input, SingleSelect } from "@/components/ui";
+import { matchResume } from "@/app/actions/match";
+import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import type { MatchResponse } from "@/lib/types/job";
 
 interface ToolbarProps {
