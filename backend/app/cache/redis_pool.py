@@ -81,7 +81,19 @@ class RedisService:
         """Set a value in cache with TTL."""
         client = await self._get_client()
         try:
-            await client.setex(key, ttl, json.dumps(value))
+            # Handle Pydantic models and ORM models
+            if hasattr(value, "model_dump"):
+                serialized = json.dumps(value.model_dump())
+            elif hasattr(value, "__dict__") and hasattr(value.__class__, "__tablename__"):
+                # SQLAlchemy ORM model - convert to dict
+                from sqlalchemy.inspection import inspect as sa_inspect
+
+                mapper = sa_inspect(value.__class__)
+                data = {c.key: getattr(value, c.key) for c in mapper.columns}
+                serialized = json.dumps(data, default=str)
+            else:
+                serialized = json.dumps(value, default=str)
+            await client.setex(key, ttl, serialized)
             return True
         except redis.RedisError as e:
             logger.warning(f"Cache set error for key {key}: {e}")

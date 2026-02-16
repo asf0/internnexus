@@ -122,8 +122,9 @@ async def get_job(
     request: Request,
     job_id: str,
     db: AsyncSession = Depends(get_db),
+    cache: RedisService = Depends(get_redis_service),
 ) -> JobResponse:
-    """Get a single job by ID."""
+    """Get a single job by ID (cached 5 min)."""
     from uuid import UUID
 
     try:
@@ -131,6 +132,13 @@ async def get_job(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
+    # Try cache first
+    cache_key = f"job:{job_id}"
+    cached = await cache.get(cache_key)
+    if cached:
+        return JobResponse(**cached)
+
+    # Cache miss - fetch from DB
     repo = JobRepository(db)
     job = await repo.get_by_id(uuid)
 
@@ -139,4 +147,9 @@ async def get_job(
     if job.is_active is not True:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return JobResponse.model_validate(job)
+    response = JobResponse.model_validate(job)
+
+    # Cache the response (as dict for JSON serialization)
+    await cache.set(cache_key, response.model_dump(), ttl=300)
+
+    return response
