@@ -12,3 +12,4 @@ dist
 my-react-native-app/
 rntemp/
 opencode.json
+*.pdf
