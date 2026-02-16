@@ -15,13 +15,23 @@ class Base(DeclarativeBase):
 
 settings = get_settings()
 
-# Async engine and session
-async_engine = create_async_engine(settings.resolved_database_url, pool_pre_ping=True)
+async_engine = create_async_engine(
+    settings.resolved_database_url,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_recycle=1800,
+)
 AsyncSessionLocal = async_sessionmaker(bind=async_engine, autoflush=False, autocommit=False)
 
-# Sync engine and session for ingestion scripts
 sync_engine = create_engine(
-    settings.resolved_database_url.replace("+asyncpg", ""), pool_pre_ping=True
+    settings.resolved_database_url.replace("+asyncpg", ""),
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
 )
 SessionLocal = sessionmaker(bind=sync_engine, autoflush=False, autocommit=False)
 

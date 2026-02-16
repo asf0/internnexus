@@ -5,10 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-import httpx
-
 from app.config import get_settings
-from ingestion.apis.company_registry import COMPANY_REGISTRY
+from app.http_client.client import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +15,9 @@ async def verify_greenhouse_board(slug: str) -> bool:
     """Check if a company has a Greenhouse job board."""
     settings = get_settings()
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{settings.greenhouse_api_url}/{slug}/jobs", timeout=5.0)
-            return response.status_code == 200
+        client = get_http_client()
+        response = await client.get(f"{settings.greenhouse_api_url}/{slug}/jobs", timeout=5.0)
+        return response.status_code == 200
     except Exception:
         return False
 
@@ -28,9 +26,9 @@ async def verify_lever_board(slug: str) -> bool:
     """Check if a company has a Lever job board."""
     settings = get_settings()
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{settings.lever_api_url}/{slug}?mode=json", timeout=5.0)
-            return response.status_code == 200
+        client = get_http_client()
+        response = await client.get(f"{settings.lever_api_url}/{slug}?mode=json", timeout=5.0)
+        return response.status_code == 200
     except Exception:
         return False
 
@@ -43,42 +41,22 @@ async def verify_company(slug: str) -> bool:
     return gh_result or lv_result
 
 
-async def discover_companies() -> list[str]:
-    """Discover companies with active job boards."""
+async def discover_companies(slugs: set[str] | None = None) -> list[str]:
+    """Discover companies with active job boards.
+
+    Args:
+        slugs: Optional set of company slugs to verify. If None, uses default set.
+    """
     logger.info("=" * 60)
     logger.info("STEP 1: Discovering companies with active job boards...")
     logger.info("=" * 60)
 
-    slugs = set(COMPANY_REGISTRY)
+    if slugs is None:
+        from ingestion.apis.company_registry import SEED_COMPANIES
+        from ingestion.data import load_common_companies
 
-    # Add some additional common slugs to check
-    additional_slugs = {
-        "airbnb",
-        "stripe",
-        "netflix",
-        "uber",
-        "spotify",
-        "slack",
-        "figma",
-        "notion",
-        "discord",
-        "zapier",
-        "airtable",
-        "canva",
-        "amplitude",
-        "brex",
-        "datadog",
-        "plaid",
-        "shopify",
-        "zendesk",
-        "cloudflare",
-        "twilio",
-        "github",
-        "gitlab",
-        "mongodb",
-        "elastic",
-    }
-    slugs.update(additional_slugs)
+        slugs = set(SEED_COMPANIES)
+        slugs.update(load_common_companies())
 
     logger.info(f"Verifying {len(slugs)} company slugs...")
 

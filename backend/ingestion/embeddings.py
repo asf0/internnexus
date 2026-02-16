@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import os
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -18,9 +18,11 @@ from app.services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
-# Log directory for skipped jobs
 LOGS_DIR = Path(__file__).parent.parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
+
+PARALLEL_BATCHES = 3
+EMBEDDING_BATCH_SIZE = 10
 
 
 def _get_skipped_jobs_log_path() -> Path:
@@ -35,7 +37,6 @@ def _rotate_old_logs() -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         for log_file in LOGS_DIR.glob("skipped_jobs_*.jsonl"):
             try:
-                # Extract date from filename: skipped_jobs_YYYY-MM-DD.jsonl
                 date_str = log_file.stem.split("_")[-1]
                 file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 if file_date < cutoff:
@@ -70,48 +71,106 @@ def _log_skipped_job(job: Job, reason: str, text_length: int) -> None:
 
 
 def clean_text(text: str) -> str:
-    """Clean and truncate text for embedding.
-
-    Uses higher limit for ASCII text (English) and lower limit for
-    non-ASCII text (Japanese, Chinese, etc.) which uses more tokens per char.
-    """
+    """Clean and truncate text for embedding."""
     if not text:
         return ""
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"&[a-zA-Z]+;", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
 
-    # Check if text is mostly ASCII (a-z, 0-9, common punctuation)
     ascii_chars = sum(1 for c in text if ord(c) < 128)
     is_mostly_ascii = len(text) == 0 or (ascii_chars / len(text)) > 0.8
 
-    # Use appropriate limit based on character type
     max_chars = 6000 if is_mostly_ascii else 2000
 
     return text[:max_chars]
 
 
+async def _fetch_jobs_batch(batch_size: int) -> list[Job]:
+    """Fetch a batch of jobs without embeddings."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Job).where(Job.description_embedding.is_(None)).limit(batch_size)
+        )
+        jobs = result.scalars().all()
+        return list(jobs)
+
+
+async def _process_batch(
+    jobs: list[Job],
+    embedder: EmbeddingService,
+    batch_num: int,
+) -> tuple[int, int, int]:
+    """Process a single batch of jobs with embeddings.
+
+    Returns:
+        Tuple of (success_count, error_count, skipped_count)
+    """
+    if not jobs:
+        return 0, 0, 0
+
+    async with AsyncSessionLocal() as db:
+        jobs_in_db = []
+        texts = []
+
+        for job in jobs:
+            text = clean_text(job.description_text)
+            text_length = len(text) if text else 0
+
+            if not text:
+                _log_skipped_job(job, "empty_text", text_length)
+                continue
+            if text_length < 30:
+                _log_skipped_job(job, "too_short", text_length)
+                continue
+
+            jobs_in_db.append(job)
+            texts.append(text)
+
+        skipped = len(jobs) - len(jobs_in_db)
+
+        if not jobs_in_db:
+            return 0, 0, skipped
+
+        success = 0
+        errors = 0
+
+        for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+            batch_texts = texts[i : i + EMBEDDING_BATCH_SIZE]
+            batch_jobs = jobs_in_db[i : i + EMBEDDING_BATCH_SIZE]
+
+            try:
+                embeddings = await embedder.embed_many(batch_texts, batch_size=EMBEDDING_BATCH_SIZE)
+                for job, embedding in zip(batch_jobs, embeddings):
+                    job.description_embedding = embedding
+                    db.add(job)
+                    success += 1
+            except Exception as e:
+                errors += len(batch_jobs)
+                if errors <= 3:
+                    logger.warning(f"  Batch {batch_num} embedding error: {e}")
+
+        await db.commit()
+        return success, errors, skipped
+
+
 async def generate_embeddings(
     session: AsyncSession | None = None, batch_size: int = 50
 ) -> tuple[int, int]:
-    """Generate embeddings for jobs without them.
-
-    Processes jobs in batches, with each batch using a separate session to avoid
-    SQLAlchemy greenlet issues after commit.
+    """Generate embeddings for jobs without them using parallel processing.
 
     Args:
-        session: Optional existing session. If None, creates new sessions per batch.
-        batch_size: Number of embeddings to generate per batch
+        session: Optional existing session (unused, kept for API compatibility)
+        batch_size: Number of jobs to process per parallel batch
 
     Returns:
         Tuple of (success_count, error_count)
     """
     logger.info("=" * 60)
-    logger.info("STEP 4: Generating embeddings...")
+    logger.info("STEP 4: Generating embeddings (parallel mode)...")
     logger.info("=" * 60)
 
     total_success, total_errors, total_skipped = 0, 0, 0
-    batch_num = 0
 
     try:
         embedder = EmbeddingService()
@@ -120,103 +179,60 @@ async def generate_embeddings(
         logger.error(f"Failed to initialize embedding service: {e}")
         return 0, 0
 
-    # Get total count of jobs needing embeddings
     async with AsyncSessionLocal() as count_db:
         count_result = await count_db.execute(
             select(func.count()).select_from(Job).where(Job.description_embedding.is_(None))
         )
-        total_jobs = count_result.scalar()
+        total_jobs = count_result.scalar() or 0
         logger.info(f"Found {total_jobs} jobs without embeddings")
 
-    # Calculate expected batches (with safety margin)
-    expected_batches = (total_jobs // batch_size) + 1
-    max_batches = expected_batches * 2  # 2x safety margin for retries
-    logger.info(f"Expected ~{expected_batches} batches (max: {max_batches})")
+    if total_jobs == 0:
+        logger.info("No jobs need embeddings")
+        return 0, 0
+
+    semaphore = asyncio.Semaphore(PARALLEL_BATCHES)
+    batch_num = 0
+
+    async def process_with_semaphore(jobs: list[Job], num: int) -> tuple[int, int, int]:
+        async with semaphore:
+            result = await _process_batch(jobs, embedder, num)
+            logger.info(
+                f"  Batch {num}: {result[0]} success, {result[1]} errors, {result[2]} skipped"
+            )
+            return result
 
     while True:
-        batch_num += 1
+        pending_batches = []
 
-        # Safety check to prevent infinite loops
-        if batch_num > max_batches:
-            logger.warning(f"Reached max_batches limit ({max_batches}). Stopping.")
-            logger.warning(
-                f"There may be {total_jobs - total_success - total_errors - total_skipped} "
-                "jobs that couldn't be processed."
-            )
-            break
-
-        # Create a new session for each batch
-        async with AsyncSessionLocal() as db:
-            # Query only batch_size jobs without embeddings
-            result = await db.execute(
-                select(Job).where(Job.description_embedding.is_(None)).limit(batch_size)
-            )
-            jobs = result.scalars().all()
+        for _ in range(PARALLEL_BATCHES):
+            batch_num += 1
+            jobs = await _fetch_jobs_batch(batch_size)
 
             if not jobs:
-                # No more jobs to process
                 break
 
-            logger.info(f"Processing batch {batch_num}: {len(jobs)} jobs")
+            pending_batches.append(process_with_semaphore(jobs, batch_num))
 
-            batch_success, batch_errors, batch_skipped = 0, 0, 0
-            batch_empty_text, batch_too_short = 0, 0
+        if not pending_batches:
+            break
 
-            for i, job in enumerate(jobs):
-                try:
-                    text = clean_text(job.description_text)
-                    text_length = len(text) if text else 0
-                    if not text:
-                        batch_empty_text += 1
-                        batch_skipped += 1
-                        _log_skipped_job(job, "empty_text", text_length)
-                        continue
-                    if text_length < 30:
-                        batch_too_short += 1
-                        batch_skipped += 1
-                        _log_skipped_job(job, "too_short", text_length)
-                        continue
+        results = await asyncio.gather(*pending_batches, return_exceptions=True)
 
-                    embedding = await embedder.embed(text)
-                    job.description_embedding = embedding
-                    batch_success += 1
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Batch failed with exception: {result}")
+                total_errors += batch_size
+            else:
+                success, errors, skipped = result
+                total_success += success
+                total_errors += errors
+                total_skipped += skipped
 
-                    if (i + 1) % 25 == 0:
-                        logger.info(f"  [{i + 1}/{len(jobs)}] {job.company} - {job.title[:40]}...")
-
-                except Exception as e:
-                    batch_errors += 1
-                    if batch_errors <= 3:
-                        logger.warning(f"  [{i + 1}/{len(jobs)}] Error: {e}")
-
-            # Commit this batch
-            await db.commit()
-
-            total_success += batch_success
-            total_errors += batch_errors
-            total_skipped += batch_skipped
-
-            # Progress logging
-            if batch_num % 100 == 0 or batch_num == 1:
-                progress = min((batch_num / expected_batches) * 100, 100)
-                logger.info(
-                    f"Progress: {batch_num}/{expected_batches} batches ({progress:.1f}%) - "
-                    f"{total_success} success, {total_errors} errors, {total_skipped} skipped"
-                )
-
-            # Build skip reasons summary
-            skip_reasons = []
-            if batch_empty_text > 0:
-                skip_reasons.append(f"{batch_empty_text} empty text")
-            if batch_too_short > 0:
-                skip_reasons.append(f"{batch_too_short} too short")
-            skip_details = f" ({', '.join(skip_reasons)})" if skip_reasons else ""
-
-            logger.info(
-                f"Batch {batch_num} complete: {batch_success} success, {batch_errors} errors, "
-                f"{batch_skipped} skipped{skip_details} "
-                f"(total: {total_success} success, {total_errors} errors, {total_skipped} skipped)"
-            )
+        remaining = total_jobs - total_success - total_errors - total_skipped
+        logger.info(
+            f"Progress: {total_success} embedded, {total_errors} errors, "
+            f"{total_skipped} skipped, ~{remaining} remaining"
+        )
 
     logger.info(
         f"Embedding complete: {total_success} success, {total_errors} errors, "

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,27 +13,40 @@ from app.api.auth import router as auth_router
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
 from app.api.users import router as users_router
+from app.cache.redis_pool import close_redis_pool
+from app.db import async_engine
+from app.http_client.client import close_http_client
 from app.middleware.logging import RequestLoggingMiddleware
-from app.rate_limiter import limiter, RATE_LIMITS
+from app.middleware.query_timing import setup_query_timing
+from app.middleware.security import SecurityHeadersMiddleware
+from app.rate_limiter import RATE_LIMITS, limiter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[logging.StreamHandler()])
 
-app = FastAPI(title="InternNexus API", version="1.0.0")
 
-# Add rate limiter to app state
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events."""
+    setup_query_timing(async_engine)
+    yield
+    await close_redis_pool()
+    await close_http_client()
+
+
+app = FastAPI(title="InternNexus API", version="1.0.0", lifespan=lifespan)
+
 app.state.limiter = limiter
 
 
-# Add rate limit exceeded exception handler
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
         status_code=429,
         content={
             "detail": "Rate limit exceeded. Please try again later.",
-            "retry_after": exc.retry_after if hasattr(exc, "retry_after") else None,
+            "retry_after": getattr(exc, "retry_after", None),
         },
-        headers={"Retry-After": str(exc.retry_after) if hasattr(exc, "retry_after") else "60"},
+        headers={"Retry-After": str(getattr(exc, "retry_after", 60))},
     )
 
 
@@ -45,6 +59,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(auth_router)

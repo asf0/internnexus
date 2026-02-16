@@ -116,8 +116,4 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
             "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)",
         )
 
-    # Check for SQL injection attempts
-    if re.search(r"['\";\-]", password):
-        return False, "Password contains invalid characters"
-
     return True, ""

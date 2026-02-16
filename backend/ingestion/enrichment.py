@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Literal
@@ -11,6 +12,18 @@ from ingestion.location_normalizer import normalize_location
 
 
 logger = logging.getLogger(__name__)
+_embedder: EmbeddingService | None = None
+
+
+def _get_embedder() -> EmbeddingService | None:
+    """Get or create the embedding service (lazy initialization)."""
+    global _embedder
+    if _embedder is None:
+        try:
+            _embedder = EmbeddingService()
+        except RuntimeError:
+            return None
+    return _embedder
 
 
 class LegendAttributeDetector:
@@ -243,12 +256,7 @@ async def enrich_jobs(
     if not jobs:
         return []
 
-    embedder = None
-    if not skip_embedding:
-        try:
-            embedder = EmbeddingService()
-        except RuntimeError:
-            embedder = None
+    embedder = _get_embedder() if not skip_embedding else None
 
     legend_detector = LegendAttributeDetector()
     category_detector = CategoryDetector()
@@ -257,8 +265,10 @@ async def enrich_jobs(
 
     category_context = category_context or {}
 
-    for job in jobs:
-        # Normalize location and parse into city/state/country
+    jobs_to_embed = []
+    embed_indices = []
+
+    for i, job in enumerate(jobs):
         location_data = normalize_location(job.location)
         job.location = location_data.get("full") or job.location
         job.city = location_data.get("city")
@@ -267,11 +277,8 @@ async def enrich_jobs(
 
         if job.description_text:
             if embedder:
-                try:
-                    job.description_embedding = await embedder.embed(job.description_text)
-                except Exception as e:
-                    logger.warning(f"Failed to embed job {job.title} at {job.company}: {e}")
-                    job.description_embedding = None
+                jobs_to_embed.append(job)
+                embed_indices.append(i)
 
             job.requires_sponsorship = legend_detector.detect_requires_sponsorship(
                 job.description_text, job.title
@@ -295,12 +302,20 @@ async def enrich_jobs(
 
         job.is_faang_plus = legend_detector.detect_is_faang_plus(job.company)
 
-        # Detect or use provided category
         if job.company in category_context:
             job.job_category = category_context[job.company]
         else:
             job.job_category = category_detector.detect_category(
                 job.title, job.description_text or ""
             )
+
+    if embedder and jobs_to_embed:
+        texts = [j.description_text for j in jobs_to_embed if j.description_text]
+        try:
+            embeddings = await embedder.embed_many(texts, batch_size=10)
+            for idx, embedding in zip(embed_indices, embeddings):
+                jobs[idx].description_embedding = embedding
+        except Exception as e:
+            logger.warning(f"Failed to embed batch: {e}")
 
     return jobs

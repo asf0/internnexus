@@ -1,15 +1,15 @@
+"""Company registry - manages company slugs for job fetching."""
+
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
 from pathlib import Path
 from typing import Set
 
-import httpx
-
 from app.config import get_settings
+from app.http_client.client import get_http_client
 from ingestion.data import load_common_companies
 
 logger = logging.getLogger(__name__)
@@ -43,14 +43,7 @@ IGNORE_SLUGS = {
 
 
 def extract_ats_slug_from_url(apply_url: str) -> tuple[str, str] | None:
-    """Extract ATS platform and company slug from an apply URL.
-
-    Args:
-        apply_url: The job application URL
-
-    Returns:
-        Tuple of (ats_platform, slug) or None if not recognized
-    """
+    """Extract ATS platform and company slug from an apply URL."""
     if not apply_url:
         return None
     for ats_platform, pattern in ATS_PATTERNS.items():
@@ -69,14 +62,7 @@ def extract_ats_slug_from_url(apply_url: str) -> tuple[str, str] | None:
 
 
 def extract_slugs_from_jobs(jobs: list) -> dict[str, set[str]]:
-    """Extract ATS slugs from a list of jobs with apply URLs.
-
-    Args:
-        jobs: List of JobSchema objects
-
-    Returns:
-        Dict mapping ATS platform to set of discovered slugs
-    """
+    """Extract ATS slugs from a list of jobs with apply URLs."""
     discovered: dict[str, set[str]] = {
         "greenhouse": set(),
         "lever": set(),
@@ -129,7 +115,6 @@ def load_cross_reference_slugs() -> dict[str, set[str]]:
     return result
 
 
-# Verified companies with active Greenhouse/Lever job boards
 SEED_COMPANIES: list[str] = [
     "airbnb",
     "airtable",
@@ -163,24 +148,21 @@ async def harvest_companies_from_github() -> Set[str]:
 
         logger.info("Harvesting companies from SimplifyJobs GitHub repos...")
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            for url in urls:
-                try:
-                    response = await client.get(url)
-                    if response.status_code == 200:
-                        all_content += response.text
-                        logger.debug(f"  ✓ Fetched {url}")
-                    else:
-                        logger.debug(f"  ✗ Failed {url} (Status: {response.status_code})")
-                except Exception as e:
-                    logger.debug(f"  ✗ Error fetching {url}: {e}")
+        client = get_http_client()
+        for url in urls:
+            try:
+                response = await client.get(url, timeout=10.0)
+                if response.status_code == 200:
+                    all_content += response.text
+                    logger.debug(f"  ✓ Fetched {url}")
+                else:
+                    logger.debug(f"  ✗ Failed {url} (Status: {response.status_code})")
+            except Exception as e:
+                logger.debug(f"  ✗ Error fetching {url}: {e}")
 
         if not all_content:
             logger.warning("No content fetched from SimplifyJobs repos")
             return set()
-
-        # Extract Lever and Greenhouse slugs from URLs
-        import re
 
         lever_pattern = r"jobs\.lever\.co/([a-zA-Z0-9\-_]+)"
         gh_pattern = r"boards\.greenhouse\.io/([a-zA-Z0-9\-_]+)"
@@ -206,9 +188,9 @@ async def harvest_companies_from_github() -> Set[str]:
 async def verify_greenhouse_board(slug: str) -> bool:
     """Check if a company has a Greenhouse job board."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{settings.greenhouse_api_url}/{slug}/jobs")
-            return response.status_code == 200
+        client = get_http_client()
+        response = await client.get(f"{settings.greenhouse_api_url}/{slug}/jobs", timeout=5.0)
+        return response.status_code == 200
     except Exception:
         return False
 
@@ -216,39 +198,36 @@ async def verify_greenhouse_board(slug: str) -> bool:
 async def verify_lever_board(slug: str) -> bool:
     """Check if a company has a Lever job board."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{settings.lever_api_url}/{slug}?mode=json")
-            return response.status_code == 200
+        client = get_http_client()
+        response = await client.get(f"{settings.lever_api_url}/{slug}?mode=json", timeout=5.0)
+        return response.status_code == 200
     except Exception:
         return False
 
 
 async def verify_company(slug: str) -> bool:
     """Check if company has either Greenhouse or Lever board."""
-    try:
-        gh_result, lv_result = await asyncio.gather(
-            verify_greenhouse_board(slug), verify_lever_board(slug), return_exceptions=True
-        )
-        return (gh_result is True) or (lv_result is True)
-    except Exception:
-        return False
+    import asyncio
+
+    gh_result, lv_result = await asyncio.gather(
+        verify_greenhouse_board(slug), verify_lever_board(slug), return_exceptions=True
+    )
+    return (gh_result is True) or (lv_result is True)
 
 
 async def discover_companies_async() -> list[str]:
     """Discover companies with active job boards asynchronously."""
-    # Start with seed companies
-    base_slugs = set(SEED_COMPANIES)
+    import asyncio
 
-    # Add common companies
+    base_slugs = set(SEED_COMPANIES)
     base_slugs.update(load_common_companies())
 
-    # Harvest from SimplifyJobs GitHub repos
     github_slugs = await harvest_companies_from_github()
     base_slugs.update(github_slugs)
 
     logger.info(f"Total candidates to verify: {len(base_slugs)}")
 
-    semaphore = asyncio.Semaphore(10)  # Limit concurrent requests
+    semaphore = asyncio.Semaphore(10)
 
     async def verify_with_semaphore(slug: str) -> tuple[str, bool]:
         async with semaphore:
@@ -291,28 +270,21 @@ def save_cached_companies(companies: list[str]) -> None:
 
 
 def get_company_registry(use_discovery: bool = True, force_refresh: bool = False) -> list[str]:
-    """
-    Get company registry with optional discovery.
+    """Get company registry with optional discovery.
 
-    Args:
-        use_discovery: If True, attempt to discover new companies.
-                      Falls back to cache, then seed companies.
-        force_refresh: If True, skip cache and force discovery.
-
-    Returns:
-        List of verified company slugs.
+    This function is designed to be called lazily, not at module import time.
     """
     if not use_discovery:
         return SEED_COMPANIES
 
-    # Try to load from cache first (unless force refresh)
     if not force_refresh:
         cached = load_cached_companies()
         if cached:
             logger.info(f"Using {len(cached)} cached companies")
             return cached
 
-    # Try to discover new companies
+    import asyncio
+
     try:
         logger.info("Running company discovery...")
         discovered = asyncio.run(discover_companies_async())
@@ -322,7 +294,6 @@ def get_company_registry(use_discovery: bool = True, force_refresh: bool = False
     except Exception as e:
         logger.warning(f"Company discovery failed: {e}")
 
-    # Fall back to cache or seed companies
     cached = load_cached_companies()
     if cached:
         logger.info(f"Using cached companies as fallback ({len(cached)} companies)")
@@ -332,5 +303,15 @@ def get_company_registry(use_discovery: bool = True, force_refresh: bool = False
     return SEED_COMPANIES
 
 
-# Export the registry - use discovery by default
-COMPANY_REGISTRY: list[str] = get_company_registry(use_discovery=True)
+_COMPANY_REGISTRY: list[str] | None = None
+
+
+def get_registry() -> list[str]:
+    """Lazy-load the company registry on first access."""
+    global _COMPANY_REGISTRY
+    if _COMPANY_REGISTRY is None:
+        _COMPANY_REGISTRY = get_company_registry(use_discovery=True)
+    return _COMPANY_REGISTRY
+
+
+COMPANY_REGISTRY: list[str] = SEED_COMPANIES
