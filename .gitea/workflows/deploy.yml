@@ -50,7 +50,7 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           docker compose pull || true
-          docker compose up -d --build backend frontend
+          docker compose up -d --build backend frontend pipeline
           docker compose up -d db redis cloudflared
 
       - name: Health Check
