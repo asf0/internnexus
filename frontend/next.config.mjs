@@ -4,6 +4,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  allowedDevOrigins: ['192.168.0.174:3000', 'localhost:3000'],
 
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL;
