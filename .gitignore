@@ -1,15 +1,46 @@
+# Environment
 .env
 .env.*
 !.env.example
-node_modules
-__pycache__
-*.pyc
-.next
-dist
+
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Logs
+logs/
 *.log
+
+# Database
 *.db
+*.sql
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Misc
+*.pdf
+telemetry-id
+opencode.json
 my-react-native-app/
 rntemp/
-opencode.json
-*.pdf
