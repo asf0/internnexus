@@ -50,6 +50,7 @@ RUN uv pip install --system --no-cache \
     python-multipart \
     slowapi \
     redis \
+    tenacity \
     python-jose[cryptography] \
     argon2-cffi \
     email-validator \
