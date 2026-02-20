@@ -1,4 +1,4 @@
-"""Job search service with caching and vector search."""
+"""Job search service with caching and full-text search."""
 
 from __future__ import annotations
 
@@ -15,13 +15,8 @@ from app.api.schemas import JobListResponse, JobResponse
 from app.cache.redis_pool import RedisService
 from app.models import Job
 from app.repositories.job import JobRepository
-from app.services.embedding_service import EmbeddingService
 from app.services.search_parser import ParsedSearch, parse_search_query
 
-VECTOR_SEARCH_THRESHOLD = 0.55
-VECTOR_MATCH_THRESHOLD = 0.45
-VECTOR_LIMIT = 100
-KEYWORD_BOOST = 0.1
 MAX_SEARCH_LENGTH = 100
 
 
@@ -36,8 +31,6 @@ class JobSearchParams:
         company: str | None = None,
         location: str | None = None,
         category: str | None = None,
-        visa_sponsored: bool | None = None,
-        f1_friendly: bool | None = None,
         job_type: str | None = None,
         work_mode: str | None = None,
         posted_within: str | None = None,
@@ -49,8 +42,6 @@ class JobSearchParams:
         self.company = company
         self.location = location
         self.category = category
-        self.visa_sponsored = visa_sponsored
-        self.f1_friendly = f1_friendly
         self.job_type = job_type
         self.work_mode = work_mode
         self.posted_within = posted_within
@@ -58,7 +49,7 @@ class JobSearchParams:
 
 
 class JobSearchService:
-    """Service for job search with vector and keyword search."""
+    """Service for job search with full-text search."""
 
     def __init__(self, session: AsyncSession, cache: RedisService | None = None):
         self.session = session
@@ -74,8 +65,6 @@ class JobSearchService:
             f"company:{params.company or ''}",
             f"location:{params.location or ''}",
             f"category:{params.category or ''}",
-            f"visa:{params.visa_sponsored}",
-            f"f1:{params.f1_friendly}",
             f"type:{params.job_type or ''}",
             f"mode:{params.work_mode or ''}",
             f"posted:{params.posted_within or ''}",
@@ -104,16 +93,13 @@ class JobSearchService:
         base_stmt = select(Job).where(Job.is_active == True)  # noqa: E712
 
         valid_ids = self._parse_match_ids(params.match_ids)
-        preserve_order = len(valid_ids) > 0
 
         result_order: list[UUID] = []
 
         if params.search:
             parsed = parse_search_query(params.search)
-            keyword_ids, vector_results = await self._run_search_query(
-                params.search, parsed, base_stmt, valid_ids
-            )
-            result_order = self._merge_results(keyword_ids, vector_results, valid_ids)
+            keyword_ids = await self._keyword_search(params.search, parsed, base_stmt)
+            result_order = list(keyword_ids)
 
         stmt = self._apply_filters(base_stmt, params, valid_ids, result_order)
         stmt = self._apply_ordering(stmt, params, valid_ids, result_order)
@@ -141,23 +127,6 @@ class JobSearchService:
                 except ValueError:
                     continue
         return valid_ids
-
-    async def _run_search_query(
-        self,
-        search: str,
-        parsed: ParsedSearch,
-        base_stmt,
-        valid_ids: list[UUID],
-    ) -> tuple[set[UUID], list[tuple[UUID, float]]]:
-        """Execute keyword and vector search."""
-        keyword_ids = await self._keyword_search(search, parsed, base_stmt)
-        vector_results: list[tuple[UUID, float]] = []
-
-        if not parsed.is_boolean:
-            threshold = VECTOR_MATCH_THRESHOLD if valid_ids else VECTOR_SEARCH_THRESHOLD
-            vector_results = await self._vector_search(search, threshold)
-
-        return keyword_ids, vector_results
 
     async def _keyword_search(self, search: str, parsed: ParsedSearch, base_stmt) -> set[UUID]:
         """Execute full-text keyword search."""
@@ -225,66 +194,6 @@ class JobSearchService:
 
         return build_expr(expr)
 
-    async def _vector_search(self, search: str, threshold: float) -> list[tuple[UUID, float]]:
-        """Execute vector similarity search."""
-        embedding = await self._get_embedding(search)
-        if embedding is None:
-            return []
-
-        stmt = (
-            select(
-                Job.id,
-                (1 - Job.description_embedding.cosine_distance(embedding)).label("similarity"),
-            )
-            .where(Job.is_active == True)  # noqa: E712
-            .where(Job.description_embedding.isnot(None))
-            .where((1 - Job.description_embedding.cosine_distance(embedding)) >= threshold)
-            .order_by((1 - Job.description_embedding.cosine_distance(embedding)).desc())
-            .limit(VECTOR_LIMIT)
-        )
-
-        result = await self.session.execute(stmt)
-        return [(row.id, float(row.similarity)) for row in result.all()]
-
-    async def _get_embedding(self, text: str) -> list[float] | None:
-        """Get embedding from cache or generate."""
-        if self.cache:
-            cached = await self.cache.get_embedding(text)
-            if cached:
-                return cached
-
-        try:
-            embedder = EmbeddingService()
-            embedding = await embedder.embed(text)
-            if self.cache:
-                await self.cache.set_embedding(text, embedding)
-            return embedding
-        except RuntimeError:
-            return None
-
-    def _merge_results(
-        self,
-        keyword_ids: set[UUID],
-        vector_results: list[tuple[UUID, float]],
-        valid_ids: list[UUID],
-    ) -> list[UUID]:
-        """Merge keyword and vector search results."""
-        vector_ids = {vid for vid, _ in vector_results}
-        all_ids = keyword_ids | vector_ids
-
-        if not all_ids:
-            return list(keyword_ids)
-
-        vector_scores = {vid: score for vid, score in vector_results}
-
-        def sort_key(job_id: UUID) -> tuple:
-            in_keyword = job_id in keyword_ids
-            vector_score = vector_scores.get(job_id, 0.0)
-            boost = KEYWORD_BOOST if in_keyword else 0.0
-            return (-(vector_score + boost),)
-
-        return sorted(all_ids, key=sort_key)
-
     def _apply_filters(
         self, stmt, params: JobSearchParams, valid_ids: list[UUID], result_order: list[UUID]
     ):
@@ -299,19 +208,11 @@ class JobSearchService:
             stmt = stmt.where(Job.company.in_(companies))
 
         if params.location:
-            locations = [loc.strip() for loc in params.location.split("|") if loc.strip()]
-            if locations:
-                stmt = stmt.where(or_(*[Job.location.ilike(f"%{loc}%") for loc in locations]))
+            stmt = self._apply_location_filter(stmt, params.location)
 
         if params.category:
             categories = [c.strip() for c in params.category.split("|")]
             stmt = stmt.where(Job.job_category.in_(categories))
-
-        if params.visa_sponsored is not None:
-            stmt = stmt.where(Job.visa_sponsored == params.visa_sponsored)
-
-        if params.f1_friendly is not None:
-            stmt = stmt.where(Job.f1_friendly == params.f1_friendly)
 
         if params.job_type:
             stmt = self._apply_job_type_filter(stmt, params.job_type)
@@ -323,6 +224,25 @@ class JobSearchService:
             stmt = self._apply_posted_within_filter(stmt, params.posted_within)
 
         return stmt
+
+    def _apply_location_filter(self, stmt, location: str):
+        """Apply location filter."""
+        locations = [loc.strip() for loc in location.split("|") if loc.strip()]
+        if not locations:
+            return stmt
+
+        conditions = []
+        for loc in locations:
+            conditions.append(
+                or_(
+                    Job.location.ilike(f"%{loc}%"),
+                    Job.city.ilike(f"%{loc}%"),
+                    Job.state.ilike(f"%{loc}%"),
+                    Job.country == loc,
+                )
+            )
+
+        return stmt.where(or_(*conditions)) if conditions else stmt
 
     def _apply_job_type_filter(self, stmt, job_type: str):
         """Apply job type filter."""
