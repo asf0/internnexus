@@ -1,0 +1,62 @@
+# Pipeline Dockerfile (Development with Discovery)
+# This Dockerfile includes Chromium and Playwright for running discovery/scraping.
+# Use this for development environments where you need browser automation.
+#
+# Usage:
+#   docker build -f pipeline/Dockerfile.dev -t internnexus-pipeline-dev .
+#   docker run -it --rm internnexus-pipeline-dev python -m pipeline.discovery.run_discovery
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install uv package manager
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Install system dependencies (including Playwright browser deps)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    # Playwright/Chromium dependencies
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy pyproject.toml from root
+COPY pyproject.toml .
+COPY uv.lock .
+
+# Install Python dependencies using uv
+RUN uv pip install --system --no-cache -e ".[dev]"
+
+# Install Playwright browsers (Chromium for discovery/scraping)
+RUN playwright install chromium --with-deps
+
+# Copy backend code (needed for imports)
+COPY backend/app/ ./backend/app/
+COPY backend/alembic/ ./backend/alembic/
+COPY backend/alembic.ini ./backend/
+
+# Copy pipeline code
+COPY pipeline/ ./pipeline/
+
+# Create __init__.py files to make packages importable if missing
+RUN touch backend/__init__.py
+
+# Set PYTHONPATH to include both backend and app for imports
+ENV PYTHONPATH=/app:/app/backend
+
+# Default command shows help
+CMD ["python", "-m", "pipeline.run_pipeline", "--help"]
