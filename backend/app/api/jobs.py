@@ -11,6 +11,7 @@ from app.db import get_db
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.repositories.job import JobRepository
 from app.services.job_search import JobSearchParams, JobSearchService
+from app.services.location_service import LocationService
 
 router = APIRouter()
 
@@ -34,8 +35,6 @@ async def list_jobs(
     company: str | None = Query(None),
     location: str | None = Query(None),
     category: str | None = Query(None),
-    visa_sponsored: bool | None = Query(None),
-    f1_friendly: bool | None = Query(None),
     job_type: str | None = Query(None),
     work_mode: str | None = Query(None),
     posted_within: str | None = Query(None),
@@ -49,8 +48,6 @@ async def list_jobs(
         company=company,
         location=location,
         category=category,
-        visa_sponsored=visa_sponsored,
-        f1_friendly=f1_friendly,
         job_type=job_type,
         work_mode=work_mode,
         posted_within=posted_within,
@@ -84,15 +81,16 @@ async def get_locations(
     request: Request,
     db: AsyncSession = Depends(get_db),
     cache: RedisService = Depends(get_redis_service),
-) -> list[str]:
-    """Get all distinct locations (cached 5 min)."""
-    cache_key = "filters:locations"
+) -> list[dict]:
+    """Get all distinct locations with hierarchical structure (countries > states > cities)."""
+    cache_key = "filters:locations_hierarchy"
     cached = await cache.get(cache_key)
     if cached:
         return cached
 
-    repo = JobRepository(db)
-    locations = await repo.get_distinct_locations()
+    location_service = LocationService(db)
+    locations = await location_service.get_location_hierarchy()
+
     await cache.set(cache_key, locations, ttl=300)
     return locations
 

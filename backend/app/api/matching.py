@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import io
+import logging
+import uuid
 from typing import Annotated, BinaryIO
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import MatchResponse, MatchResult
+from app.api.schemas import JobResponse, MatchResponse, MatchResult
 from app.auth.dependencies import get_current_user
 from app.db import get_db
 from app.models import Job, User
 from app.rate_limiter import limiter, RATE_LIMITS
 from app.services.embedding_service import EmbeddingService
+from app.services.match_cache import MatchCacheService, get_match_cache_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(file: BinaryIO) -> str:
@@ -81,9 +85,13 @@ async def match_resume(
     current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    max_results: int = 200,
+    cache_service: MatchCacheService = Depends(get_match_cache_service),
     min_score: float = 0.5,
+    page_size: int = 20,
 ) -> MatchResponse:
+    # Generate unique session_id for this matching request
+    session_id = str(uuid.uuid4())
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
@@ -133,10 +141,12 @@ async def match_resume(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")
 
-    max_results = max(1, min(max_results, 500))
+    # Validate parameters
     min_score = max(0.0, min(min_score, 1.0))
+    page_size = max(1, min(page_size, 100))
 
-    # Cosine similarity using pgvector
+    # Query ALL active jobs (no limit) for caching
+    # Use a high limit as a safety valve (10000)
     stmt = (
         select(
             Job.id,
@@ -148,7 +158,7 @@ async def match_resume(
         .where(Job.is_active == True)  # noqa: E712
         .where(Job.description_embedding.isnot(None))
         .order_by((1 - Job.description_embedding.cosine_distance(resume_embedding)).desc())
-        .limit(max_results)
+        .limit(10000)
     )
 
     result = await db.execute(stmt)
@@ -167,4 +177,77 @@ async def match_resume(
         for row in filtered_results
     ]
 
-    return MatchResponse(matches=matches, total=len(matches))
+    total_matches = len(matches)
+
+    # Cache the full results (handle Redis failures gracefully)
+    cache_success = False
+    try:
+        cache_success = await cache_service.cache_matches(session_id, matches)
+    except Exception as e:
+        logger.warning(f"Failed to cache matches for session {session_id}: {e}")
+        # Continue without caching - don't fail the request
+
+    # Calculate pagination info
+    total_pages = (total_matches + page_size - 1) // page_size if total_matches > 0 else 1
+
+    # Return only the first page of results
+    first_page_matches = matches[:page_size]
+
+    return MatchResponse(
+        matches=first_page_matches,
+        total=total_matches,
+        session_id=session_id if cache_success else "",
+        page=1,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.get("/match/{session_id}", response_model=MatchResponse)
+@limiter.limit(RATE_LIMITS["match"])
+async def get_match_page(
+    request: Request,
+    session_id: str,
+    cache_service: MatchCacheService = Depends(get_match_cache_service),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> MatchResponse:
+    """Retrieve a specific page of cached match results.
+
+    Args:
+        session_id: The match session ID from POST /match
+        page: Page number (1-indexed)
+        page_size: Number of items per page (max 100)
+
+    Returns:
+        MatchResponse with paginated matches
+
+    Raises:
+        HTTPException 404: If session not found or expired
+        HTTPException 400: If pagination params invalid
+    """
+    # Retrieve paginated matches from cache
+    result = await cache_service.get_paginated_matches(session_id, page, page_size)
+
+    # If result is None (session expired/not found), raise HTTPException 404
+    if result is None:
+        raise HTTPException(status_code=404, detail="Match session not found or expired")
+
+    # Unpack result: matches_data, total_count
+    matches_data, total_count = result
+
+    # Convert matches_data (list of dicts) back to MatchResult objects
+    matches = [MatchResult(**match_dict) for match_dict in matches_data]
+
+    # Calculate total_pages
+    total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+
+    # Return MatchResponse with all required fields
+    return MatchResponse(
+        matches=matches,
+        total=total_count,
+        session_id=session_id,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
