@@ -46,3 +46,8 @@ my-react-native-app/
 rntemp/
 scripts/
 
+tests/
+AGENTS.md
+.test/
+.opencode/
+logs/

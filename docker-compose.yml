@@ -73,11 +73,11 @@ services:
 
   pipeline:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: pipeline/Dockerfile
     container_name: internnexus-pipeline
     restart: unless-stopped
-    command: ["python", "run_pipeline.py", "-c"]
+    command: ["python", "-m", "pipeline.run_pipeline", "-c"]
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
