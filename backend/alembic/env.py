@@ -15,9 +15,16 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = get_settings()
-# Use sync URL for alembic migrations (remove asyncpg driver)
-sync_database_url = settings.resolved_database_url.replace("+asyncpg", "")
+# Check for DATABASE_URL environment variable first (used in tests)
+# Otherwise use settings from .env file
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    sync_database_url = database_url.replace("+asyncpg", "")
+else:
+    settings = get_settings()
+    # Use sync URL for alembic migrations (remove asyncpg driver)
+    sync_database_url = settings.resolved_database_url.replace("+asyncpg", "")
+
 config.set_main_option("sqlalchemy.url", sync_database_url)
 
 target_metadata = Base.metadata
