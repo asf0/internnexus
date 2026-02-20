@@ -77,7 +77,7 @@ services:
       dockerfile: pipeline/Dockerfile
     container_name: internnexus-pipeline
     restart: unless-stopped
-    command: ["python", "-m", "pipeline.run_pipeline", "-c"]
+    command: ["python", "-m", "pipeline.run_pipeline", "--cron"]
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}

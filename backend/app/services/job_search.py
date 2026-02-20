@@ -90,7 +90,7 @@ class JobSearchService:
 
     async def _execute_search(self, params: JobSearchParams) -> JobListResponse:
         """Execute the actual search query."""
-        base_stmt = select(Job).where(Job.is_active == True)  # noqa: E712
+        base_stmt = select(Job)
 
         valid_ids = self._parse_match_ids(params.match_ids)
 

@@ -36,7 +36,7 @@ class LocationService:
         """
         result = await self.session.execute(
             select(Job.country, func.count(Job.id).label("job_count"))
-            .where(Job.is_active == True, Job.country.isnot(None))
+            .where(Job.country.isnot(None))
             .group_by(Job.country)
         )
         return [(row.country, row.job_count) for row in result.all()]
@@ -49,7 +49,7 @@ class LocationService:
         """
         result = await self.session.execute(
             select(Job.state, Job.country, func.count(Job.id).label("job_count"))
-            .where(Job.is_active == True, Job.state.isnot(None))
+            .where(Job.state.isnot(None))
             .group_by(Job.state, Job.country)
         )
         return [(row.state, row.country, row.job_count) for row in result.all()]
@@ -62,7 +62,7 @@ class LocationService:
         """
         result = await self.session.execute(
             select(Job.city, Job.state, Job.country, func.count(Job.id).label("job_count"))
-            .where(Job.is_active == True, Job.city.isnot(None))
+            .where(Job.city.isnot(None))
             .group_by(Job.city, Job.state, Job.country)
             .limit(200)
         )

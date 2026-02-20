@@ -155,7 +155,6 @@ async def match_resume(
             Job.location,
             (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("score"),
         )
-        .where(Job.is_active == True)  # noqa: E712
         .where(Job.description_embedding.isnot(None))
         .order_by((1 - Job.description_embedding.cosine_distance(resume_embedding)).desc())
         .limit(10000)

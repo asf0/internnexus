@@ -13,6 +13,7 @@ This script runs the full pipeline:
 Run modes:
   - Full pipeline:    python run_pipeline.py
   - Continuous:       python run_pipeline.py --continuous
+  - Cron (daily):     python run_pipeline.py --cron [--cron-hour 0]
   - Single step:      python run_pipeline.py --step discover|sync_inactive|ingest|delete_inactive|cleanup|embed
   - Combined:         python run_pipeline.py --step ingest --delete-inactive
   - Dry run:          python run_pipeline.py --dry-run
@@ -43,7 +44,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -373,6 +374,43 @@ async def run_continuous(runner: PipelineRunner, interval: int):
         await asyncio.sleep(interval)
 
 
+async def run_cron(runner: PipelineRunner, hour: int = 0):
+    """Run pipeline once daily at the specified hour (UTC).
+
+    Args:
+        runner: PipelineRunner instance
+        hour: Hour to run at (0-23, UTC). Default is midnight (0).
+    """
+    while True:
+        now = datetime.now(timezone.utc)
+        target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+
+        if now >= target:
+            target = target + timedelta(days=1)
+
+        wait_seconds = (target - now).total_seconds()
+        logger.info(
+            f"Next scheduled run at {target.strftime('%Y-%m-%d %H:%M:%S')} UTC (in {wait_seconds / 3600:.1f} hours)"
+        )
+
+        await asyncio.sleep(wait_seconds)
+
+        try:
+            logger.info("=" * 60)
+            logger.info(
+                f"CRON TRIGGERED - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            logger.info("=" * 60)
+            await runner.run()
+            runner.resume_run_id = None
+        except Exception as e:
+            logger.error(f"Pipeline error: {e}")
+            incomplete = await get_incomplete_run()
+            if incomplete:
+                runner.resume_run_id = incomplete.id
+            await asyncio.sleep(300)  # Wait 5 min before retry
+
+
 def main():
     config = get_config()
 
@@ -381,13 +419,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python run_pipeline.py                      # Run full pipeline
+  python run_pipeline.py                      # Run full pipeline once
+  python run_pipeline.py --cron               # Run daily at midnight UTC
+  python run_pipeline.py --cron --cron-hour 3 # Run daily at 3 AM UTC
+  python run_pipeline.py -c                   # Run continuously (every 6 hours)
   python run_pipeline.py --step ingest        # Only fetch new jobs  
   python run_pipeline.py --step ingest --delete-inactive  # Fetch + delete inactive
   python run_pipeline.py --step sync_inactive # Mark all jobs inactive
   python run_pipeline.py --step delete_inactive # Delete inactive jobs
   python run_pipeline.py --step embed         # Only generate embeddings
-  python run_pipeline.py -c                   # Run continuously
   python run_pipeline.py --dry-run            # Preview without changes
   python run_pipeline.py --resume             # Resume failed run
   python run_pipeline.py --check              # Health checks only
@@ -431,6 +471,17 @@ Examples:
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="Limit number of jobs to process (for --test mode)"
+    )
+    parser.add_argument(
+        "--cron",
+        action="store_true",
+        help="Run in cron mode: execute once daily at scheduled time",
+    )
+    parser.add_argument(
+        "--cron-hour",
+        type=int,
+        default=0,
+        help="Hour (0-23 UTC) to run daily cron job (default: 0 = midnight UTC)",
     )
 
     args = parser.parse_args()
@@ -510,6 +561,27 @@ Examples:
             await run_continuous(runner, interval)
 
         asyncio.run(run_continuous_main())
+    elif args.cron:
+
+        async def run_cron_main():
+            resume_run_id = None
+            incomplete = await get_incomplete_run()
+            if incomplete:
+                resume_run_id = incomplete.id
+                logger.info(f"Resuming incomplete run: {resume_run_id}")
+
+            runner = PipelineRunner(
+                skip_discover=args.skip_discover,
+                dry_run=args.dry_run,
+                process_all=args.all,
+                resume_run_id=resume_run_id,
+                test_mode=args.test,
+                limit=args.limit,
+            )
+            logger.info(f"Starting cron mode (daily at {args.cron_hour}:00 UTC)")
+            await run_cron(runner, hour=args.cron_hour)
+
+        asyncio.run(run_cron_main())
     else:
         asyncio.run(run_once())
 

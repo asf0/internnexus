@@ -24,13 +24,8 @@ class JobRepository(BaseRepository[Job]):
         limit: int = 20,
         offset: int = 0,
     ) -> list[Job]:
-        """Get all active jobs with pagination."""
-        stmt = (
-            select(Job)
-            .where(Job.is_active == True)  # noqa: E712
-            .limit(limit)
-            .offset(offset)
-        )
+        """Get all jobs with pagination."""
+        stmt = select(Job).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -42,21 +37,13 @@ class JobRepository(BaseRepository[Job]):
 
     async def get_distinct_companies(self) -> list[str]:
         """Get all distinct company names."""
-        stmt = (
-            select(distinct(Job.company))
-            .where(Job.is_active == True)  # noqa: E712
-            .order_by(Job.company)
-        )
+        stmt = select(distinct(Job.company)).order_by(Job.company)
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all()]
 
     async def get_distinct_locations(self) -> list[str]:
         """Get all distinct locations."""
-        stmt = (
-            select(distinct(Job.location))
-            .where(Job.is_active == True, Job.location.isnot(None))  # noqa: E712
-            .order_by(Job.location)
-        )
+        stmt = select(distinct(Job.location)).where(Job.location.isnot(None)).order_by(Job.location)
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all() if row[0]]
 
@@ -64,7 +51,7 @@ class JobRepository(BaseRepository[Job]):
         """Get all distinct job categories."""
         stmt = (
             select(distinct(Job.job_category))
-            .where(Job.is_active == True, Job.job_category.isnot(None))  # noqa: E712
+            .where(Job.job_category.isnot(None))
             .order_by(Job.job_category)
         )
         result = await self.session.execute(stmt)
@@ -77,7 +64,7 @@ class JobRepository(BaseRepository[Job]):
         """Get jobs by a list of IDs."""
         if not ids:
             return []
-        stmt = select(Job).where(Job.id.in_(ids), Job.is_active == True)  # noqa: E712
+        stmt = select(Job).where(Job.id.in_(ids))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
