@@ -75,6 +75,9 @@ services:
     build:
       context: .
       dockerfile: pipeline/Dockerfile
+      # Ensure pipeline code changes trigger rebuilds
+      args:
+        - BUILD_TIMESTAMP=${BUILD_TIMESTAMP:-0}
     container_name: internnexus-pipeline
     restart: unless-stopped
     command: ["python", "-m", "pipeline.run_pipeline", "--cron"]
