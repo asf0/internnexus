@@ -1,194 +1,173 @@
-"""Test configuration and fixtures for backend tests."""
-
-from __future__ import annotations
+"""Shared fixtures for backend tests."""
 
 import os
-import sys
-from collections.abc import Generator
+import subprocess
 from pathlib import Path
-from uuid import uuid4
-
-from dotenv import load_dotenv
-
-# Load environment variables from .env file before any app imports
-env_path = Path(__file__).resolve().parents[2] / ".env"
-load_dotenv(env_path)
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
-# Add app to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from app.db import Base, get_db
 from app.main import app
-from app.models import Account, Job, JobCategory, JobSource, User
+from app.db import get_db
 
 
-# Use in-memory SQLite for testing
-TEST_DATABASE_URL = "sqlite:///:memory:"
+# Test database URL - can be overridden via environment variable
+# Default connects to localhost, but can be set to container IP
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_db"
+)
+
+
+def run_alembic_migrations(database_url: str):
+    """Run alembic migrations using subprocess.
+
+    This is more reliable than using the Python API for tests.
+    """
+    # Convert async URL to sync URL for alembic
+    sync_url = database_url.replace("+asyncpg", "")
+
+    # Change to backend directory where alembic.ini is located
+    backend_dir = Path(__file__).parent.parent
+
+    # Use alembic from virtual environment, not system
+    venv_dir = backend_dir.parent / ".venv"
+    if os.name == "nt":  # Windows
+        alembic_path = venv_dir / "Scripts" / "alembic.exe"
+    else:
+        alembic_path = venv_dir / "bin" / "alembic"
+
+    # Fallback to just 'alembic' if venv path doesn't exist
+    alembic_cmd = str(alembic_path) if alembic_path.exists() else "alembic"
+
+    # Set environment variable for alembic to use
+    env = os.environ.copy()
+    env["DATABASE_URL"] = sync_url
+    # Override the .env file settings
+    env["POSTGRES_DB"] = "test_db"
+
+    result = subprocess.run(
+        [alembic_cmd, "upgrade", "head"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"Alembic stdout: {result.stdout}")
+        print(f"Alembic stderr: {result.stderr}")
+        raise RuntimeError(f"Alembic migration failed: {result.stderr}")
+
+    print(f"✓ Alembic migrations completed")
+
+
+def reset_database(database_url: str):
+    """Drop all tables and recreate using Alembic."""
+    sync_url = database_url.replace("+asyncpg", "")
+    backend_dir = Path(__file__).parent.parent
+    env = os.environ.copy()
+    env["DATABASE_URL"] = sync_url
+
+    # Downgrade to base (drop everything)
+    subprocess.run(
+        ["alembic", "downgrade", "base"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    # Upgrade to head (recreate everything)
+    run_alembic_migrations(database_url)
 
 
 @pytest.fixture(scope="session")
-def engine():
-    """Create a test database engine."""
-    engine = create_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    import asyncio
+
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
+async def engine():
+    """Create test database engine with Alembic migrations."""
+    print(f"\n🔄 Setting up test database: {TEST_DATABASE_URL}")
+
+    # Run Alembic migrations before creating engine
+    try:
+        run_alembic_migrations(TEST_DATABASE_URL)
+    except Exception as e:
+        print(f"⚠️  Migration failed, trying to create database: {e}")
+        # If migrations fail, the database might not exist
+        # We'll let the engine creation fail naturally with a clear error
+
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+
     yield engine
-    Base.metadata.drop_all(bind=engine)
+
+    # Cleanup after all tests
+    await engine.dispose()
 
 
-@pytest.fixture(scope="function")
-def db_session(engine) -> Generator[Session, None, None]:
-    """Create a fresh database session for each test."""
-    TestingSessionLocal = sessionmaker(bind=engine)
-    session = TestingSessionLocal()
+@pytest.fixture
+async def db_session(engine):
+    """Create a fresh database session for a test."""
+    async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-    # Clear all tables before each test
-    for table in reversed(Base.metadata.sorted_tables):
-        session.execute(table.delete())
-    session.commit()
-
-    yield session
-
-    session.rollback()
-    session.close()
+    async with async_session() as session:
+        yield session
+        # Rollback after test
+        await session.rollback()
 
 
-@pytest.fixture(scope="function")
-def client(db_session: Session) -> Generator[TestClient, None, None]:
-    """Create a test client with a fresh database session."""
+@pytest.fixture
+async def client(db_session):
+    """Create test HTTP client with database session."""
+    from httpx import ASGITransport
 
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+    # Override dependency to use test session
+    async def override_get_db():
+        yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as test_client:
-        yield test_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
+    # Clear override after test
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def sample_user(db_session: Session) -> User:
-    """Create a sample user for testing."""
-    user = User(
-        id=uuid4(),
-        email="test@example.com",
-        name="Test User",
-        hashed_password="$argon2id$v=19$m=65536,t=3,p=4$TEST_HASH_ONLY$FAKE_HASH_FOR_TESTING",  # test-only fake hash
-        email_verified=True,
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
+def mock_user():
+    """Return mock user data."""
+    return {
+        "email": "test@example.com",
+        "username": "testuser",
+        "password": "securepassword123",
+        "full_name": "Test User",
+    }
 
 
 @pytest.fixture
-def sample_oauth_user(db_session: Session) -> User:
-    """Create a sample OAuth user without password."""
-    user = User(
-        id=uuid4(),
-        email="oauth@example.com",
-        name="OAuth User",
-        hashed_password=None,
-        email_verified=True,
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    # Create OAuth account
-    account = Account(
-        user_id=user.id,
-        provider="github",
-        provider_account_id="123456",
-        access_token="test-fake-oauth-token-NOT-REAL",
-    )
-    db_session.add(account)
-    db_session.commit()
-
-    return user
+def mock_job():
+    """Return mock job data."""
+    return {
+        "title": "Software Engineer",
+        "company": "TechCorp",
+        "location": "San Francisco, CA",
+        "description": "Build awesome software",
+        "requirements": ["Python", "FastAPI", "PostgreSQL"],
+        "job_type": "full-time",
+        "salary_min": 100000,
+        "salary_max": 150000,
+    }
 
 
-@pytest.fixture
-def sample_job(db_session: Session) -> Job:
-    """Create a sample job for testing."""
-    job = Job(
-        id=uuid4(),
-        fingerprint=f"test-fingerprint-{uuid4()}",
-        source=JobSource.greenhouse,
-        title="Software Engineer Intern",
-        company="Test Company",
-        location="San Francisco, CA",
-        city="San Francisco",
-        state="CA",
-        country="USA",
-        apply_url="https://example.com/apply",
-        description_text="This is a test job description.",
-        visa_sponsored=True,
-        f1_friendly=True,
-        job_category=JobCategory.software_engineering,
-        is_faang_plus=False,
-        is_active=True,
-    )
-    db_session.add(job)
-    db_session.commit()
-    db_session.refresh(job)
-    return job
-
-
-@pytest.fixture
-def sample_jobs(db_session: Session) -> list[Job]:
-    """Create multiple sample jobs for testing."""
-    jobs = [
-        Job(
-            id=uuid4(),
-            fingerprint=f"fingerprint-{i}-{uuid4()}",
-            source=JobSource.greenhouse,
-            title=f"Job Title {i}",
-            company=f"Company {i % 3}",  # 3 different companies
-            location=["San Francisco, CA", "New York, NY", "Remote"][i % 3],
-            apply_url=f"https://example.com/apply/{i}",
-            description_text=f"Description for job {i}",
-            visa_sponsored=i % 2 == 0,
-            f1_friendly=i % 3 == 0,
-            job_category=[
-                JobCategory.software_engineering,
-                JobCategory.data_science_ai,
-                JobCategory.product_management,
-            ][i % 3],
-            is_faang_plus=i == 0,
-            is_active=True,
-        )
-        for i in range(10)
-    ]
-
-    db_session.add_all(jobs)
-    db_session.commit()
-
-    for job in jobs:
-        db_session.refresh(job)
-
-    return jobs
-
-
-@pytest.fixture
-def auth_headers(sample_user: User) -> dict[str, str]:
-    """Generate authorization headers for a user."""
-    from app.auth.jwt import create_access_token
-
-    token = create_access_token(data={"sub": str(sample_user.id), "email": sample_user.email})
-    return {"Authorization": f"Bearer {token}"}
+# Import fixtures from test modules
+pytest_plugins = []
