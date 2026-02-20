@@ -38,6 +38,14 @@ Thumbs.db
 .ruff_cache/
 .mypy_cache/
 
+# Test artifacts
+.hypothesis/
+backend/.hypothesis/
+.tmp/
+TEST_STATUS.md
+TEST_SUMMARY.md
+._.env.example
+
 # Misc
 *.pdf
 telemetry-id
