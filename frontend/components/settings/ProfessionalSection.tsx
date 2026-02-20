@@ -91,7 +91,7 @@ export function ProfessionalSection({
           <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Skills</label>
           <div className="flex flex-wrap gap-2 mb-2">
             {skills.map((skill) => (
-              <Badge key={skill} variant="visa">
+              <Badge key={skill} variant="info">
                 {skill}
                 <button
                   onClick={() => onRemoveSkill(skill)}
@@ -131,7 +131,7 @@ export function ProfessionalSection({
           <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</label>
           <div className="flex flex-wrap gap-2 mb-2">
             {preferredLocations.map((location) => (
-              <Badge key={location} variant="f1">
+              <Badge key={location} variant="success">
                 {location}
                 <button
                   onClick={() => onRemoveLocation(location)}

@@ -1,5 +1,6 @@
 import { BACKEND_URL } from "./config";
-import type { Job, JobListResponse, JobFilters } from "./types";
+import type { Job, JobListResponse, JobFilters } from "./types/job";
+import type { LocationItem } from "./types/job";
 
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
 
@@ -13,8 +14,6 @@ export async function fetchJobs(
   if (filters.company) params.set("company", filters.company);
   if (filters.location) params.set("location", filters.location);
   if (filters.category) params.set("category", filters.category);
-  if (filters.visa_sponsored) params.set("visa_sponsored", filters.visa_sponsored);
-  if (filters.f1_friendly) params.set("f1_friendly", filters.f1_friendly);
   if (filters.job_type) params.set("job_type", filters.job_type);
   if (filters.work_mode) params.set("work_mode", filters.work_mode);
   if (filters.posted_within) params.set("posted_within", filters.posted_within);
@@ -39,12 +38,12 @@ export async function fetchCompanies(): Promise<string[]> {
   return (await response.json()) as string[];
 }
 
-export async function fetchLocations(): Promise<string[]> {
+export async function fetchLocations(): Promise<LocationItem[]> {
   const response = await fetch(`${API_BASE}/jobs/filters/locations`, {
     cache: "no-store"
   });
   if (!response.ok) return [];
-  return (await response.json()) as string[];
+  return (await response.json()) as LocationItem[];
 }
 
 export async function fetchCategories(): Promise<string[]> {

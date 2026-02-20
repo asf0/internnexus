@@ -6,9 +6,16 @@ import { Button, Input } from "@/components/ui";
 interface LoginFormProps {
   isLoading: boolean;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  submitLabel?: string;
+  autoFocusFirstField?: boolean;
 }
 
-export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
+export function LoginForm({
+  isLoading,
+  onSubmit,
+  submitLabel = "Sign in with Email",
+  autoFocusFirstField = false,
+}: LoginFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -25,6 +32,7 @@ export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
           required
           disabled={isLoading}
           placeholder="you@example.com"
+          autoFocus={autoFocusFirstField}
         />
       </div>
 
@@ -55,7 +63,7 @@ export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
         ) : (
           <Mail className="w-4 h-4" />
         )}
-        {isLoading ? "Signing in..." : "Sign in with Email"}
+        {isLoading ? "Signing in..." : submitLabel}
       </Button>
     </form>
   );

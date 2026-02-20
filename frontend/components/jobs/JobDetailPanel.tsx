@@ -1,18 +1,26 @@
 "use client";
 
-import { X, MapPin, Building2, ExternalLink, Calendar, Flame, GraduationCap, Globe, Flag } from "lucide-react";
+import { X, MapPin, Building2, ExternalLink, Calendar } from "lucide-react";
 import DOMPurify from 'isomorphic-dompurify';
 import { Badge, LoadingSpinner } from "@/components/ui";
-import { CATEGORY_LABEL_MAP } from "@/lib/constants";
+import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
 import type { Job } from "@/lib/types";
 
 interface JobDetailPanelProps {
   job: Job | null;
   isLoading: boolean;
   onClose: () => void;
+  isAuthenticated: boolean;
+  onRequireAuthForApply: (applyUrl: string) => void;
 }
 
-export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPanelProps) {
+export default function JobDetailPanel({
+  job,
+  isLoading,
+  onClose,
+  isAuthenticated,
+  onRequireAuthForApply,
+}: JobDetailPanelProps) {
   if (!job && !isLoading) {
     return (
       <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 dark:border-md-outline-variant dark:bg-md-surface-container-low">
@@ -40,9 +48,6 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
           <div className="mt-2 flex items-center gap-2 text-slate-600 dark:text-md-on-surface-variant">
             <Building2 className="h-4 w-4" />
             <span>{job.company}</span>
-            {job.is_faang_plus && (
-              <Badge variant="faang" icon={Flame}>FAANG+</Badge>
-            )}
           </div>
           <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-md-on-surface-variant">
             <MapPin className="h-4 w-4" />
@@ -66,17 +71,15 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
               {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
             </Badge>
           )}
-          {job.visa_sponsored && (
-            <Badge variant="visa" icon={Globe}>Visa Sponsored</Badge>
+          {job.job_type && (
+            <Badge variant="info">
+              {JOB_TYPE_LABEL_MAP[job.job_type] || job.job_type}
+            </Badge>
           )}
-          {job.f1_friendly && (
-            <Badge variant="f1" icon={GraduationCap}>F1 Friendly</Badge>
-          )}
-          {job.requires_us_citizenship && (
-            <Badge variant="danger" icon={Flag}>US Citizenship Required</Badge>
-          )}
-          {job.requires_advanced_degree && (
-            <Badge variant="purple" icon={GraduationCap}>Advanced Degree</Badge>
+          {job.work_mode && (
+            <Badge variant="success">
+              {WORK_MODE_LABEL_MAP[job.work_mode] || job.work_mode}
+            </Badge>
           )}
         </div>
 
@@ -101,24 +104,31 @@ export default function JobDetailPanel({ job, isLoading, onClose }: JobDetailPan
       </div>
 
       {/* Footer */}
-      {job.apply_url && !job.application_closed && (
+      {job.apply_url && (
         <div className="border-t border-slate-200 p-6 dark:border-md-outline-variant">
-          <a
-            href={job.apply_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            Apply Now
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </div>
-      )}
-      {job.application_closed && (
-        <div className="border-t border-slate-200 p-6 dark:border-md-outline-variant">
-          <div className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-200 px-4 py-3 font-medium text-slate-500 dark:bg-md-surface-container-high dark:text-md-on-surface-variant">
-            Application Closed
-          </div>
+          {isAuthenticated ? (
+            <a
+              href={job.apply_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              Apply Now
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!job.apply_url) return;
+                onRequireAuthForApply(job.apply_url);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              Apply Now
+              <ExternalLink className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
     </div>

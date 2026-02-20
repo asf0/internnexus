@@ -5,6 +5,7 @@ import { fetchJobs, fetchCompanies, fetchLocations, fetchCategories } from "@/li
 import { BASE_URL } from "../lib/config";
 import Link from "next/link";
 import { auth } from "@/auth";
+import type { LocationItem } from "@/lib/types/job";
 
 interface HomePageProps {
   searchParams: Promise<{ 
@@ -13,8 +14,6 @@ interface HomePageProps {
     company?: string;
     location?: string;
     category?: string;
-    visa_sponsored?: string;
-    f1_friendly?: string;
     job_type?: string;
     work_mode?: string;
     posted_within?: string;
@@ -37,8 +36,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           company: params.company,
           location: params.location,
           category: params.category,
-          visa_sponsored: params.visa_sponsored,
-          f1_friendly: params.f1_friendly,
           job_type: params.job_type,
           work_mode: params.work_mode,
           posted_within: params.posted_within,
@@ -97,6 +94,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         totalPages={totalPages}
         currentPage={currentPage}
         matched={isMatched}
+        isAuthenticated={!!session?.user}
       />
     </div>
   );

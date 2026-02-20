@@ -2,6 +2,7 @@
 
 export interface Job {
   id: string;
+  source: string;
   title: string;
   company: string;
   location: string;
@@ -10,23 +11,11 @@ export interface Job {
   country: string | null;
   apply_url: string;
   description_text: string;
-  visa_sponsored: boolean | null;
-  f1_friendly: boolean | null;
   job_category: string | null;
-  requires_sponsorship: boolean | null;
-  requires_us_citizenship: boolean | null;
-  application_closed: boolean | null;
-  is_faang_plus: boolean | null;
-  requires_advanced_degree: boolean | null;
+  job_type: string | null;
+  work_mode: string | null;
   posted_at: string | null;
   is_active: boolean;
-}
-
-export interface JobListResponse {
-  items: Job[];
-  total: number;
-  page: number;
-  page_size: number;
 }
 
 export interface JobFilters {
@@ -36,12 +25,27 @@ export interface JobFilters {
   company?: string;
   location?: string;
   category?: string;
-  visa_sponsored?: string;
-  f1_friendly?: string;
   job_type?: string;
   work_mode?: string;
   posted_within?: string;
   match_ids?: string;
+}
+
+export interface LocationItem {
+  value: string;
+  label: string;
+  count: number;
+  type: "country" | "state" | "city";
+  country?: string;
+  state?: string;
+  children?: LocationItem[];
+}
+
+export interface JobListResponse {
+  items: Job[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface MatchResult {
@@ -56,5 +60,22 @@ export interface MatchResult {
 export interface MatchResponse {
   matches: MatchResult[];
   total: number;
+  session_id: string;
+  page: number;
+  page_size: number;
+  total_pages: number;
   error?: string;
+}
+
+export interface MatchPageRequest {
+  session_id: string;
+  page?: number;
+  page_size?: number;
+  search?: string;
+  company?: string;
+  location?: string;
+  category?: string;
+  job_type?: string;
+  work_mode?: string;
+  posted_within?: string;
 }

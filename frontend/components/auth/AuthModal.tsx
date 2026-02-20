@@ -15,9 +15,17 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: "login" | "register";
+  onAuthSuccess?: (applyWindow?: Window | null) => void;
+  intent?: "default" | "apply";
 }
 
-export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalProps) {
+export default function AuthModal({
+  isOpen,
+  onClose,
+  defaultMode = "login",
+  onAuthSuccess,
+  intent = "default",
+}: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +58,9 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+    const continuationWindow = intent === "apply"
+      ? window.open("", "_blank", "noopener,noreferrer")
+      : null;
 
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -59,6 +70,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
 
     const result = loginSchema.safeParse(data);
     if (!result.success) {
+      continuationWindow?.close();
       setError(result.error.issues[0].message);
       setIsLoading(false);
       return;
@@ -72,14 +84,17 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
       });
 
       if (authResult?.error) {
+        continuationWindow?.close();
         setError("Invalid email or password");
         setIsLoading(false);
         return;
       }
 
+      onAuthSuccess?.(continuationWindow);
       router.refresh();
       onClose();
     } catch {
+      continuationWindow?.close();
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
@@ -88,6 +103,9 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
   const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    const continuationWindow = intent === "apply"
+      ? window.open("", "_blank", "noopener,noreferrer")
+      : null;
     
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -99,6 +117,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
 
     const validationResult = registrationSchema.safeParse(data);
     if (!validationResult.success) {
+      continuationWindow?.close();
       setError(validationResult.error.issues[0].message);
       return;
     }
@@ -113,6 +132,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
       });
 
       if (!registerResult.success) {
+        continuationWindow?.close();
         if (registerResult.errorType === "EMAIL_REGISTERED_WITH_OAUTH") {
           setError(
             `${registerResult.error} Please sign in with your OAuth provider or go to Settings to set a password.`
@@ -131,32 +151,46 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
       });
 
       if (authResult?.error) {
+        continuationWindow?.close();
         setError("Account created but sign in failed. Please try signing in.");
         setIsLoading(false);
         return;
       }
 
+      onAuthSuccess?.(continuationWindow);
       router.refresh();
       onClose();
     } catch {
+      continuationWindow?.close();
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
   const toggleMode = () => {
+    if (isLoading) return;
     setMode(mode === "login" ? "register" : "login");
     setError(null);
   };
+
+  const isApplyIntent = intent === "apply";
+  const title = mode === "login"
+    ? (isApplyIntent ? "Sign in to apply" : "Welcome to InternNexus")
+    : (isApplyIntent ? "Create an account to apply" : "Create your account");
+  const subtitle = isApplyIntent
+    ? "We will open the job application in a new tab right after sign in."
+    : "Sign in to find your dream internship";
+  const loginSubmitLabel = isApplyIntent ? "Sign in and continue" : "Sign in with Email";
+  const registerSubmitLabel = isApplyIntent ? "Create account and continue" : "Create account";
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={<>
-        Welcome to InternNexus
+        {title}
         <p className="mt-1 text-sm font-normal text-slate-600 dark:text-md-on-surface-variant">
-          Sign in to find your dream internship
+          {subtitle}
         </p>
       </>}
       size="md"
@@ -181,7 +215,12 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
       </div>
 
       {mode === "login" ? (
-        <LoginForm isLoading={isLoading} onSubmit={handleLoginSubmit} />
+        <LoginForm
+          isLoading={isLoading}
+          onSubmit={handleLoginSubmit}
+          submitLabel={loginSubmitLabel}
+          autoFocusFirstField
+        />
       ) : (
         <RegisterForm
           isLoading={isLoading}
@@ -190,6 +229,8 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
           onPasswordChange={setPassword}
           onConfirmPasswordChange={setConfirmPassword}
           onSubmit={handleRegisterSubmit}
+          submitLabel={registerSubmitLabel}
+          autoFocusFirstField
         />
       )}
 
@@ -200,6 +241,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
               Don&apos;t have an account?{" "}
               <button
                 onClick={toggleMode}
+                disabled={isLoading}
                 className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
               >
                 Sign up
@@ -210,6 +252,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = "login" }: Au
               Already have an account?{" "}
               <button
                 onClick={toggleMode}
+                disabled={isLoading}
                 className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
               >
                 Sign in

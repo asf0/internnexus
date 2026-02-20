@@ -3,7 +3,7 @@ import { LucideIcon } from "lucide-react";
 
 interface BadgeProps {
   children: ReactNode;
-  variant?: "default" | "primary" | "secondary" | "outline" | "visa" | "f1" | "faang" | "danger" | "purple";
+  variant?: "default" | "primary" | "secondary" | "outline" | "info" | "success" | "danger" | "purple";
   icon?: LucideIcon;
   className?: string;
 }
@@ -23,9 +23,8 @@ export function Badge({
       "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300",
     outline:
       "bg-transparent border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300",
-    visa: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
-    f1: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300",
-    faang: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300",
+    info: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+    success: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300",
     danger: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
     purple: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
   };

@@ -8,6 +8,8 @@ interface JobDetailPanelContainerProps {
   job: Job | null;
   isLoading?: boolean;
   onClose: () => void;
+  isAuthenticated: boolean;
+  onRequireAuthForApply: (applyUrl: string) => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
@@ -15,6 +17,8 @@ export function JobDetailPanelContainer({
   job,
   isLoading = false,
   onClose,
+  isAuthenticated,
+  onRequireAuthForApply,
   triggerRef,
 }: JobDetailPanelContainerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -97,12 +101,24 @@ export function JobDetailPanelContainer({
         aria-labelledby="job-detail-title"
       >
         <div className="w-full rounded-2xl bg-white dark:bg-md-surface-container-low">
-          <JobDetailPanel job={job} isLoading={isLoading} onClose={handleClose} />
+          <JobDetailPanel
+            job={job}
+            isLoading={isLoading}
+            onClose={handleClose}
+            isAuthenticated={isAuthenticated}
+            onRequireAuthForApply={onRequireAuthForApply}
+          />
         </div>
       </div>
 
       <div className="hidden sticky top-20 h-[calc(100vh-7rem)] w-1/2 min-w-[400px] lg:block">
-        <JobDetailPanel job={job} isLoading={isLoading} onClose={handleClose} />
+        <JobDetailPanel
+          job={job}
+          isLoading={isLoading}
+          onClose={handleClose}
+          isAuthenticated={isAuthenticated}
+          onRequireAuthForApply={onRequireAuthForApply}
+        />
       </div>
     </>
   );

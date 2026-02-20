@@ -1,8 +1,8 @@
 "use client";
 
-import { MapPin, Building2, Flame, TrendingUp } from "lucide-react";
+import { MapPin, Building2, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { CATEGORY_LABEL_MAP } from "@/lib/constants";
+import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
 import { getMatchColor } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
@@ -27,9 +27,6 @@ export function JobCard({ job, isSelected, matchPercentage, onClick }: JobCardPr
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-md-on-surface">{job.title}</h3>
-            {job.is_faang_plus && (
-              <Flame className="h-4 w-4 text-orange-500" />
-            )}
             {matchPercentage !== undefined && (
               <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getMatchColor(matchPercentage)}`}>
                 <TrendingUp className="h-3 w-3" />
@@ -53,11 +50,15 @@ export function JobCard({ job, isSelected, matchPercentage, onClick }: JobCardPr
                 {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
               </Badge>
             )}
-            {job.visa_sponsored && (
-              <Badge variant="visa">Visa</Badge>
+            {job.job_type && (
+              <Badge variant="info">
+                {JOB_TYPE_LABEL_MAP[job.job_type] || job.job_type}
+              </Badge>
             )}
-            {job.f1_friendly && (
-              <Badge variant="f1">F1</Badge>
+            {job.work_mode && (
+              <Badge variant="success">
+                {WORK_MODE_LABEL_MAP[job.work_mode] || job.work_mode}
+              </Badge>
             )}
           </div>
         </div>

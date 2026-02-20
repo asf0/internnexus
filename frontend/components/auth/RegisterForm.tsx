@@ -11,6 +11,8 @@ interface RegisterFormProps {
   onPasswordChange: (password: string) => void;
   onConfirmPasswordChange: (password: string) => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  submitLabel?: string;
+  autoFocusFirstField?: boolean;
 }
 
 export function RegisterForm({
@@ -20,6 +22,8 @@ export function RegisterForm({
   onPasswordChange,
   onConfirmPasswordChange,
   onSubmit,
+  submitLabel = "Create account",
+  autoFocusFirstField = false,
 }: RegisterFormProps) {
   const isSubmitDisabled =
     isLoading ||
@@ -42,6 +46,7 @@ export function RegisterForm({
           required
           disabled={isLoading}
           placeholder="John Doe"
+          autoFocus={autoFocusFirstField}
         />
       </div>
 
@@ -81,7 +86,7 @@ export function RegisterForm({
         ) : (
           <UserPlus className="w-4 h-4" />
         )}
-        {isLoading ? "Creating account..." : "Create account"}
+        {isLoading ? "Creating account..." : submitLabel}
       </Button>
     </form>
   );

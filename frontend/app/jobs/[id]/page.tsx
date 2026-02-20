@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import DOMPurify from "isomorphic-dompurify";
-import { ExternalLink, Calendar, Globe, GraduationCap, Flag, Flame } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { fetchJob } from "../../../lib/api";
 import { BASE_URL } from "../../../lib/config";
-import { Badge, Button } from "../../../components/ui";
-import { CATEGORY_LABEL_MAP } from "../../../lib/constants";
+import { Badge } from "../../../components/ui";
+import { ApplyNowAuthButton } from "../../../components/jobs";
+import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "../../../lib/constants";
+import { auth } from "@/auth";
 
 interface JobPageProps {
   params: Promise<{ id: string }>;
@@ -36,6 +38,8 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
 export default async function JobDetailPage({ params }: JobPageProps) {
   const { id } = await params;
   const job = await fetchJob(id);
+  const session = await auth();
+  const isAuthenticated = !!session?.user;
 
   if (!job) {
     return <p>Job not found.</p>;
@@ -62,7 +66,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
     },
     "datePosted": job.posted_at,
     "description": cleanDescription,
-    "employmentType": "INTERN",
+    "employmentType": job.job_type?.toUpperCase() || "INTERN",
     "directApply": true,
     "url": `${BASE_URL}/jobs/${job.id}`,
   };
@@ -75,14 +79,9 @@ export default async function JobDetailPage({ params }: JobPageProps) {
       />
       
       <header className="space-y-2">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold uppercase text-slate-500 dark:text-md-on-surface-variant">
-            {job.company}
-          </p>
-          {job.is_faang_plus && (
-            <Badge variant="faang" icon={Flame}>FAANG+</Badge>
-          )}
-        </div>
+        <p className="text-sm font-semibold uppercase text-slate-500 dark:text-md-on-surface-variant">
+          {job.company}
+        </p>
         <h1 className="text-3xl font-semibold text-slate-900 dark:text-md-on-surface">{job.title}</h1>
         <p className="text-sm text-slate-600 dark:text-md-on-surface-variant">{job.location}</p>
         
@@ -92,17 +91,15 @@ export default async function JobDetailPage({ params }: JobPageProps) {
               {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
             </Badge>
           )}
-          {job.visa_sponsored && (
-            <Badge variant="visa" icon={Globe}>Visa Sponsored</Badge>
+          {job.job_type && (
+            <Badge variant="info">
+              {JOB_TYPE_LABEL_MAP[job.job_type] || job.job_type}
+            </Badge>
           )}
-          {job.f1_friendly && (
-            <Badge variant="f1" icon={GraduationCap}>F1 Friendly</Badge>
-          )}
-          {job.requires_us_citizenship && (
-            <Badge variant="danger" icon={Flag}>US Citizenship Required</Badge>
-          )}
-          {job.requires_advanced_degree && (
-            <Badge variant="purple" icon={GraduationCap}>Advanced Degree</Badge>
+          {job.work_mode && (
+            <Badge variant="success">
+              {WORK_MODE_LABEL_MAP[job.work_mode] || job.work_mode}
+            </Badge>
           )}
         </div>
 
@@ -119,21 +116,9 @@ export default async function JobDetailPage({ params }: JobPageProps) {
         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(job.description_text) }}
       />
 
-      {job.apply_url && !job.application_closed ? (
-        <a
-          href={job.apply_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          Apply Now
-          <ExternalLink className="h-4 w-4" />
-        </a>
-      ) : job.application_closed ? (
-        <div className="inline-flex items-center gap-2 rounded-lg bg-slate-200 px-6 py-3 font-medium text-slate-500 dark:bg-md-surface-container-high dark:text-md-on-surface-variant">
-          Application Closed
-        </div>
-      ) : null}
+      {job.apply_url && (
+        <ApplyNowAuthButton applyUrl={job.apply_url} isAuthenticated={isAuthenticated} />
+      )}
     </div>
   );
 }

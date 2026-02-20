@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, X } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 interface MultiSelectProps {
   options: string[];
@@ -29,9 +29,23 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter((option) =>
-    getLabel(option).toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOptions = useMemo(() => {
+    const matching = options.filter((option) =>
+      getLabel(option).toLowerCase().includes(search.toLowerCase())
+    );
+
+    return matching.sort((a, b) => {
+      const aSelected = selected.includes(a);
+      const bSelected = selected.includes(b);
+      if (aSelected !== bSelected) {
+        return aSelected ? -1 : 1;
+      }
+      return getLabel(a).localeCompare(getLabel(b));
+    });
+  }, [options, search, selected]);
+
+  const selectedPreview = selected.slice(0, 2);
+  const hiddenSelectedCount = Math.max(0, selected.length - selectedPreview.length);
 
   const toggleOption = (option: string) => {
     if (selected.includes(option)) {
@@ -54,7 +68,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
         {selected.length === 0 ? (
           <span className="text-slate-400 dark:text-md-on-surface">{placeholder}</span>
         ) : (
-          selected.map((item) => (
+          selectedPreview.map((item) => (
             <span
               key={item}
               className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface"
@@ -72,6 +86,11 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
             </span>
           ))
         )}
+        {hiddenSelectedCount > 0 && (
+          <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface">
+            +{hiddenSelectedCount} more
+          </span>
+        )}
         <ChevronDown
           size={16}
           className={`ml-auto text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -79,7 +98,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
       </div>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
+        <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
           <div className="p-2">
             <input
               type="text"
@@ -90,7 +109,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          <div className="max-h-60 overflow-y-auto">
+          <div className="max-h-52 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-400">No results found</div>
             ) : (
@@ -107,6 +126,29 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                 </div>
               ))
             )}
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-200 bg-white p-2 dark:border-md-outline-variant dark:bg-md-surface-container">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange([]);
+              }}
+              disabled={selected.length === 0}
+              className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+              className="rounded bg-md-primary px-2 py-1 text-xs font-medium text-white hover:opacity-90"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

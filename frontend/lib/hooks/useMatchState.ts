@@ -1,58 +1,57 @@
 import { useState, useCallback, useEffect } from "react";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import type { MatchResult } from "@/lib/types/job";
+import type { MatchResponse } from "@/lib/types/job";
 
 interface MatchState {
-  matchIds: string[];
+  sessionId: string | null;
   matchScores: Map<string, number>;
   isLoading: boolean;
 }
 
 export function useMatchState() {
   const [state, setState] = useState<MatchState>({
-    matchIds: [],
+    sessionId: null,
     matchScores: new Map(),
     isLoading: true,
   });
 
   useEffect(() => {
-    const storedIds = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
+    const storedSessionId = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
     const storedScores = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
 
-    const matchIds: string[] = storedIds ? JSON.parse(storedIds) : [];
+    const sessionId = storedSessionId || null;
     const scores: Record<string, number> = storedScores ? JSON.parse(storedScores) : {};
 
     setState({
-      matchIds,
+      sessionId,
       matchScores: new Map(Object.entries(scores)),
       isLoading: false,
     });
   }, []);
 
-  const saveMatches = useCallback((matches: MatchResult[]) => {
-    const matchIds = matches.map((match) => match.job_id).filter(Boolean);
+  const saveMatches = useCallback((response: MatchResponse) => {
     const scoresMap: Record<string, number> = {};
-    matches.forEach((match) => {
+    response.matches.forEach((match) => {
       scoresMap[match.job_id] = match.match_percentage;
     });
 
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
     localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
-    localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_IDS, JSON.stringify(matchIds));
 
     setState({
-      matchIds,
+      sessionId: response.session_id,
       matchScores: new Map(Object.entries(scoresMap)),
       isLoading: false,
     });
 
-    return matchIds;
+    return response.session_id;
   }, []);
 
   const clearMatches = useCallback(() => {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-    localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
     setState({
-      matchIds: [],
+      sessionId: null,
       matchScores: new Map(),
       isLoading: false,
     });

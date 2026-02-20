@@ -4,15 +4,15 @@ import { useState, useEffect, useRef, useTransition } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
-import { MultiSelect } from "@/components/common";
+import { MultiSelect, LocationSelect } from "@/components/common";
 import { Button, Input, SingleSelect } from "@/components/ui";
 import { matchResume } from "@/app/actions/match";
 import { CATEGORY_LABEL_MAP, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import type { MatchResponse } from "@/lib/types/job";
+import type { MatchResponse, LocationItem } from "@/lib/types/job";
 
 interface ToolbarProps {
   companies: string[];
-  locations: string[];
+  locations: LocationItem[];
   categories?: string[];
   isAuthenticated?: boolean;
 }
@@ -92,11 +92,23 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
 
   const jobTypes = ["internship", "full-time", "part-time"];
   const workModes = ["remote", "hybrid", "on-site"];
+  const jobTypeLabelMap: Record<string, string> = {
+    internship: "Internship",
+    "full-time": "Full-time",
+    "part-time": "Part-time",
+  };
+  const workModeLabelMap: Record<string, string> = {
+    remote: "Remote",
+    hybrid: "Hybrid",
+    "on-site": "On-site",
+  };
   const postedWithinOptions = [
     { value: "24h", label: "Past 24 hours" },
     { value: "week", label: "Past week" },
     { value: "month", label: "Past month" },
   ];
+  
+
 
   const handleResumeSubmit = async (formData: FormData) => {
     setIsMatching(true);
@@ -112,7 +124,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
           scoresMap[match.job_id] = match.match_percentage;
         });
         localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
-        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_IDS, JSON.stringify(matchIds));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
         
         const params = new URLSearchParams(searchParams.toString());
         if (matchIds.length > 0) {
@@ -120,7 +132,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
         } else {
           params.delete("matched");
           localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-          localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_IDS);
+          localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
         }
         params.delete("page");
         startTransition(() => {
@@ -138,12 +150,12 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
   return (
     <div className="sticky top-0 z-50 space-y-3 backdrop-blur-md bg-white/80 dark:bg-md-surface/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       {/* Main Toolbar Row */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="relative flex flex-wrap items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px]">
           <Input
             type="text"
-            placeholder='Search jobs... (try: "software engineer" AND remote)'
+            placeholder='Search jobs...'
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e: React.KeyboardEvent) => {
@@ -153,6 +165,18 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
             }}
             icon={Search}
           />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput("");
+                updateFilter("search", "");
+              }}
+              className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
           <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
             <button
               type="button"
@@ -163,16 +187,18 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </button>
-            <div className="absolute right-0 top-6 z-50 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-md-outline dark:bg-md-surface-container dark:text-md-on-surface">
-              <p className="mb-2 font-medium text-slate-700 dark:text-md-on-surface">Search syntax:</p>
-              <ul className="space-y-1">
-                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">&quot;exact phrase&quot;</code> - Exact match</li>
-                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python AND remote</code> - Both terms</li>
-                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python OR java</code> - Either term</li>
-                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python NOT senior</code> - Exclude</li>
-                <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">title:python</code> - Field search</li>
-              </ul>
-            </div>
+            {!showFilters && (
+              <div className="pointer-events-none invisible absolute right-0 top-6 z-50 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 opacity-0 shadow-lg transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 dark:border-md-outline dark:bg-md-surface-container dark:text-md-on-surface">
+                <p className="mb-2 font-medium text-slate-700 dark:text-md-on-surface">Search syntax:</p>
+                <ul className="space-y-1">
+                  <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">&quot;exact phrase&quot;</code> - Exact match</li>
+                  <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python AND remote</code> - Both terms</li>
+                  <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python OR java</code> - Either term</li>
+                  <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">python NOT senior</code> - Exclude</li>
+                  <li><code className="rounded bg-slate-100 px-1 dark:bg-md-surface-container-high">title:python</code> - Field search</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 
@@ -224,23 +250,29 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Company */}
             <MultiSelect
-              options={companies}
+              options={[...companies].sort((a, b) => a.localeCompare(b))}
               selected={currentCompanies}
               onChange={(values) => updateMultiSelect("company", values)}
               placeholder="Company"
             />
 
             {/* Location */}
-            <MultiSelect
-              options={locations}
+            <LocationSelect
+              locations={locations}
               selected={currentLocations}
-              onChange={(values) => updateMultiSelect("location", values)}
+              onChange={(values: string[]) => updateMultiSelect("location", values)}
               placeholder="Location"
             />
 
             {/* Category */}
             <MultiSelect
-              options={categories.length > 0 ? categories : Object.keys(CATEGORY_LABEL_MAP)}
+              options={[...(categories.length > 0 ? categories : Object.keys(CATEGORY_LABEL_MAP))].sort(
+                (a, b) => {
+                  const aLabel = CATEGORY_LABEL_MAP[a] || a;
+                  const bLabel = CATEGORY_LABEL_MAP[b] || b;
+                  return aLabel.localeCompare(bLabel);
+                }
+              )}
               selected={currentCategories}
               onChange={(values) => updateMultiSelect("category", values)}
               placeholder="Category"
@@ -253,6 +285,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
               selected={currentJobTypes}
               onChange={(values) => updateMultiSelect("job_type", values)}
               placeholder="Job Type"
+              labelMap={jobTypeLabelMap}
             />
 
             {/* Work Mode */}
@@ -261,6 +294,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
               selected={currentWorkModes}
               onChange={(values) => updateMultiSelect("work_mode", values)}
               placeholder="Work Mode"
+              labelMap={workModeLabelMap}
             />
 
             {/* Date Posted */}

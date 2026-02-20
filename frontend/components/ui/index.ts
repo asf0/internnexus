@@ -7,3 +7,4 @@ export { IconContainer } from "./IconContainer";
 export { LoadingSpinner } from "./LoadingSpinner";
 export { Alert } from "./Alert";
 export { FormField } from "./FormField";
+export { Toast } from "./Toast";

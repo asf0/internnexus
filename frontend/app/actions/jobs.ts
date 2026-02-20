@@ -11,8 +11,6 @@ interface MatchedJobsFilters {
   company?: string;
   location?: string;
   category?: string;
-  visa_sponsored?: string;
-  f1_friendly?: string;
   job_type?: string;
   work_mode?: string;
   posted_within?: string;
@@ -35,8 +33,6 @@ export async function fetchMatchedJobs(
   if (filters.company) params.set("company", filters.company);
   if (filters.location) params.set("location", filters.location);
   if (filters.category) params.set("category", filters.category);
-  if (filters.visa_sponsored) params.set("visa_sponsored", filters.visa_sponsored);
-  if (filters.f1_friendly) params.set("f1_friendly", filters.f1_friendly);
   if (filters.job_type) params.set("job_type", filters.job_type);
   if (filters.work_mode) params.set("work_mode", filters.work_mode);
   if (filters.posted_within) params.set("posted_within", filters.posted_within);

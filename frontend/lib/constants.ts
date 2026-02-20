@@ -8,11 +8,28 @@ export const CATEGORY_LABEL_MAP: Record<string, string> = {
   "hardware_engineering": "Hardware Engineering",
 };
 
+export const JOB_TYPE_LABEL_MAP: Record<string, string> = {
+  "internship": "Internship",
+  "full_time": "Full-time",
+  "part_time": "Part-time",
+};
+
+export const WORK_MODE_LABEL_MAP: Record<string, string> = {
+  "remote": "Remote",
+  "hybrid": "Hybrid",
+  "on_site": "On-site",
+};
+
 export const DEFAULT_PAGE_SIZE = 20;
 
 export const LOCAL_STORAGE_KEYS = {
   MATCH_SCORES: "matchScores",
   MATCH_IDS: "matchIds",
+  MATCH_SESSION: "match_session",
+} as const;
+
+export const SESSION_STORAGE_KEYS = {
+  PENDING_APPLY_URL: "pendingApplyUrl",
 } as const;
 
 export const DELETE_CONFIRM_TEXT = "DELETE";
