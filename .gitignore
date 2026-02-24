@@ -41,7 +41,6 @@ Thumbs.db
 # Pipeline runtime artifacts
 pipeline/output/
 pipeline/discovery/output/
-pipeline/.backfill_progress.json
 pipeline/apis/*.old
 
 # Test artifacts

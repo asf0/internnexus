@@ -44,6 +44,9 @@ async def generate_embeddings(
     if embedder is None:
         return 0, 0
 
+    if session is not None:
+        return await _run_embedding_pipeline(session, embedder, batch_size, parallel_batches)
+
     async with AsyncSessionLocal() as db:
         return await _run_embedding_pipeline(db, embedder, batch_size, parallel_batches)
 

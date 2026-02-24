@@ -47,6 +47,7 @@ import logging
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+
 try:
     from pipeline.path_setup import ensure_project_paths
 except ModuleNotFoundError:
@@ -693,7 +694,8 @@ Examples:
     async def run_once():
         if args.check:
             results = await run_health_checks()
-            if not results:
+            all_healthy = print_health_report(results)
+            if not all_healthy:
                 sys.exit(1)
             return
 
@@ -732,7 +734,7 @@ Examples:
             elif args.step == "delete_inactive":
                 await runner.step_delete_inactive(None)
             elif args.step == "cleanup":
-                await runner.step_cleanup(None, test_mode=args.test)
+                await runner.step_cleanup(None, test_mode=args.test, limit=args.limit)
             elif args.step == "classify":
                 await runner.step_classify(None, limit=args.limit)
             elif args.step == "embed":
