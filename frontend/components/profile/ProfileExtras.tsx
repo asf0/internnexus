@@ -86,6 +86,14 @@ export default function ProfileExtras({
             <div>File: {resume.file_name}</div>
             <div>Status: {resume.status}</div>
             <div>Hash: {resume.file_hash.slice(0, 12)}...</div>
+            <div>Embedding: {resume.has_embedding ? "Ready" : "Not ready"}</div>
+            {resume.embedding_model && <div>Model: {resume.embedding_model}</div>}
+            {resume.last_embedded_at && (
+              <div>Last embedded: {new Date(resume.last_embedded_at).toLocaleString()}</div>
+            )}
+            {resume.embedding_error && (
+              <div className="text-red-600">Embedding error: {resume.embedding_error}</div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-slate-600 dark:text-md-on-surface-variant mb-3">

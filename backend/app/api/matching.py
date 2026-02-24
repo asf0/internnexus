@@ -1,25 +1,31 @@
 from __future__ import annotations
 
-import io
 import hashlib
 import logging
 import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Annotated, BinaryIO
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import JobResponse, MatchResponse, MatchResult
+from app.api.schemas import MatchResponse, MatchResult
+from app.config import get_settings
 from app.auth.dependencies import get_current_user
 from app.db import get_db
-from app.models import Job, User
+from app.models import Job, User, UserResume
 from app.rate_limiter import limiter, RATE_LIMITS
-from app.services.query_embedding_service import QueryEmbeddingService
 from app.services.match_cache import MatchCacheService, get_match_cache_service
+from app.services.query_embedding_service import QueryEmbeddingService
+from app.services.resume_service import (
+    decrypt_resume_text,
+    ResumeProcessingError,
+    extract_resume_text,
+    normalize_resume_text,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -185,158 +191,12 @@ def _explain_match(
     }
 
 
-def extract_text_from_pdf(file: BinaryIO) -> str:
-    """Extract text from PDF using pypdf, with fallback to pdfminer."""
-    text = ""
-    errors = []
-
-    # Try pypdf first
-    try:
-        from pypdf import PdfReader
-
-        file.seek(0)
-        reader = PdfReader(file)
-        text_parts = []
-        for page in reader.pages:
-            text_parts.append(page.extract_text() or "")
-        text = "\n".join(text_parts).strip()
-        if text:
-            return text
-    except Exception as e:
-        errors.append(f"pypdf: {str(e)}")
-
-    # Fallback to pdfminer if pypdf fails or returns empty
-    try:
-        from pdfminer.high_level import extract_text as pdfminer_extract
-
-        file.seek(0)
-        text = pdfminer_extract(file)
-        if text:
-            return text.strip()
-    except ImportError:
-        errors.append("pdfminer: not installed")
-    except Exception as e:
-        errors.append(f"pdfminer: {str(e)}")
-
-    # Last resort: try reading as plain text (some "PDFs" are actually text)
-    try:
-        file.seek(0)
-        content = file.read()
-        if isinstance(content, bytes):
-            # Check if it looks like text
-            try:
-                decoded = content.decode("utf-8", errors="ignore")
-                # Filter out binary garbage
-                printable = "".join(c for c in decoded if c.isprintable() or c in "\n\r\t ")
-                if len(printable) > 100:
-                    return printable.strip()
-            except Exception as e:
-                errors.append(f"text fallback: {str(e)}")
-    except Exception as e:
-        errors.append(f"text fallback: {str(e)}")
-
-    # If we got here, all methods failed
-    if errors:
-        raise ValueError(f"Could not extract text from PDF. Errors: {'; '.join(errors)}")
-
-    return text
-
-
-@router.post("/match", response_model=MatchResponse)
-@limiter.limit(RATE_LIMITS["match"])
-async def match_resume(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-    cache_service: MatchCacheService = Depends(get_match_cache_service),
-    min_score: float = 0.5,
-    page_size: int = 20,
-) -> MatchResponse:
-    # Generate unique session_id for this matching request
-    session_id = str(uuid.uuid4())
-
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
-
-    # Accept PDF and common document types
-    filename_lower = file.filename.lower()
-    if not (filename_lower.endswith(".pdf") or filename_lower.endswith(".txt")):
-        raise HTTPException(status_code=400, detail="Only PDF and TXT files are accepted")
-
-    file_content = file.file.read()
-
-    # Validate file size (max 10MB)
-    if len(file_content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
-
-    # Validate PDF header if it's supposed to be a PDF
-    if filename_lower.endswith(".pdf"):
-        if not file_content.startswith(b"%PDF"):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid PDF file. The file does not have a valid PDF header. "
-                "Please ensure you're uploading a real PDF file, not a renamed document.",
-            )
-
-    # Handle text files directly
-    if filename_lower.endswith(".txt"):
-        try:
-            resume_text = file_content.decode("utf-8", errors="ignore").strip()
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=f"Failed to read text file: {exc}")
-    else:
-        # Try to extract from PDF
-        try:
-            resume_text = extract_text_from_pdf(io.BytesIO(file_content))
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to parse PDF. {str(exc)}. "
-                "Please ensure the PDF is not corrupted and is a valid PDF file.",
-            )
-
-    if not resume_text:
-        raise HTTPException(status_code=400, detail="Resume text is empty")
-
-    # Validate parameters
-    min_score = max(0.0, min(min_score, 1.0))
-    page_size = max(1, min(page_size, 100))
-
-    # Reuse previous matching session for the same resume payload and threshold.
-    resume_hash = hashlib.sha256(file_content).hexdigest()
-    cached_session_id = await cache_service.get_cached_session_for_resume(
-        current_user.id, resume_hash, min_score
-    )
-    if cached_session_id and await cache_service.validate_match_session(current_user.id, cached_session_id):
-        cached_page = await cache_service.get_paginated_matches(
-            current_user.id,
-            cached_session_id,
-            page=1,
-            page_size=page_size,
-        )
-        if cached_page is not None:
-            matches_data, total_count = cached_page
-            total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
-            return MatchResponse(
-                matches=[MatchResult(**item) for item in matches_data],
-                total=total_count,
-                session_id=cached_session_id,
-                page=1,
-                page_size=page_size,
-                total_pages=total_pages,
-                reused_from_cache=True,
-            )
-
-    try:
-        embedder = QueryEmbeddingService()
-        resume_embedding = await embedder.embed(resume_text)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")
-
+async def _rank_matches(
+    db: AsyncSession, resume_embedding: list[float], resume_text: str, min_score: float
+) -> list[MatchResult]:
+    """Run vector candidate retrieval + hybrid reranking."""
     signals = _extract_resume_signals(resume_text)
 
-    # Candidate retrieval by vector similarity.
     stmt = (
         select(
             Job.id,
@@ -373,11 +233,11 @@ async def match_resume(
                     "Resume embedding dimension does not match stored job embeddings. "
                     "Re-embed job descriptions using the current embedding model."
                 ),
-            )
+            ) from exc
         raise HTTPException(
             status_code=500,
             detail="Matching query failed. Please try again later.",
-        )
+        ) from exc
 
     ranked_rows: list[tuple[float, object, dict[str, float]]] = []
     for row in results[:_RERANK_POOL]:
@@ -432,7 +292,7 @@ async def match_resume(
             min_score,
         )
 
-    matches = [
+    return [
         MatchResult(
             job_id=row.id,
             score=float(score),
@@ -454,27 +314,70 @@ async def match_resume(
         for score, row, explain in filtered_rows
     ]
 
+
+async def _return_cached_first_page(
+    cache_service: MatchCacheService,
+    user_id,
+    cache_hash: str,
+    min_score: float,
+    page_size: int,
+) -> MatchResponse | None:
+    cached_session_id = await cache_service.get_cached_session_for_resume(user_id, cache_hash, min_score)
+    if not cached_session_id:
+        return None
+    if not await cache_service.validate_match_session(user_id, cached_session_id):
+        return None
+    cached_page = await cache_service.get_paginated_matches(
+        user_id,
+        cached_session_id,
+        page=1,
+        page_size=page_size,
+    )
+    if cached_page is None:
+        return None
+
+    matches_data, total_count = cached_page
+    total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+    return MatchResponse(
+        matches=[MatchResult(**item) for item in matches_data],
+        total=total_count,
+        session_id=cached_session_id,
+        page=1,
+        page_size=page_size,
+        total_pages=total_pages,
+        reused_from_cache=True,
+    )
+
+
+async def _build_match_response(
+    *,
+    db: AsyncSession,
+    cache_service: MatchCacheService,
+    user_id,
+    cache_hash: str,
+    min_score: float,
+    page_size: int,
+    resume_text: str,
+    resume_embedding: list[float],
+) -> MatchResponse:
+    session_id = str(uuid.uuid4())
+    matches = await _rank_matches(db, resume_embedding, resume_text, min_score)
     total_matches = len(matches)
 
-    # Cache the full results (handle Redis failures gracefully)
     cache_success = False
     try:
-        cache_success = await cache_service.cache_matches(current_user.id, session_id, matches)
+        cache_success = await cache_service.cache_matches(user_id, session_id, matches)
         if cache_success:
             await cache_service.cache_resume_session(
-                current_user.id,
-                resume_hash,
+                user_id,
+                cache_hash,
                 min_score,
                 session_id,
             )
-    except Exception as e:
-        logger.warning(f"Failed to cache matches for session {session_id}: {e}")
-        # Continue without caching - don't fail the request
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Failed to cache matches for session {session_id}: {exc}")
 
-    # Calculate pagination info
     total_pages = (total_matches + page_size - 1) // page_size if total_matches > 0 else 1
-
-    # Return only the first page of results
     first_page_matches = matches[:page_size]
 
     return MatchResponse(
@@ -485,6 +388,164 @@ async def match_resume(
         page_size=page_size,
         total_pages=total_pages,
         reused_from_cache=False,
+    )
+
+
+@router.post("/match", response_model=MatchResponse)
+@limiter.limit(RATE_LIMITS["match"])
+async def match_resume(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    cache_service: MatchCacheService = Depends(get_match_cache_service),
+    min_score: float = 0.5,
+    page_size: int = 20,
+) -> MatchResponse:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    file_content = file.file.read()
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+
+    try:
+        extracted_text = extract_resume_text(file.filename, file_content)
+    except ResumeProcessingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    resume_text = normalize_resume_text(extracted_text)
+    if not resume_text:
+        raise HTTPException(status_code=400, detail="Resume text is empty after normalization")
+
+    min_score = max(0.0, min(min_score, 1.0))
+    page_size = max(1, min(page_size, 100))
+
+    file_hash = hashlib.sha256(file_content).hexdigest()
+    cached_response = await _return_cached_first_page(
+        cache_service=cache_service,
+        user_id=current_user.id,
+        cache_hash=file_hash,
+        min_score=min_score,
+        page_size=page_size,
+    )
+    if cached_response:
+        return cached_response
+
+    try:
+        embedder = QueryEmbeddingService()
+        resume_embedding = await embedder.embed(resume_text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")
+
+    return await _build_match_response(
+        db=db,
+        cache_service=cache_service,
+        user_id=current_user.id,
+        cache_hash=file_hash,
+        min_score=min_score,
+        page_size=page_size,
+        resume_text=resume_text,
+        resume_embedding=resume_embedding,
+    )
+
+
+@router.post("/match/profile", response_model=MatchResponse)
+@limiter.limit(RATE_LIMITS["match"])
+async def match_profile_resume(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    cache_service: MatchCacheService = Depends(get_match_cache_service),
+    min_score: float = 0.5,
+    page_size: int = 20,
+) -> MatchResponse:
+    min_score = max(0.0, min(min_score, 1.0))
+    page_size = max(1, min(page_size, 100))
+
+    resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    user_resume = resume_result.scalar_one_or_none()
+    if user_resume is None:
+        raise HTTPException(status_code=400, detail="No profile resume found. Upload one in your profile first.")
+
+    if not user_resume.content_hash:
+        raise HTTPException(status_code=400, detail="Stored resume is incomplete. Please upload again.")
+
+    cached_response = await _return_cached_first_page(
+        cache_service=cache_service,
+        user_id=current_user.id,
+        cache_hash=user_resume.content_hash,
+        min_score=min_score,
+        page_size=page_size,
+    )
+    if cached_response:
+        return cached_response
+
+    resume_text = ""
+    needs_reembed = False
+    settings = get_settings()
+    if user_resume.embedding_model != settings.embedding_model:
+        needs_reembed = True
+    if user_resume.embedding_dim and user_resume.embedding_dim != 1024:
+        needs_reembed = True
+    if user_resume.resume_embedding is None:
+        needs_reembed = True
+
+    if needs_reembed:
+        if not user_resume.encrypted_resume_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Stored resume cannot be re-embedded. Please upload your resume again.",
+            )
+        try:
+            resume_text = decrypt_resume_text(user_resume.encrypted_resume_text)
+        except ResumeProcessingError as exc:
+            user_resume.status = "error"
+            user_resume.embedding_error = str(exc)
+            await db.commit()
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to decrypt stored resume. Please upload again.",
+            ) from exc
+
+        try:
+            embedder = QueryEmbeddingService()
+            resume_embedding = await embedder.embed(resume_text)
+        except Exception as exc:  # noqa: BLE001
+            user_resume.status = "error"
+            user_resume.embedding_error = str(exc)
+            await db.commit()
+            raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {exc}") from exc
+
+        user_resume.resume_embedding = resume_embedding
+        user_resume.embedding_model = embedder._model
+        user_resume.embedding_dim = len(resume_embedding)
+        user_resume.last_embedded_at = datetime.now(timezone.utc)
+        user_resume.status = "ready"
+        user_resume.embedding_error = None
+        await db.commit()
+    else:
+        resume_embedding = list(user_resume.resume_embedding)
+        if user_resume.encrypted_resume_text:
+            resume_text = decrypt_resume_text(user_resume.encrypted_resume_text)
+        else:
+            resume_text = ""
+
+    if not resume_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Stored resume text is unavailable. Please upload your resume again.",
+        )
+
+    return await _build_match_response(
+        db=db,
+        cache_service=cache_service,
+        user_id=current_user.id,
+        cache_hash=user_resume.content_hash,
+        min_score=min_score,
+        page_size=page_size,
+        resume_text=resume_text,
+        resume_embedding=resume_embedding,
     )
 
 

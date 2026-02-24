@@ -20,6 +20,14 @@ from app.api.schemas import JobResponse
 from app.models import AppliedJob, Job, SavedJob, User, UserNotification, UserResume
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.services.auth_service import AuthService, get_auth_service
+from app.services.query_embedding_service import QueryEmbeddingService
+from app.services.resume_service import (
+    ResumeProcessingError,
+    compute_hash,
+    encrypt_resume_text,
+    extract_resume_text,
+    normalize_resume_text,
+)
 from app.services.user_service import UserService, get_user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -77,7 +85,13 @@ class UserResumeResponse(BaseModel):
     id: UUID
     file_name: str
     file_hash: str
+    content_hash: str | None = None
     status: str
+    has_embedding: bool = False
+    embedding_model: str | None = None
+    embedding_dim: int | None = None
+    last_embedded_at: datetime | None = None
+    embedding_error: str | None = None
     uploaded_at: datetime
     updated_at: datetime
 
@@ -164,7 +178,9 @@ async def get_resume_metadata(
     resume = result.scalar_one_or_none()
     if resume is None:
         return None
-    return UserResumeResponse.model_validate(resume)
+    data = UserResumeResponse.model_validate(resume)
+    data.has_embedding = resume.resume_embedding is not None
+    return data
 
 
 @router.post("/me/resume", response_model=UserResumeResponse)
@@ -186,11 +202,39 @@ async def upload_resume_metadata(
             detail="Only PDF and TXT files are accepted",
         )
 
-    content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 10MB)")
 
-    file_hash = hashlib.sha256(content).hexdigest()
+    file_hash = hashlib.sha256(file_content).hexdigest()
+
+    try:
+        resume_text = extract_resume_text(filename, file_content)
+    except ResumeProcessingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    normalized_text = normalize_resume_text(resume_text)
+    if not normalized_text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Resume text is empty")
+
+    content_hash = compute_hash(normalized_text)
+    encrypted_text = encrypt_resume_text(normalized_text)
+
+    try:
+        embedder = QueryEmbeddingService()
+        embedding = await embedder.embed(normalized_text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to generate resume embedding: {exc}",
+        ) from exc
+
+    embedding_dim = len(embedding) if embedding else 0
+    if embedding_dim == 0:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Embedding service returned an empty vector",
+        )
 
     existing_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
     existing = existing_result.scalar_one_or_none()
@@ -198,6 +242,13 @@ async def upload_resume_metadata(
     if existing:
         existing.file_name = filename
         existing.file_hash = file_hash
+        existing.content_hash = content_hash
+        existing.encrypted_resume_text = encrypted_text
+        existing.resume_embedding = embedding
+        existing.embedding_model = embedder._model
+        existing.embedding_dim = embedding_dim
+        existing.last_embedded_at = datetime.now(timezone.utc)
+        existing.embedding_error = None
         existing.status = "ready"
         db.add(
             UserNotification(
@@ -208,12 +259,21 @@ async def upload_resume_metadata(
         )
         await db.commit()
         await db.refresh(existing)
-        return UserResumeResponse.model_validate(existing)
+        data = UserResumeResponse.model_validate(existing)
+        data.has_embedding = existing.resume_embedding is not None
+        return data
 
     resume = UserResume(
         user_id=current_user.id,
         file_name=filename,
         file_hash=file_hash,
+        content_hash=content_hash,
+        encrypted_resume_text=encrypted_text,
+        resume_embedding=embedding,
+        embedding_model=embedder._model,
+        embedding_dim=embedding_dim,
+        last_embedded_at=datetime.now(timezone.utc),
+        embedding_error=None,
         status="ready",
     )
     db.add(resume)
@@ -226,7 +286,9 @@ async def upload_resume_metadata(
     )
     await db.commit()
     await db.refresh(resume)
-    return UserResumeResponse.model_validate(resume)
+    data = UserResumeResponse.model_validate(resume)
+    data.has_embedding = resume.resume_embedding is not None
+    return data
 
 
 @router.delete("/me/resume")

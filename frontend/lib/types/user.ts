@@ -37,7 +37,13 @@ export interface UserResume {
   id: string;
   file_name: string;
   file_hash: string;
+  content_hash: string | null;
   status: string;
+  has_embedding: boolean;
+  embedding_model: string | null;
+  embedding_dim: number | null;
+  last_embedded_at: string | null;
+  embedding_error: string | null;
   uploaded_at: string;
   updated_at: string;
 }

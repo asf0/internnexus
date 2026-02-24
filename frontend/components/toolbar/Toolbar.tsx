@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
 import { MultiSelect, LocationSelect } from "@/components/common";
 import { Button, Input, SingleSelect } from "@/components/ui";
-import { matchResume } from "@/app/actions/match";
+import { matchProfileResume, matchResume } from "@/app/actions/match";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { formatCategoryLabel } from "@/lib/utils";
 import type { MatchResponse, LocationItem } from "@/lib/types/job";
@@ -122,68 +122,80 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
   
 
 
+  const applyMatchResponse = (response: MatchResponse) => {
+    setMatchResult(response);
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (response.error) {
+      params.delete("matched");
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
+      params.delete("page");
+      startTransition(() => {
+        router.push(`/?${params.toString()}`);
+      });
+      return;
+    }
+
+    const matches = response.matches ?? [];
+    const matchIds = matches.map((match) => match.job_id).filter(Boolean);
+
+    if (matchIds.length > 0 && !response.session_id) {
+      setMatchResult({
+        ...response,
+        error: "Matches were found but the session could not be created. Please try again.",
+      });
+      params.delete("matched");
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
+      params.delete("page");
+      startTransition(() => {
+        router.push(`/?${params.toString()}`);
+      });
+      return;
+    }
+
+    const scoresMap: Record<string, number> = {};
+    matches.forEach((match) => {
+      scoresMap[match.job_id] = match.match_percentage;
+    });
+
+    if (matchIds.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
+      localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
+      window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
+      params.set("matched", "true");
+    } else {
+      params.delete("matched");
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
+    }
+
+    params.delete("page");
+    params.delete("open_resume");
+    startTransition(() => {
+      router.push(`/?${params.toString()}`);
+    });
+  };
+
   const handleResumeSubmit = async (formData: FormData) => {
     setIsMatching(true);
     try {
       const response = await matchResume(formData);
-      setMatchResult(response);
+      applyMatchResponse(response);
+    } finally {
+      setIsMatching(false);
+    }
+  };
 
-      const params = new URLSearchParams(searchParams.toString());
-
-      if (response.error) {
-        params.delete("matched");
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
-        window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
-        params.delete("page");
-        startTransition(() => {
-          router.push(`/?${params.toString()}`);
-        });
-        return;
-      }
-
-      const matches = response.matches ?? [];
-      const matchIds = matches.map((match) => match.job_id).filter(Boolean);
-
-      if (matchIds.length > 0 && !response.session_id) {
-        setMatchResult({
-          ...response,
-          error:
-            "Matches were found but the session could not be created. Please try again.",
-        });
-        params.delete("matched");
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
-        window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
-        params.delete("page");
-        startTransition(() => {
-          router.push(`/?${params.toString()}`);
-        });
-        return;
-      }
-
-      const scoresMap: Record<string, number> = {};
-      matches.forEach((match) => {
-        scoresMap[match.job_id] = match.match_percentage;
-      });
-
-      if (matchIds.length > 0) {
-        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
-        localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
-        window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
-        params.set("matched", "true");
-      } else {
-        params.delete("matched");
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-        localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
-        window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
-      }
-
-      params.delete("page");
-      params.delete("open_resume");
-      startTransition(() => {
-        router.push(`/?${params.toString()}`);
-      });
+  const handleProfileResumeMatch = async () => {
+    setIsMatching(true);
+    try {
+      const response = await matchProfileResume();
+      applyMatchResponse(response);
     } finally {
       setIsMatching(false);
     }
@@ -369,13 +381,28 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
       {/* Resume Upload Panel - Only show if logged in */}
       {isAuthenticated && showResume && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-md-outline-variant dark:bg-md-surface-container-low">
+          <div className="mb-4">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant">
+              Match using your saved profile resume
+            </label>
+            <Button
+              type="button"
+              disabled={isMatching}
+              onClick={handleProfileResumeMatch}
+            >
+              {isMatching ? "Matching..." : "Find Matches (Saved Resume)"}
+            </Button>
+          </div>
+          <div className="mb-3 text-xs text-slate-500 dark:text-md-on-surface-variant">
+            Or upload a different file for a one-time match:
+          </div>
           <form
             onSubmit={handleResumeFormSubmit}
             className="flex flex-wrap items-end gap-4"
           >
             <div className="flex-1 min-w-[200px]">
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant">
-                Upload your resume to find matching jobs
+                Upload resume (one-time override)
               </label>
               <input
                 name="resume"

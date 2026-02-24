@@ -4,17 +4,29 @@ import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 import type { MatchResponse } from "@/lib/types/job";
 
+function emptyMatch(error: string): MatchResponse {
+  return {
+    matches: [],
+    total: 0,
+    session_id: "",
+    page: 1,
+    page_size: 20,
+    total_pages: 0,
+    error,
+  };
+}
+
 export async function matchResume(formData: FormData): Promise<MatchResponse> {
 
   const backendToken = await getBackendToken();
   
   if (!backendToken) {
-    return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Authentication required. Please sign in." };
+    return emptyMatch("Authentication required. Please sign in.");
   }
 
   const file = formData.get("resume") as File | null;
   if (!file) {
-    return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Resume file is required." };
+    return emptyMatch("Resume file is required.");
   }
 
   const body = new FormData();
@@ -52,17 +64,44 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
     }
 
     if (response.status === 401) {
-      return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Your session has expired. Please sign in again." };
+      return emptyMatch("Your session has expired. Please sign in again.");
     }
     return {
-      matches: [],
-      total: 0,
-      session_id: "",
-      page: 1,
-      page_size: 20,
-      total_pages: 0,
+      ...emptyMatch(""),
       error: detail || `Failed to match resume (HTTP ${response.status}).`,
     };
+  }
+
+  return response.json();
+}
+
+export async function matchProfileResume(): Promise<MatchResponse> {
+  const backendToken = await getBackendToken();
+  if (!backendToken) {
+    return emptyMatch("Authentication required. Please sign in.");
+  }
+
+  const response = await fetch(`${BACKEND_URL}/match/profile`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${backendToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = await response.json();
+      if (payload && typeof payload.detail === "string") {
+        detail = payload.detail;
+      }
+    } catch {
+      // no-op
+    }
+    if (response.status === 401) {
+      return emptyMatch("Your session has expired. Please sign in again.");
+    }
+    return emptyMatch(detail || `Failed to match profile resume (HTTP ${response.status}).`);
   }
 
   return response.json();
@@ -85,7 +124,7 @@ export async function fetchMatchPage(
   const backendToken = await getBackendToken();
 
   if (!backendToken) {
-    return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Authentication required. Please sign in." };
+    return emptyMatch("Authentication required. Please sign in.");
   }
 
   const params = new URLSearchParams();
@@ -108,12 +147,12 @@ export async function fetchMatchPage(
 
   if (!response.ok) {
     if (response.status === 401) {
-      return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Your session has expired. Please sign in again." };
+      return emptyMatch("Your session has expired. Please sign in again.");
     }
     if (response.status === 404) {
-      return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Match session expired. Please upload your resume again." };
+      return emptyMatch("Match session expired. Please upload your resume again.");
     }
-    return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Failed to load matches." };
+    return emptyMatch("Failed to load matches.");
   }
 
   return response.json();

@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import io
+import re
+from typing import BinaryIO
+
+from cryptography.fernet import Fernet, InvalidToken
+
+from app.config import get_settings
+
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+class ResumeProcessingError(Exception):
+    """Raised when resume parsing or crypto operations fail."""
+
+
+def _build_fernet() -> Fernet:
+    settings = get_settings()
+    key_material = hashlib.sha256(settings.auth_secret.encode("utf-8")).digest()
+    key = base64.urlsafe_b64encode(key_material)
+    return Fernet(key)
+
+
+def encrypt_resume_text(plaintext: str) -> str:
+    if not plaintext:
+        raise ResumeProcessingError("Cannot encrypt empty resume text")
+    token = _build_fernet().encrypt(plaintext.encode("utf-8"))
+    return token.decode("utf-8")
+
+
+def decrypt_resume_text(ciphertext: str) -> str:
+    if not ciphertext:
+        raise ResumeProcessingError("Cannot decrypt empty resume text")
+    try:
+        plaintext = _build_fernet().decrypt(ciphertext.encode("utf-8"))
+    except InvalidToken as exc:
+        raise ResumeProcessingError("Failed to decrypt stored resume text") from exc
+    return plaintext.decode("utf-8")
+
+
+def normalize_resume_text(text: str) -> str:
+    normalized = _WHITESPACE_RE.sub(" ", text).strip()
+    return normalized
+
+
+def compute_hash(value: str | bytes) -> str:
+    if isinstance(value, str):
+        value = value.encode("utf-8")
+    return hashlib.sha256(value).hexdigest()
+
+
+def extract_text_from_pdf(file_obj: BinaryIO) -> str:
+    errors: list[str] = []
+
+    try:
+        from pypdf import PdfReader
+
+        file_obj.seek(0)
+        reader = PdfReader(file_obj)
+        text_parts = [(page.extract_text() or "") for page in reader.pages]
+        text = "\n".join(text_parts).strip()
+        if text:
+            return text
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"pypdf: {exc}")
+
+    try:
+        from pdfminer.high_level import extract_text as pdfminer_extract
+
+        file_obj.seek(0)
+        text = (pdfminer_extract(file_obj) or "").strip()
+        if text:
+            return text
+    except ImportError:
+        errors.append("pdfminer: not installed")
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"pdfminer: {exc}")
+
+    try:
+        file_obj.seek(0)
+        content = file_obj.read()
+        if isinstance(content, bytes):
+            decoded = content.decode("utf-8", errors="ignore")
+            printable = "".join(c for c in decoded if c.isprintable() or c in "\n\r\t ")
+            if len(printable.strip()) > 100:
+                return printable.strip()
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"text fallback: {exc}")
+
+    raise ResumeProcessingError(
+        "Could not extract text from PDF. " + "; ".join(errors) if errors else "Unknown parser error"
+    )
+
+
+def extract_resume_text(file_name: str, file_content: bytes) -> str:
+    lower = file_name.lower()
+    if lower.endswith(".txt"):
+        try:
+            text = file_content.decode("utf-8", errors="ignore").strip()
+        except Exception as exc:  # noqa: BLE001
+            raise ResumeProcessingError(f"Failed to decode text file: {exc}") from exc
+        if not text:
+            raise ResumeProcessingError("Resume text is empty")
+        return text
+
+    if lower.endswith(".pdf"):
+        if not file_content.startswith(b"%PDF"):
+            raise ResumeProcessingError("Invalid PDF file header")
+        text = extract_text_from_pdf(io.BytesIO(file_content))
+        if not text:
+            raise ResumeProcessingError("Resume text is empty")
+        return text
+
+    raise ResumeProcessingError("Only PDF and TXT files are accepted")
