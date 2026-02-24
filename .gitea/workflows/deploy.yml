@@ -49,12 +49,29 @@ jobs:
 
       - name: Deploy with Docker Compose
         run: |
+          set -e
           docker compose pull || true
-          docker compose up -d --build backend frontend pipeline
-          docker compose up -d db redis cloudflared
+          # Start stateful deps first.
+          docker compose up -d db redis
+          # Build and start app services.
+          docker compose up -d --build backend pipeline frontend
+          docker compose up -d cloudflared
 
       - name: Health Check
         run: |
-          sleep 15
-          docker exec internnexus-backend curl -f http://localhost:8000/health || exit 1
-          docker exec internnexus-frontend curl -f http://localhost:3000/ || exit 1
+          set -e
+          sleep 20
+          docker exec internnexus-backend curl -f http://localhost:8000/health
+          docker exec internnexus-frontend curl -f http://localhost:3000/
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps || true
+          echo "=== backend logs ==="
+          docker logs --tail 300 internnexus-backend || true
+          echo "=== pipeline logs ==="
+          docker logs --tail 300 internnexus-pipeline || true
+          echo "=== frontend logs ==="
+          docker logs --tail 200 internnexus-frontend || true
