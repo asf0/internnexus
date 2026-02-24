@@ -75,6 +75,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"]
+CLASSIFY_COMMIT_BATCH_SIZE = 200
 
 
 def _log_step_rate(step_name: str, duration_s: float, items: int | None) -> None:
@@ -270,17 +271,28 @@ class PipelineRunner:
 
             classifier = await get_classifier()
             try:
-                inputs = [(j.title, j.description_text or "") for j in jobs]
-                categories = await classifier.classify_batch(inputs)
+                total_jobs = len(jobs)
+                for start in range(0, total_jobs, CLASSIFY_COMMIT_BATCH_SIZE):
+                    end = min(start + CLASSIFY_COMMIT_BATCH_SIZE, total_jobs)
+                    chunk = jobs[start:end]
+                    inputs = [(j.title, j.description_text or "") for j in chunk]
+                    categories = await classifier.classify_batch(inputs)
 
-                for job, category in zip(jobs, categories):
-                    if category:
-                        job.job_category = category
-                        success += 1
-                    else:
-                        errors += 1
+                    for job, category in zip(chunk, categories):
+                        if category:
+                            job.job_category = category
+                            success += 1
+                        else:
+                            errors += 1
 
-                await session.commit()
+                    await session.commit()
+                    logger.info(
+                        "Classification commit progress: %d/%d (success=%d, errors=%d)",
+                        end,
+                        total_jobs,
+                        success,
+                        errors,
+                    )
             finally:
                 reset_classifier()
 
