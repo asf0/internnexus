@@ -45,15 +45,7 @@ jobs:
             pytest tests/test_import_chains.py -q
           else
             python -m compileall -q app
-            python - <<'PY'
-            import sys
-            sys.path.insert(0, '.')
-            import app.main
-            import app.api.auth
-            import app.api.jobs
-            import app.api.matching
-            print('backend import validation passed')
-            PY
+            python -c "import sys; sys.path.insert(0, '.'); import app.main, app.api.auth, app.api.jobs, app.api.matching; print('backend import validation passed')"
           fi
 
   frontend-ci:
