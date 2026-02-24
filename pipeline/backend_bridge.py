@@ -2,7 +2,11 @@
 
 from backend.app.config import get_settings
 from backend.app.http_client.client import get_http_client
-from backend.app.services.embedding_service import EmbeddingError, EmbeddingService, RateLimitError
+from backend.app.services.query_embedding_service import (
+    EmbeddingError,
+    QueryEmbeddingService as EmbeddingService,
+    RateLimitError,
+)
 from backend.app.utils.text import clean_text_for_embedding
 
 __all__ = [
