@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pytest pytest-asyncio
-          pip install -e .
+          pip install -e ./backend
       
       - name: Run import chain tests
         run: pytest backend/tests/test_import_chains.py -v

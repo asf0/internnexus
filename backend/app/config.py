@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ollama_base_url: str
 
     # Classification configuration
-    classification_model: str
+    classification_model: str | None = None
     ollama_classification_url: str | None = None  # Defaults to ollama_base_url if not set
 
     # Auth/JWT configuration
@@ -52,8 +52,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    visa_classifier_model: str | None = None
-
     @field_validator("auth_secret")
     @classmethod
     def validate_auth_secret_strength(cls, v: str) -> str:
@@ -73,6 +71,14 @@ class Settings(BaseSettings):
     def resolved_classification_url(self) -> str:
         """Return classification URL, defaulting to ollama_base_url if not set."""
         return self.ollama_classification_url or self.ollama_base_url
+
+    @property
+    def resolved_classification_model(self) -> str:
+        """Return configured classification model."""
+        model = self.classification_model
+        if not model:
+            raise ValueError("classification model not configured (set CLASSIFICATION_MODEL)")
+        return model
 
 
 @lru_cache

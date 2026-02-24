@@ -27,7 +27,7 @@ jobs:
           OLLAMA_BASE_URL=${{ vars.OLLAMA_BASE_URL }}
           EMBEDDING_PROVIDER=${{ vars.EMBEDDING_PROVIDER }}
           EMBEDDING_MODEL=${{ vars.EMBEDDING_MODEL }}
-          VISA_CLASSIFIER_MODEL=${{ vars.VISA_CLASSIFIER_MODEL }}
+          CLASSIFICATION_MODEL=${{ vars.CLASSIFICATION_MODEL }}
           CLOUDFLARED_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}
           REDIS_URL=${{ vars.REDIS_URL }}
           GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}

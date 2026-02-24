@@ -148,7 +148,7 @@ class JobClassifier:
             max_concurrent: Maximum concurrent requests for batch processing
         """
         settings = get_settings()
-        self._model = model or settings.classification_model
+        self._model = model or settings.resolved_classification_model
         self._base_url = (base_url or settings.resolved_classification_url).rstrip("/")
         self._provider = provider or settings.embedding_provider
         self._timeout = timeout

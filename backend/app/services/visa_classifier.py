@@ -28,7 +28,7 @@ class VisaClassifier:
     def __init__(self) -> None:
         settings = get_settings()
         self._base_url = settings.ollama_base_url
-        self._model = settings.visa_classifier_model
+        self._model = settings.classification_model
         self._provider = settings.embedding_provider
         self._system_prompt = _load_system_prompt()
 
@@ -40,7 +40,7 @@ class VisaClassifier:
             token_usage: {"total_tokens": int, "prompt_tokens": int, "completion_tokens": int}
         """
         if not self._model:
-            raise RuntimeError("VISA_CLASSIFIER_MODEL not set in .env")
+            raise RuntimeError("CLASSIFICATION_MODEL not set in .env")
 
         if self._provider == "lmstudio":
             return self._classify_lmstudio(description_text)
@@ -50,7 +50,7 @@ class VisaClassifier:
     def _classify_ollama(self, description_text: str) -> tuple[VisaResult, dict]:
         """Classify using Ollama and return result with token usage."""
         if not self._model:
-            raise RuntimeError("VISA_CLASSIFIER_MODEL not set in .env")
+            raise RuntimeError("CLASSIFICATION_MODEL not set in .env")
 
         try:
             response = httpx.post(
