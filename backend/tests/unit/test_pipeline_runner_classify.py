@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pipeline import run_pipeline
+
+
+class _FakeSort:
+    def __init__(self, name: str):
+        self.name = name
+
+    def nulls_last(self):
+        return self
+
+
+class _FakeColumn:
+    def __init__(self, name: str):
+        self.name = name
+
+    def is_(self, _value):
+        return self
+
+    def desc(self):
+        return _FakeSort(self.name)
+
+
+class _FakeJobModel:
+    job_category = _FakeColumn("job_category")
+    posted_at = _FakeColumn("posted_at")
+    id = _FakeColumn("id")
+
+
+class _FakeQuery:
+    def __init__(self, kind: str):
+        self.kind = kind
+        self.limit_value: int | None = None
+
+    def select_from(self, _obj):
+        return self
+
+    def where(self, *_args):
+        return self
+
+    def order_by(self, *_args):
+        return self
+
+    def limit(self, value: int):
+        self.limit_value = value
+        return self
+
+
+class _FakeResult:
+    def __init__(self, scalar_value=None, items=None):
+        self._scalar_value = scalar_value
+        self._items = items or []
+
+    def scalar(self):
+        return self._scalar_value
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return list(self._items)
+
+
+class _FakeSession:
+    def __init__(self, jobs):
+        self.jobs = jobs
+        self.commit_calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, _exc_type, _exc, _tb):
+        return None
+
+    async def execute(self, query: _FakeQuery):
+        if query.kind == "count":
+            remaining = sum(1 for job in self.jobs if job.job_category is None)
+            return _FakeResult(scalar_value=remaining)
+
+        remaining_jobs = [job for job in self.jobs if job.job_category is None]
+        take = query.limit_value if query.limit_value is not None else len(remaining_jobs)
+        return _FakeResult(items=remaining_jobs[:take])
+
+    async def commit(self):
+        self.commit_calls += 1
+
+
+@pytest.mark.asyncio
+async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
+    jobs = [
+        SimpleNamespace(title="A", description_text="d1", job_category=None),
+        SimpleNamespace(title="B", description_text="d2", job_category=None),
+        SimpleNamespace(title="C", description_text="d3", job_category=None),
+        SimpleNamespace(title="D", description_text="d4", job_category=None),
+        SimpleNamespace(title="E", description_text="d5", job_category=None),
+    ]
+    fake_session = _FakeSession(jobs)
+
+    class _FakeClassifier:
+        async def classify_batch(self, inputs):
+            categories = ["software_engineering"] * len(inputs)
+            if inputs and inputs[0][0] == "E":
+                categories[0] = None
+            return categories
+
+    def fake_select(target):
+        return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
+
+    _FAKE_COUNT = object()
+    monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 2)
+    monkeypatch.setattr(
+        "pipeline.repositories.sqlalchemy_repo.AsyncSessionLocal",
+        lambda: fake_session,
+    )
+    monkeypatch.setattr("pipeline.repositories.sqlalchemy_repo.Job", _FakeJobModel)
+    monkeypatch.setattr("sqlalchemy.select", fake_select)
+    monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
+    async def _get_classifier():
+        return _FakeClassifier()
+
+    monkeypatch.setattr("pipeline.classification.get_classifier", _get_classifier)
+    monkeypatch.setattr("pipeline.classification.reset_classifier", lambda: None)
+
+    runner = run_pipeline.PipelineRunner()
+    success, errors = await runner.step_classify(state=None)
+
+    assert success == 4
+    assert errors == 1
+    assert fake_session.commit_calls == 3
+
+
+@pytest.mark.asyncio
+async def test_run_marks_failed_with_current_step(monkeypatch):
+    class _FakeState:
+        def __init__(self, _run_id=None):
+            self.failed_step = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return "run-1"
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, step: str):
+            self.failed_step = step
+
+        async def mark_step_complete(self, _step: str):
+            return None
+
+        def get_resume_step(self, _run):
+            return None
+
+    fake_state = _FakeState()
+    monkeypatch.setattr(run_pipeline, "PipelineStateManager", lambda run_id=None: fake_state)
+    async def _no_incomplete_run():
+        return None
+
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _no_incomplete_run)
+
+    async def _ok(*_args, **_kwargs):
+        return 0
+
+    async def _ingest(*_args, **_kwargs):
+        from datetime import datetime, timezone
+
+        return 0, datetime.now(timezone.utc)
+
+    async def _classify_fail(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    runner = run_pipeline.PipelineRunner()
+    runner.step_discover = _ok
+    runner.step_sync_inactive = _ok
+    runner.step_ingest = _ingest
+    runner.step_delete_inactive = _ok
+    runner.step_cleanup = _ok
+    runner.step_classify = _classify_fail
+    runner.step_embed = _ok
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await runner.run()
+
+    assert fake_state.failed_step == "classify"
