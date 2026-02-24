@@ -99,89 +99,107 @@ async def _fetch_all_apis_parallel(
     lever = LeverClient()
     ashby = AshbyClient()
 
-    gh_slugs = get_greenhouse_slugs()
-    lever_slugs = get_lever_slugs()
-    ashby_slugs = get_ashby_slugs()
+    try:
+        gh_slugs = get_greenhouse_slugs()
+        lever_slugs = get_lever_slugs()
+        ashby_slugs = get_ashby_slugs()
 
-    slug_404_cache = _load_slug_404_cache()
-    cache_lock = asyncio.Lock()
+        slug_404_cache = _load_slug_404_cache()
+        cache_lock = asyncio.Lock()
 
-    async def _fetch_source_jobs(
-        source_name: str, slugs: list[str], fetch_func: Callable[[str], list[JobSchema]]
-    ) -> list[JobSchema]:
-        semaphore = asyncio.Semaphore(max(1, api_fetch_concurrency))
-        now_ts = time.time()
-        source_cache = slug_404_cache.setdefault(source_name.lower(), {})
-        active_slugs: list[str] = []
-        suppressed_count = 0
+        async def _fetch_source_jobs(
+            source_name: str, slugs: list[str], fetch_func: Callable[[str], list[JobSchema]]
+        ) -> list[JobSchema]:
+            semaphore = asyncio.Semaphore(max(1, api_fetch_concurrency))
+            now_ts = time.time()
+            source_cache = slug_404_cache.setdefault(source_name.lower(), {})
+            active_slugs: list[str] = []
+            suppressed_count = 0
 
-        for slug in slugs:
-            expires_at = source_cache.get(slug)
-            if expires_at and expires_at > now_ts:
-                suppressed_count += 1
-                continue
-            active_slugs.append(slug)
+            for slug in slugs:
+                expires_at = source_cache.get(slug)
+                if expires_at and expires_at > now_ts:
+                    suppressed_count += 1
+                    continue
+                active_slugs.append(slug)
 
-        if suppressed_count > 0:
-            logger.info(
-                "%s: suppressing %d slug(s) currently in 404 cooldown",
-                source_name,
-                suppressed_count,
-            )
+            if suppressed_count > 0:
+                logger.info(
+                    "%s: suppressing %d slug(s) currently in 404 cooldown",
+                    source_name,
+                    suppressed_count,
+                )
 
-        async def _fetch_one(slug: str) -> list[JobSchema]:
-            async with semaphore:
-                try:
-                    return await asyncio.to_thread(fetch_func, slug)
-                except httpx.HTTPStatusError as exc:
-                    status_code = exc.response.status_code if exc.response is not None else 0
-                    if status_code == 404:
-                        cooldown_until = time.time() + (max(1, not_found_cooldown_hours) * 3600)
-                        async with cache_lock:
-                            slug_404_cache.setdefault(source_name.lower(), {})[slug] = cooldown_until
-                        logger.info(
-                            "%s slug '%s' returned 404; skipping for %dh",
-                            source_name,
-                            slug,
-                            max(1, not_found_cooldown_hours),
-                        )
+            async def _fetch_one(slug: str) -> list[JobSchema]:
+                async with semaphore:
+                    try:
+                        return await asyncio.to_thread(fetch_func, slug)
+                    except httpx.HTTPStatusError as exc:
+                        status_code = exc.response.status_code if exc.response is not None else 0
+                        if status_code == 404:
+                            cooldown_until = time.time() + (max(1, not_found_cooldown_hours) * 3600)
+                            async with cache_lock:
+                                slug_404_cache.setdefault(source_name.lower(), {})[slug] = (
+                                    cooldown_until
+                                )
+                            logger.info(
+                                "%s slug '%s' returned 404; skipping for %dh",
+                                source_name,
+                                slug,
+                                max(1, not_found_cooldown_hours),
+                            )
+                            return []
+                        logger.warning("%s failed for %s: %s", source_name, slug, exc)
                         return []
-                    logger.warning("%s failed for %s: %s", source_name, slug, exc)
-                    return []
-                except Exception as exc:
-                    logger.warning("%s failed for %s: %s", source_name, slug, exc)
-                    return []
+                    except Exception as exc:
+                        logger.warning("%s failed for %s: %s", source_name, slug, exc)
+                        return []
+
+            results = await asyncio.gather(
+                *[_fetch_one(slug) for slug in active_slugs], return_exceptions=False
+            )
+            jobs: list[JobSchema] = []
+            for result in results:
+                jobs.extend(result)
+            return jobs
 
         results = await asyncio.gather(
-            *[_fetch_one(slug) for slug in active_slugs], return_exceptions=False
+            _fetch_source_jobs("Greenhouse", gh_slugs, greenhouse.fetch_jobs),
+            _fetch_source_jobs("Lever", lever_slugs, lever.fetch_jobs),
+            _fetch_source_jobs("Ashby", ashby_slugs, ashby.fetch_jobs),
+            return_exceptions=True,
         )
-        jobs: list[JobSchema] = []
-        for result in results:
-            jobs.extend(result)
-        return jobs
 
-    results = await asyncio.gather(
-        _fetch_source_jobs("Greenhouse", gh_slugs, greenhouse.fetch_jobs),
-        _fetch_source_jobs("Lever", lever_slugs, lever.fetch_jobs),
-        _fetch_source_jobs("Ashby", ashby_slugs, ashby.fetch_jobs),
-        return_exceptions=True,
-    )
+        greenhouse_jobs = cast(list[JobSchema], results[0]) if isinstance(results[0], list) else []
+        lever_jobs = cast(list[JobSchema], results[1]) if isinstance(results[1], list) else []
+        ashby_jobs = cast(list[JobSchema], results[2]) if isinstance(results[2], list) else []
 
-    greenhouse_jobs = cast(list[JobSchema], results[0]) if isinstance(results[0], list) else []
-    lever_jobs = cast(list[JobSchema], results[1]) if isinstance(results[1], list) else []
-    ashby_jobs = cast(list[JobSchema], results[2]) if isinstance(results[2], list) else []
+        now_ts = time.time()
+        for source in list(slug_404_cache.keys()):
+            source_entries = slug_404_cache[source]
+            slug_404_cache[source] = {
+                slug: expires_at
+                for slug, expires_at in source_entries.items()
+                if expires_at > now_ts
+            }
+            if not slug_404_cache[source]:
+                del slug_404_cache[source]
+        _save_slug_404_cache(slug_404_cache)
 
-    now_ts = time.time()
-    for source in list(slug_404_cache.keys()):
-        source_entries = slug_404_cache[source]
-        slug_404_cache[source] = {
-            slug: expires_at for slug, expires_at in source_entries.items() if expires_at > now_ts
-        }
-        if not slug_404_cache[source]:
-            del slug_404_cache[source]
-    _save_slug_404_cache(slug_404_cache)
+        return greenhouse_jobs, lever_jobs, ashby_jobs
+    finally:
+        _close_api_clients(greenhouse, lever, ashby)
 
-    return greenhouse_jobs, lever_jobs, ashby_jobs
+
+def _close_api_clients(*clients: Any) -> None:
+    """Best-effort close for ATS clients."""
+    for client in clients:
+        close = getattr(client, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception as exc:
+                logger.warning("Failed to close %s client: %s", client.__class__.__name__, exc)
 
 
 async def fetch_api_jobs(

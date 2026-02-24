@@ -89,6 +89,15 @@ class GreenhouseClient:
         self._settings = get_settings()
         self.base_url = self._settings.greenhouse_api_url
 
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> GreenhouseClient:
+        return self
+
+    def __exit__(self, _exc_type, _exc, _tb) -> None:
+        self.close()
+
     def _extract_description_from_metadata(self, metadata: list[dict] | None) -> str:
         """Build description text from metadata array when content field is empty.
 

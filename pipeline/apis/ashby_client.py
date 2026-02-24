@@ -152,6 +152,15 @@ class AshbyClient:
         self._settings = get_settings()
         self.base_url = "https://api.ashbyhq.com/posting-api/job-board"
 
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> AshbyClient:
+        return self
+
+    def __exit__(self, _exc_type, _exc, _tb) -> None:
+        self.close()
+
     def fetch_jobs(self, company_slug: str) -> list[JobSchema]:
         """Fetch all jobs for a company and return complete field extraction.
 
