@@ -5,8 +5,11 @@ import { fetchJob } from "../../../lib/api";
 import { BASE_URL } from "../../../lib/config";
 import { Badge } from "../../../components/ui";
 import { ApplyNowAuthButton } from "../../../components/jobs";
-import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "../../../lib/constants";
+import { JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "../../../lib/constants";
+import { formatCategoryLabel } from "../../../lib/utils";
 import { auth } from "@/auth";
+import { headers } from "next/headers";
+import { toSafeJsonLd } from "@/lib/security/jsonld";
 
 interface JobPageProps {
   params: Promise<{ id: string }>;
@@ -37,6 +40,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
 
 export default async function JobDetailPage({ params }: JobPageProps) {
   const { id } = await params;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const job = await fetchJob(id);
   const session = await auth();
   const isAuthenticated = !!session?.user;
@@ -74,8 +78,10 @@ export default async function JobDetailPage({ params }: JobPageProps) {
   return (
     <div className="space-y-6">
       <script
+        suppressHydrationWarning
+        nonce={nonce}
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLd(jsonLd) }}
       />
       
       <header className="space-y-2">
@@ -88,7 +94,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
         <div className="flex flex-wrap gap-2 pt-2">
           {job.job_category && (
             <Badge variant="default">
-              {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
+              {formatCategoryLabel(job.job_category)}
             </Badge>
           )}
           {job.job_type && (
@@ -117,7 +123,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
       />
 
       {job.apply_url && (
-        <ApplyNowAuthButton applyUrl={job.apply_url} isAuthenticated={isAuthenticated} />
+        <ApplyNowAuthButton jobId={job.id} applyUrl={job.apply_url} isAuthenticated={isAuthenticated} />
       )}
     </div>
   );

@@ -29,10 +29,40 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
   });
 
   if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = await response.json();
+      if (payload && typeof payload.detail === "string") {
+        detail = payload.detail;
+      } else if (payload && Array.isArray(payload.detail)) {
+        detail = payload.detail
+          .map((item: { msg?: string }) => item?.msg)
+          .filter(Boolean)
+          .join("; ");
+      }
+    } catch {
+      try {
+        const raw = await response.text();
+        if (raw) {
+          detail = raw.slice(0, 240);
+        }
+      } catch {
+        // Ignore parsing errors and use fallback message below.
+      }
+    }
+
     if (response.status === 401) {
       return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Your session has expired. Please sign in again." };
     }
-    return { matches: [], total: 0, session_id: "", page: 1, page_size: 20, total_pages: 0, error: "Failed to match resume." };
+    return {
+      matches: [],
+      total: 0,
+      session_id: "",
+      page: 1,
+      page_size: 20,
+      total_pages: 0,
+      error: detail || `Failed to match resume (HTTP ${response.status}).`,
+    };
   }
 
   return response.json();

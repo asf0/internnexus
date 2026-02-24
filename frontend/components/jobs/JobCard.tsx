@@ -1,9 +1,9 @@
 "use client";
 
-import { MapPin, Building2, TrendingUp } from "lucide-react";
+import { MapPin, Building2, TrendingUp, Bookmark, BookmarkCheck, CircleCheck, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
-import { getMatchColor } from "@/lib/utils";
+import { JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
+import { getMatchColor, formatCategoryLabel } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
 interface JobCardProps {
@@ -11,9 +11,22 @@ interface JobCardProps {
   isSelected: boolean;
   matchPercentage?: number;
   onClick: () => void;
+  isSaved?: boolean;
+  onToggleSave?: (shouldSave: boolean) => void;
+  isApplied?: boolean;
+  onToggleApplied?: (shouldApply: boolean) => void;
 }
 
-export function JobCard({ job, isSelected, matchPercentage, onClick }: JobCardProps) {
+export function JobCard({
+  job,
+  isSelected,
+  matchPercentage,
+  onClick,
+  isSaved = false,
+  onToggleSave,
+  isApplied = false,
+  onToggleApplied,
+}: JobCardProps) {
   return (
     <article
       onClick={onClick}
@@ -47,7 +60,7 @@ export function JobCard({ job, isSelected, matchPercentage, onClick }: JobCardPr
           <div className="mt-2 flex flex-wrap gap-2">
             {job.job_category && (
               <Badge variant="default">
-                {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
+                {formatCategoryLabel(job.job_category)}
               </Badge>
             )}
             {job.job_type && (
@@ -61,6 +74,44 @@ export function JobCard({ job, isSelected, matchPercentage, onClick }: JobCardPr
               </Badge>
             )}
           </div>
+        </div>
+        <div className="ml-3 flex items-center gap-2">
+          {onToggleApplied && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleApplied(!isApplied);
+              }}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
+              aria-label={isApplied ? "Mark as not applied" : "Mark as applied"}
+              title={isApplied ? "Mark as not applied" : "Mark as applied"}
+            >
+              {isApplied ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <CircleCheck className="h-4 w-4" />
+              )}
+            </button>
+          )}
+          {onToggleSave && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSave(!isSaved);
+              }}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
+              aria-label={isSaved ? "Unsave job" : "Save job"}
+              title={isSaved ? "Unsave job" : "Save job"}
+            >
+              {isSaved ? (
+                <BookmarkCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <Bookmark className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </article>

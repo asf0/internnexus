@@ -1,9 +1,16 @@
-import { ReactNode, ButtonHTMLAttributes } from "react";
+import {
+  ReactNode,
+  ButtonHTMLAttributes,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+} from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "outline" | "ghost";
   size?: "sm" | "md" | "lg";
   children: ReactNode;
+  asChild?: boolean;
 }
 
 export function Button({
@@ -11,6 +18,7 @@ export function Button({
   size = "md",
   children,
   className = "",
+  asChild = false,
   ...props
 }: ButtonProps) {
   const baseStyles =
@@ -32,10 +40,19 @@ export function Button({
     md: "px-4 py-2.5 text-sm",
     lg: "px-6 py-3 text-base",
   };
+  const combinedClassName = `${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`;
+
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<{ className?: string }>;
+    const childClassName = child.props.className || "";
+    return cloneElement(child, {
+      className: `${combinedClassName} ${childClassName}`.trim(),
+    });
+  }
 
   return (
     <button
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={combinedClassName}
       {...props}
     >
       {children}

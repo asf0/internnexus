@@ -1,8 +1,10 @@
 import { getUserProfile } from "@/app/actions/user"
+import { fetchNotifications, fetchSavedJobs, fetchUserResume } from "@/app/actions/user"
 import { auth } from "@/auth"
 import { User, Mail, MapPin, Briefcase, Building, GraduationCap, Link as LinkIcon, Calendar, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import ProfileExtras from "@/components/profile/ProfileExtras"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -12,6 +14,11 @@ export default async function ProfilePage() {
   }
 
   const profile = await getUserProfile()
+  const [resume, notifications, savedJobs] = await Promise.all([
+    fetchUserResume(),
+    fetchNotifications(),
+    fetchSavedJobs(),
+  ])
 
   if (!profile) {
     return (
@@ -261,6 +268,12 @@ export default async function ProfilePage() {
                   </Link>
                 </div>
               )}
+
+            <ProfileExtras
+              initialResume={resume}
+              initialNotifications={notifications}
+              initialSavedJobs={savedJobs}
+            />
           </div>
         </div>
       </div>

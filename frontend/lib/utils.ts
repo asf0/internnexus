@@ -5,6 +5,18 @@ export function getMatchColor(percentage: number): string {
   return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
 }
 
+/**
+ * Formats a category slug into a readable label.
+ * e.g., "software_engineering" → "Software Engineering"
+ */
+export function formatCategoryLabel(category: string | null | undefined): string {
+  if (!category) return "";
+  return category
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export function parseApiError(error: unknown): string {
   if (error && typeof error === 'object') {
     if ('detail' in error) {

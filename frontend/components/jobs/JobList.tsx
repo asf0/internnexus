@@ -8,7 +8,9 @@ import { JobCard } from "./JobCard";
 import { AuthModal } from "@/components/auth";
 import Pagination from "@/components/ui/Pagination";
 import { LoadingSpinner, Toast } from "@/components/ui";
+import { trackJobClick } from "@/app/actions/jobs";
 import { fetchMatchPage } from "@/app/actions/match";
+import { markApplied, saveJob, unmarkApplied, unsaveJob } from "@/app/actions/user";
 import { fetchJobs } from "@/lib/api";
 import { useMatchState } from "@/lib/hooks/useMatchState";
 import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS, DEFAULT_PAGE_SIZE } from "@/lib/constants";
@@ -23,6 +25,8 @@ interface JobListProps {
   currentPage: number;
   matched?: boolean;
   isAuthenticated?: boolean;
+  initialSavedJobIds?: string[];
+  initialAppliedJobIds?: string[];
 }
 
 export default function JobList({
@@ -32,6 +36,8 @@ export default function JobList({
   currentPage,
   matched = false,
   isAuthenticated = false,
+  initialSavedJobIds = [],
+  initialAppliedJobIds = [],
 }: JobListProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -47,7 +53,14 @@ export default function JobList({
   const [lastLoadedPage, setLastLoadedPage] = useState(currentPage);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingApplyUrl, setPendingApplyUrl] = useState<string | null>(null);
+  const [pendingApplyJobId, setPendingApplyJobId] = useState<string | null>(null);
   const [showPopupBlockedToast, setShowPopupBlockedToast] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set(initialSavedJobIds));
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set(initialAppliedJobIds));
+  const [saveAuthModalOpen, setSaveAuthModalOpen] = useState(false);
+  const [pendingSaveJobId, setPendingSaveJobId] = useState<string | null>(null);
+  const [pendingSaveState, setPendingSaveState] = useState<boolean | null>(null);
+  const [pendingAppliedConfirmJobId, setPendingAppliedConfirmJobId] = useState<string | null>(null);
 
   const selectedSlug = searchParams.get("selected");
   const searchQuery = searchParams.get("search") || "";
@@ -57,6 +70,7 @@ export default function JobList({
   const jobType = searchParams.get("job_type") || "";
   const workMode = searchParams.get("work_mode") || "";
   const postedWithin = searchParams.get("posted_within") || "";
+  const savedOnly = searchParams.get("saved_only") === "1";
 
   const jobs = matched ? clientJobs : [...(serverJobs || []), ...appendedJobs];
   const total = matched ? clientTotal : (serverTotal || 0);
@@ -104,26 +118,28 @@ export default function JobList({
           setClientJobs([]);
           setClientTotal(0);
         } else {
-          // Convert MatchResult[] to Job[]
           const jobsFromMatches: Job[] = data.matches.map((match) => ({
             id: match.job_id,
             source: "",
             title: match.title,
             company: match.company,
             location: match.location,
-            city: null,
-            state: null,
-            country: null,
-            apply_url: "",
-            description_text: "",
-            job_category: null,
-            job_type: null,
-            work_mode: null,
-            posted_at: null,
+            city: match.city ?? null,
+            state: match.state ?? null,
+            country: match.country ?? null,
+            apply_url: match.apply_url,
+            description_text: match.description_text,
+            job_category: match.job_category ?? null,
+            job_type: match.job_type ?? null,
+            work_mode: match.work_mode ?? null,
+            posted_at: match.posted_at ?? null,
             is_active: true,
           }));
-          setClientJobs(jobsFromMatches);
-          setClientTotal(data.total);
+          const filteredJobs = savedOnly
+            ? jobsFromMatches.filter((job) => savedJobIds.has(job.id))
+            : jobsFromMatches;
+          setClientJobs(filteredJobs);
+          setClientTotal(savedOnly ? filteredJobs.length : data.total);
         }
       } finally {
         setIsLoading(false);
@@ -143,6 +159,8 @@ export default function JobList({
     jobType,
     workMode,
     postedWithin,
+    savedOnly,
+    savedJobIds,
     clearMatches,
   ]);
 
@@ -160,6 +178,7 @@ export default function JobList({
     jobType,
     workMode,
     postedWithin,
+    savedOnly,
     serverJobs,
   ]);
 
@@ -181,6 +200,7 @@ export default function JobList({
         job_type: jobType,
         work_mode: workMode,
         posted_within: postedWithin,
+        saved_only: savedOnly ? "1" : undefined,
       });
 
       setAppendedJobs((prev) => {
@@ -204,6 +224,7 @@ export default function JobList({
     jobType,
     workMode,
     postedWithin,
+    savedOnly,
     serverJobs,
   ]);
 
@@ -224,9 +245,54 @@ export default function JobList({
     router.push(newUrl, { scroll: false });
   }, [searchParams, router, pathname]);
 
-  const handleRequireAuthForApply = useCallback((applyUrl: string) => {
+  const handleToggleSave = useCallback(
+    async (jobId: string, shouldSave: boolean) => {
+      if (!isAuthenticated) {
+        setPendingSaveJobId(jobId);
+        setPendingSaveState(shouldSave);
+        setSaveAuthModalOpen(true);
+        return;
+      }
+
+      const result = shouldSave ? await saveJob(jobId) : await unsaveJob(jobId);
+      if (!result.success) return;
+
+      setSavedJobIds((prev) => {
+        const next = new Set(prev);
+        if (shouldSave) next.add(jobId);
+        else next.delete(jobId);
+        return next;
+      });
+    },
+    [isAuthenticated]
+  );
+
+  const handleToggleApplied = useCallback(
+    async (jobId: string, shouldApply: boolean) => {
+      if (!isAuthenticated) {
+        return;
+      }
+      const result = shouldApply ? await markApplied(jobId) : await unmarkApplied(jobId);
+      if (!result.success) return;
+      setAppliedJobIds((prev) => {
+        const next = new Set(prev);
+        if (shouldApply) next.add(jobId);
+        else next.delete(jobId);
+        return next;
+      });
+    },
+    [isAuthenticated]
+  );
+
+  const promptAppliedConfirmation = useCallback((jobId: string) => {
+    setPendingAppliedConfirmJobId(jobId);
+  }, []);
+
+  const handleRequireAuthForApply = useCallback((applyUrl: string, jobId: string) => {
     setPendingApplyUrl(applyUrl);
+    setPendingApplyJobId(jobId);
     sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL, applyUrl);
+    sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID, jobId);
     setIsAuthModalOpen(true);
   }, []);
 
@@ -242,31 +308,102 @@ export default function JobList({
     }
   }, []);
 
-  const handleApplyAfterAuth = useCallback((applyWindow?: Window | null) => {
+  const handleApplyAfterAuth = useCallback(async (applyWindow?: Window | null) => {
     const urlToOpen = pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+    const jobIdToTrack = pendingApplyJobId || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+    
     if (!urlToOpen) {
       setIsAuthModalOpen(false);
       return;
     }
 
+    // Track the click after auth
+    if (jobIdToTrack) {
+      try {
+        const result = await trackJobClick(jobIdToTrack);
+        if (!("error" in result)) {
+          openApplyUrl(result.apply_url, applyWindow);
+          promptAppliedConfirmation(jobIdToTrack);
+          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+          setPendingApplyUrl(null);
+          setPendingApplyJobId(null);
+          setIsAuthModalOpen(false);
+          return;
+        }
+      } catch {
+        // Fall through to use original URL
+      }
+    }
+
     openApplyUrl(urlToOpen, applyWindow);
 
     sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
     setPendingApplyUrl(null);
+    setPendingApplyJobId(null);
     setIsAuthModalOpen(false);
-  }, [openApplyUrl, pendingApplyUrl]);
+  }, [openApplyUrl, pendingApplyUrl, pendingApplyJobId, promptAppliedConfirmation]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const storedApplyUrl = sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+    const storedJobId = sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
     if (!storedApplyUrl) return;
 
-    openApplyUrl(storedApplyUrl);
-    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-    setPendingApplyUrl(null);
-    setIsAuthModalOpen(false);
-  }, [isAuthenticated, openApplyUrl]);
+    // Track click and open URL after auth
+    const openAfterAuth = async () => {
+      if (storedJobId) {
+        try {
+          const result = await trackJobClick(storedJobId);
+          if (!("error" in result)) {
+            openApplyUrl(result.apply_url);
+            promptAppliedConfirmation(storedJobId);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+            setPendingApplyUrl(null);
+            setPendingApplyJobId(null);
+            setIsAuthModalOpen(false);
+            return;
+          }
+        } catch {
+          // Fall through to use original URL
+        }
+      }
+      
+      openApplyUrl(storedApplyUrl);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+      setPendingApplyUrl(null);
+      setPendingApplyJobId(null);
+      setIsAuthModalOpen(false);
+    };
+    
+    openAfterAuth();
+  }, [isAuthenticated, openApplyUrl, promptAppliedConfirmation]);
+
+  const handleApply = useCallback(
+    async (jobId: string, applyUrl: string) => {
+      if (!isAuthenticated) {
+        handleRequireAuthForApply(applyUrl, jobId);
+        return;
+      }
+      try {
+        const result = await trackJobClick(jobId);
+        if (!("error" in result)) {
+          openApplyUrl(result.apply_url);
+          promptAppliedConfirmation(jobId);
+          return;
+        }
+      } catch {
+        // fallback below
+      }
+      openApplyUrl(applyUrl);
+      promptAppliedConfirmation(jobId);
+    },
+    [isAuthenticated, handleRequireAuthForApply, openApplyUrl, promptAppliedConfirmation]
+  );
 
   useEffect(() => {
     if (!showPopupBlockedToast) return;
@@ -320,6 +457,10 @@ export default function JobList({
                 isSelected={selectedJob?.id === job.id}
                 matchPercentage={matchPercentage}
                 onClick={() => handleJobClick(job)}
+                isSaved={savedJobIds.has(job.id)}
+                onToggleSave={(shouldSave) => handleToggleSave(job.id, shouldSave)}
+                isApplied={appliedJobIds.has(job.id)}
+                onToggleApplied={(shouldApply) => handleToggleApplied(job.id, shouldApply)}
               />
             );
           })}
@@ -389,6 +530,12 @@ export default function JobList({
             onClose={handleClose}
             isAuthenticated={isAuthenticated}
             onRequireAuthForApply={handleRequireAuthForApply}
+            isApplied={selectedJob ? appliedJobIds.has(selectedJob.id) : false}
+            onToggleApplied={(shouldApply) => {
+              if (!selectedJob) return;
+              handleToggleApplied(selectedJob.id, shouldApply);
+            }}
+            onApply={handleApply}
           />
         )}
       </div>
@@ -397,7 +544,9 @@ export default function JobList({
         onClose={() => {
           setIsAuthModalOpen(false);
           setPendingApplyUrl(null);
+          setPendingApplyJobId(null);
           sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
         }}
         defaultMode="login"
         onAuthSuccess={handleApplyAfterAuth}
@@ -410,6 +559,71 @@ export default function JobList({
           onClose={() => setShowPopupBlockedToast(false)}
         />
       )}
+      {pendingAppliedConfirmJobId && (
+        <div className="fixed bottom-4 right-4 z-[70] w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
+          <p className="text-sm font-medium text-slate-900 dark:text-md-on-surface">
+            Did you apply to this job?
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              onClick={async () => {
+                const jobId = pendingAppliedConfirmJobId;
+                if (!jobId) {
+                  setPendingAppliedConfirmJobId(null);
+                  return;
+                }
+                const result = await markApplied(jobId);
+                if (result.success) {
+                  setAppliedJobIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(jobId);
+                    return next;
+                  });
+                }
+                setPendingAppliedConfirmJobId(null);
+              }}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+              onClick={() => setPendingAppliedConfirmJobId(null)}
+            >
+              No
+            </button>
+          </div>
+        </div>
+      )}
+      <AuthModal
+        isOpen={saveAuthModalOpen}
+        onClose={() => {
+          setSaveAuthModalOpen(false);
+          setPendingSaveJobId(null);
+          setPendingSaveState(null);
+        }}
+        defaultMode="login"
+        onAuthSuccess={async () => {
+          if (pendingSaveJobId && pendingSaveState !== null) {
+            const result = pendingSaveState
+              ? await saveJob(pendingSaveJobId)
+              : await unsaveJob(pendingSaveJobId);
+            if (result.success) {
+              setSavedJobIds((prev) => {
+                const next = new Set(prev);
+                if (pendingSaveState) next.add(pendingSaveJobId);
+                else next.delete(pendingSaveJobId);
+                return next;
+              });
+            }
+          }
+          setSaveAuthModalOpen(false);
+          setPendingSaveJobId(null);
+          setPendingSaveState(null);
+        }}
+      />
     </section>
   );
 }

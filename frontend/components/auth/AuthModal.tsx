@@ -17,6 +17,7 @@ interface AuthModalProps {
   defaultMode?: "login" | "register";
   onAuthSuccess?: (applyWindow?: Window | null) => void;
   intent?: "default" | "apply";
+  callbackUrl?: string;
 }
 
 export default function AuthModal({
@@ -25,6 +26,7 @@ export default function AuthModal({
   defaultMode = "login",
   onAuthSuccess,
   intent = "default",
+  callbackUrl,
 }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +49,7 @@ export default function AuthModal({
     setIsLoading(true);
     setError(null);
     try {
-      await signIn(provider);
+      await signIn(provider, callbackUrl ? { callbackUrl } : undefined);
     } catch {
       setError("Failed to sign in. Please try again.");
       setIsLoading(false);

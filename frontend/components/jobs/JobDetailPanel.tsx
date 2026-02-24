@@ -1,9 +1,10 @@
 "use client";
 
-import { X, MapPin, Building2, ExternalLink, Calendar } from "lucide-react";
+import { X, MapPin, Building2, ExternalLink, Calendar, CheckCircle2, CircleCheck } from "lucide-react";
 import DOMPurify from 'isomorphic-dompurify';
 import { Badge, LoadingSpinner } from "@/components/ui";
-import { CATEGORY_LABEL_MAP, JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
+import { JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from "@/lib/constants";
+import { formatCategoryLabel } from "@/lib/utils";
 import type { Job } from "@/lib/types";
 
 interface JobDetailPanelProps {
@@ -11,7 +12,10 @@ interface JobDetailPanelProps {
   isLoading: boolean;
   onClose: () => void;
   isAuthenticated: boolean;
-  onRequireAuthForApply: (applyUrl: string) => void;
+  onRequireAuthForApply: (applyUrl: string, jobId: string) => void;
+  isApplied?: boolean;
+  onToggleApplied?: (shouldApply: boolean) => void;
+  onApply?: (jobId: string, applyUrl: string) => Promise<void>;
 }
 
 export default function JobDetailPanel({
@@ -20,6 +24,9 @@ export default function JobDetailPanel({
   onClose,
   isAuthenticated,
   onRequireAuthForApply,
+  isApplied = false,
+  onToggleApplied,
+  onApply,
 }: JobDetailPanelProps) {
   if (!job && !isLoading) {
     return (
@@ -68,7 +75,7 @@ export default function JobDetailPanel({
         <div className="flex flex-wrap gap-2">
           {job.job_category && (
             <Badge variant="default">
-              {CATEGORY_LABEL_MAP[job.job_category] || job.job_category}
+              {formatCategoryLabel(job.job_category)}
             </Badge>
           )}
           {job.job_type && (
@@ -106,22 +113,40 @@ export default function JobDetailPanel({
       {/* Footer */}
       {job.apply_url && (
         <div className="border-t border-slate-200 p-6 dark:border-md-outline-variant">
+          {onToggleApplied && (
+            <button
+              type="button"
+              onClick={() => onToggleApplied(!isApplied)}
+              className="mb-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+            >
+              {isApplied ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  Applied
+                </>
+              ) : (
+                <>
+                  <CircleCheck className="h-4 w-4" />
+                  Mark as applied
+                </>
+              )}
+            </button>
+          )}
           {isAuthenticated ? (
-            <a
-              href={job.apply_url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => onApply?.(job.id, job.apply_url)}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
             >
               Apply Now
               <ExternalLink className="h-4 w-4" />
-            </a>
+            </button>
           ) : (
             <button
               type="button"
               onClick={() => {
                 if (!job.apply_url) return;
-                onRequireAuthForApply(job.apply_url);
+                onRequireAuthForApply(job.apply_url, job.id);
               }}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
             >

@@ -4,6 +4,48 @@ import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 import type { JobListResponse } from "@/lib/types";
 
+export interface ClickResponse {
+  apply_url: string;
+  job_id: string;
+}
+
+export interface ClickError {
+  error: string;
+}
+
+/**
+ * Track a job click and get the apply URL with UTM params.
+ * Works for both authenticated and anonymous users.
+ */
+export async function trackJobClick(
+  jobId: string,
+  utmData?: { utm_medium?: string; utm_campaign?: string }
+): Promise<ClickResponse | ClickError> {
+  const backendToken = await getBackendToken();
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/jobs/${jobId}/click`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(backendToken && { Authorization: `Bearer ${backendToken}` }),
+      },
+      body: JSON.stringify(utmData || {}),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { error: "Job not found" };
+      }
+      return { error: "Failed to track click" };
+    }
+
+    return (await response.json()) as ClickResponse;
+  } catch {
+    return { error: "Failed to track click" };
+  }
+}
+
 interface MatchedJobsFilters {
   page?: number;
   page_size?: number;

@@ -29,6 +29,7 @@ export interface JobFilters {
   work_mode?: string;
   posted_within?: string;
   match_ids?: string;
+  saved_only?: string;
 }
 
 export interface LocationItem {
@@ -55,6 +56,22 @@ export interface MatchResult {
   title: string;
   company: string;
   location: string;
+  apply_url: string;
+  description_text: string;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  job_category?: string | null;
+  job_type?: string | null;
+  work_mode?: string | null;
+  posted_at?: string | null;
+  score_breakdown?: {
+    semantic: number;
+    skill_title: number;
+    work_mode: number;
+    recency: number;
+    final: number;
+  };
 }
 
 export interface MatchResponse {
@@ -64,6 +81,7 @@ export interface MatchResponse {
   page: number;
   page_size: number;
   total_pages: number;
+  reused_from_cache?: boolean;
   error?: string;
 }
 

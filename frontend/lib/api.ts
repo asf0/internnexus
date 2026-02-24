@@ -5,7 +5,8 @@ import type { LocationItem } from "./types/job";
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
 
 export async function fetchJobs(
-  filters: JobFilters = {}
+  filters: JobFilters = {},
+  backendToken?: string
 ): Promise<JobListResponse> {
   const params = new URLSearchParams();
 
@@ -18,11 +19,13 @@ export async function fetchJobs(
   if (filters.work_mode) params.set("work_mode", filters.work_mode);
   if (filters.posted_within) params.set("posted_within", filters.posted_within);
   if (filters.match_ids) params.set("match_ids", filters.match_ids);
+  if (filters.saved_only) params.set("saved_only", filters.saved_only);
 
   params.set("page_size", filters.page_size?.toString() || "20");
 
   const response = await fetch(`${API_BASE}/jobs?${params.toString()}`, {
     cache: "no-store",
+    headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
   });
   if (!response.ok) {
     return { items: [], total: 0, page: 1, page_size: 20 };

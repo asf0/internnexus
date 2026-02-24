@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import type { MatchResponse } from "@/lib/types/job";
 
+const MATCH_STATE_UPDATED_EVENT = "internnexus:match-state-updated";
+
 interface MatchState {
   sessionId: string | null;
   matchScores: Map<string, number>;
@@ -15,19 +17,47 @@ export function useMatchState() {
     isLoading: true,
   });
 
-  useEffect(() => {
+  const loadFromStorage = useCallback(() => {
     const storedSessionId = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
     const storedScores = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
+    let scores: Record<string, number> = {};
 
-    const sessionId = storedSessionId || null;
-    const scores: Record<string, number> = storedScores ? JSON.parse(storedScores) : {};
+    if (storedScores) {
+      try {
+        const parsed = JSON.parse(storedScores) as Record<string, number>;
+        scores = parsed && typeof parsed === "object" ? parsed : {};
+      } catch {
+        scores = {};
+      }
+    }
 
     setState({
-      sessionId,
+      sessionId: storedSessionId || null,
       matchScores: new Map(Object.entries(scores)),
       isLoading: false,
     });
   }, []);
+
+  useEffect(() => {
+    loadFromStorage();
+
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key === LOCAL_STORAGE_KEYS.MATCH_SESSION ||
+        event.key === LOCAL_STORAGE_KEYS.MATCH_SCORES
+      ) {
+        loadFromStorage();
+      }
+    };
+    const onLocalUpdate = () => loadFromStorage();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(MATCH_STATE_UPDATED_EVENT, onLocalUpdate);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(MATCH_STATE_UPDATED_EVENT, onLocalUpdate);
+    };
+  }, [loadFromStorage]);
 
   const saveMatches = useCallback((response: MatchResponse) => {
     const scoresMap: Record<string, number> = {};
@@ -37,6 +67,7 @@ export function useMatchState() {
 
     localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
     localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
+    window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
 
     setState({
       sessionId: response.session_id,
@@ -50,6 +81,7 @@ export function useMatchState() {
   const clearMatches = useCallback(() => {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+    window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
     setState({
       sessionId: null,
       matchScores: new Map(),

@@ -1,19 +1,42 @@
 "use client"
 
 import { signOut } from "next-auth/react"
-import { User, LogOut, ChevronDown, Settings, UserCircle } from "lucide-react"
-import { useState } from "react"
+import { User, LogOut, ChevronDown, Settings, UserCircle, Sparkles, Bell } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { AuthModal } from "@/components/auth"
+import { useRouter } from "next/navigation"
 
 interface UserMenuProps {
   user?: { name?: string | null; email?: string | null; image?: string | null } | null
+  autoOpenAuthModal?: boolean
+  postAuthRedirectPath?: string
+  unreadCount?: number
 }
 
-export default function UserMenu({ user }: UserMenuProps) {
+function isSafeInternalPath(path: string | undefined): path is string {
+  return !!path && path.startsWith("/") && !path.startsWith("//");
+}
+
+export default function UserMenu({
+  user,
+  autoOpenAuthModal = false,
+  postAuthRedirectPath,
+  unreadCount = 0,
+}: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login")
+  const hasAutoOpened = useRef(false)
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!user && autoOpenAuthModal && !hasAutoOpened.current) {
+      hasAutoOpened.current = true
+      setAuthModalMode("login")
+      setIsAuthModalOpen(true)
+    }
+  }, [user, autoOpenAuthModal])
 
   if (!user) {
     return (
@@ -31,6 +54,12 @@ export default function UserMenu({ user }: UserMenuProps) {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           defaultMode={authModalMode}
+          onAuthSuccess={() => {
+            if (isSafeInternalPath(postAuthRedirectPath)) {
+              router.push(postAuthRedirectPath)
+            }
+          }}
+          callbackUrl={isSafeInternalPath(postAuthRedirectPath) ? postAuthRedirectPath : undefined}
         />
       </>
     )
@@ -94,6 +123,29 @@ export default function UserMenu({ user }: UserMenuProps) {
               >
                 <Settings className="h-4 w-4" />
                 Account Settings
+              </Link>
+
+              <Link
+                href="/?matched=true"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                My Matches
+              </Link>
+
+              <Link
+                href="/profile#notifications"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+              >
+                <Bell className="h-4 w-4" />
+                Notifications
+                {unreadCount > 0 && (
+                  <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </Link>
             </div>
 

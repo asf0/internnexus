@@ -9,7 +9,10 @@ interface JobDetailPanelContainerProps {
   isLoading?: boolean;
   onClose: () => void;
   isAuthenticated: boolean;
-  onRequireAuthForApply: (applyUrl: string) => void;
+  onRequireAuthForApply: (applyUrl: string, jobId: string) => void;
+  isApplied?: boolean;
+  onToggleApplied?: (shouldApply: boolean) => void;
+  onApply?: (jobId: string, applyUrl: string) => Promise<void>;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
@@ -19,6 +22,9 @@ export function JobDetailPanelContainer({
   onClose,
   isAuthenticated,
   onRequireAuthForApply,
+  isApplied,
+  onToggleApplied,
+  onApply,
   triggerRef,
 }: JobDetailPanelContainerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -107,6 +113,9 @@ export function JobDetailPanelContainer({
             onClose={handleClose}
             isAuthenticated={isAuthenticated}
             onRequireAuthForApply={onRequireAuthForApply}
+            isApplied={isApplied}
+            onToggleApplied={onToggleApplied}
+            onApply={onApply}
           />
         </div>
       </div>
@@ -118,6 +127,9 @@ export function JobDetailPanelContainer({
           onClose={handleClose}
           isAuthenticated={isAuthenticated}
           onRequireAuthForApply={onRequireAuthForApply}
+          isApplied={isApplied}
+          onToggleApplied={onToggleApplied}
+          onApply={onApply}
         />
       </div>
     </>

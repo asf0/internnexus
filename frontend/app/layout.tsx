@@ -4,7 +4,7 @@ import { Footer } from "@/components/common";
 
 export const metadata = {
   title: "InternNexus",
-  description: "Internship discovery and matching platform"
+  description: "job discovery and matching platform"
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
