@@ -18,7 +18,7 @@ from app.auth.dependencies import get_current_user
 from app.db import get_db
 from app.models import Job, User
 from app.rate_limiter import limiter, RATE_LIMITS
-from app.services.embedding_service import EmbeddingService
+from app.services.query_embedding_service import QueryEmbeddingService
 from app.services.match_cache import MatchCacheService, get_match_cache_service
 
 router = APIRouter()
@@ -329,7 +329,7 @@ async def match_resume(
             )
 
     try:
-        embedder = EmbeddingService()
+        embedder = QueryEmbeddingService()
         resume_embedding = await embedder.embed(resume_text)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")

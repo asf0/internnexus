@@ -58,8 +58,8 @@ _retry_decorator = retry(
 )
 
 
-class EmbeddingService:
-    """Async embedding service supporting Ollama and LM Studio (OpenAI-compatible)."""
+class QueryEmbeddingService:
+    """Async query/resume embedding service for runtime matching."""
 
     def __init__(self, model: str | None = None) -> None:
         self._settings = get_settings()
