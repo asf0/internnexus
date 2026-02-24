@@ -46,7 +46,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 try:
     from pipeline.path_setup import ensure_project_paths
 except ModuleNotFoundError:
@@ -76,6 +76,9 @@ logger = logging.getLogger(__name__)
 
 STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"]
 CLASSIFY_COMMIT_BATCH_SIZE = 200
+CLASSIFY_RETRY_BACKOFF_HOURS = (1, 6, 24)
+CLASSIFY_LONG_RETRY_HOURS = 24 * 7
+CLASSIFY_NO_MAPPABLE_CAP_ATTEMPTS = 5
 
 
 def _log_step_rate(step_name: str, duration_s: float, items: int | None) -> None:
@@ -97,6 +100,24 @@ def _get_resume_step_from_db_run(step_completed: str | None) -> str | None:
     if idx < len(STEPS) - 1:
         return STEPS[idx + 1]
     return None
+
+
+def _get_classification_next_retry_at(
+    reason: str,
+    attempts: int,
+    now: datetime,
+) -> datetime:
+    """Return retry timestamp for a failed classification attempt."""
+    if reason == "no_mappable_token" and attempts >= CLASSIFY_NO_MAPPABLE_CAP_ATTEMPTS:
+        return now + timedelta(hours=CLASSIFY_LONG_RETRY_HOURS)
+
+    if attempts <= 1:
+        hours = CLASSIFY_RETRY_BACKOFF_HOURS[0]
+    elif attempts == 2:
+        hours = CLASSIFY_RETRY_BACKOFF_HOURS[1]
+    else:
+        hours = CLASSIFY_RETRY_BACKOFF_HOURS[2]
+    return now + timedelta(hours=hours)
 
 
 class PipelineRunner:
@@ -272,13 +293,24 @@ class PipelineRunner:
             return 0, 0
 
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
-        from sqlalchemy import func, select
+        from sqlalchemy import func, or_, select
         from pipeline.classification import get_classifier, reset_classifier
 
         success, errors = 0, 0
 
         async with AsyncSessionLocal() as session:
-            total_query = select(func.count()).select_from(Job).where(Job.job_category.is_(None))
+            now_utc = datetime.now(timezone.utc)
+            total_query = (
+                select(func.count())
+                .select_from(Job)
+                .where(Job.job_category.is_(None))
+                .where(
+                    or_(
+                        Job.classification_next_retry_at.is_(None),
+                        Job.classification_next_retry_at <= now_utc,
+                    )
+                )
+            )
             total_result = await session.execute(total_query)
             total_available = int(total_result.scalar() or 0)
             total_jobs = min(limit, total_available) if limit else total_available
@@ -300,7 +332,17 @@ class PipelineRunner:
                     batch_query = (
                         select(Job)
                         .where(Job.job_category.is_(None))
-                        .order_by(Job.posted_at.desc().nulls_last(), Job.id.desc())
+                        .where(
+                            or_(
+                                Job.classification_next_retry_at.is_(None),
+                                Job.classification_next_retry_at <= now_utc,
+                            )
+                        )
+                        .order_by(
+                            Job.classification_attempts.asc(),
+                            Job.posted_at.desc().nulls_last(),
+                            Job.id.desc(),
+                        )
                         .limit(batch_limit)
                     )
                     batch_result = await session.execute(batch_query)
@@ -314,16 +356,29 @@ class PipelineRunner:
                         break
 
                     inputs = [(j.title, j.description_text or "") for j in chunk]
-                    categories = await classifier.classify_batch(inputs)
+                    categories_with_reason = await classifier.classify_batch_with_reasons(inputs)
 
                     batch_success = 0
                     batch_errors = 0
-                    for job, category in zip(chunk, categories):
+                    for job, (category, reason) in zip(chunk, categories_with_reason):
+                        attempt_now = datetime.now(timezone.utc)
+                        attempts = int((job.classification_attempts or 0) + 1)
+                        job.classification_attempts = attempts
+                        job.classification_last_attempt_at = attempt_now
+
                         if category:
                             job.job_category = category
+                            job.classification_next_retry_at = None
+                            job.classification_last_error = None
                             success += 1
                             batch_success += 1
                         else:
+                            job.classification_last_error = reason
+                            job.classification_next_retry_at = _get_classification_next_retry_at(
+                                reason=reason,
+                                attempts=attempts,
+                                now=attempt_now,
+                            )
                             errors += 1
                             batch_errors += 1
 

@@ -370,14 +370,16 @@ class JobClassifier:
                 retryable=False,
             ) from exc
 
-    async def classify_batch(self, jobs: list[tuple[str, str]]) -> list[str | None]:
+    async def classify_batch_with_reasons(
+        self, jobs: list[tuple[str, str]]
+    ) -> list[tuple[str | None, str]]:
         """Classify multiple jobs concurrently with rate limiting.
 
         Args:
             jobs: List of (title, description) tuples
 
         Returns:
-            List of category slugs (or None for failures), same order as input
+            List of (category slug or None, reason) in input order
         """
         if not jobs:
             return []
@@ -417,11 +419,11 @@ class JobClassifier:
             logger.warning("Batch classification cancelled")
             raise
 
-        results: list[str | None] = [None] * len(jobs)
+        results: list[tuple[str | None, str]] = [(None, "empty_response")] * len(jobs)
         rejection_reasons: dict[str, int] = {}
         rejection_samples: dict[str, list[str]] = {}
         for idx, result, reason, raw_output in results_with_idx:
-            results[idx] = result
+            results[idx] = (result, reason)
             if result is None:
                 rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
                 if raw_output:
@@ -430,7 +432,7 @@ class JobClassifier:
                         compact = " ".join(raw_output.strip().split())
                         samples.append(compact[:180])
 
-        success_count = sum(1 for r in results if r is not None)
+        success_count = sum(1 for category, _reason in results if category is not None)
         logger.info(f"Batch classification complete: {success_count}/{len(jobs)} successful")
         if rejection_reasons:
             details = ", ".join(f"{k}={v}" for k, v in sorted(rejection_reasons.items()))
@@ -441,6 +443,11 @@ class JobClassifier:
                 logger.info("Batch rejection samples (%s): %s", reason, " | ".join(samples))
 
         return results
+
+    async def classify_batch(self, jobs: list[tuple[str, str]]) -> list[str | None]:
+        """Classify multiple jobs and return categories only."""
+        results = await self.classify_batch_with_reasons(jobs)
+        return [category for category, _reason in results]
 
     async def classify_batch_with_progress(
         self,
