@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     embedding_model: str
     ollama_base_url: str
 
+    # Classification configuration
+    classification_model: str
+    ollama_classification_url: str | None = None  # Defaults to ollama_base_url if not set
+
     # Auth/JWT configuration
     auth_secret: str
     jwt_algorithm: str = "HS256"
@@ -64,6 +68,11 @@ class Settings(BaseSettings):
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def resolved_classification_url(self) -> str:
+        """Return classification URL, defaulting to ollama_base_url if not set."""
+        return self.ollama_classification_url or self.ollama_base_url
 
 
 @lru_cache

@@ -35,6 +35,8 @@ class JobSearchParams:
         work_mode: str | None = None,
         posted_within: str | None = None,
         match_ids: str | None = None,
+        saved_only: bool = False,
+        saved_job_ids: list[UUID] | None = None,
     ):
         self.page = max(1, page)
         self.page_size = min(max(1, page_size), 100)
@@ -46,6 +48,8 @@ class JobSearchParams:
         self.work_mode = work_mode
         self.posted_within = posted_within
         self.match_ids = match_ids
+        self.saved_only = saved_only
+        self.saved_job_ids = saved_job_ids
 
 
 class JobSearchService:
@@ -69,6 +73,12 @@ class JobSearchService:
             f"mode:{params.work_mode or ''}",
             f"posted:{params.posted_within or ''}",
             f"match:{params.match_ids or ''}",
+            f"saved:{'1' if params.saved_only else '0'}",
+            "saved_ids:" + (
+                hashlib.md5("|".join(str(job_id) for job_id in (params.saved_job_ids or [])).encode()).hexdigest()
+                if params.saved_job_ids
+                else ""
+            ),
         ]
         return "jobs:" + hashlib.md5("|".join(key_parts).encode()).hexdigest()
 
@@ -93,6 +103,18 @@ class JobSearchService:
         base_stmt = select(Job)
 
         valid_ids = self._parse_match_ids(params.match_ids)
+        saved_job_ids = params.saved_job_ids or []
+
+        if params.saved_only:
+            if not saved_job_ids:
+                return JobListResponse(items=[], total=0, page=params.page, page_size=params.page_size)
+            if valid_ids:
+                saved_set = set(saved_job_ids)
+                valid_ids = [job_id for job_id in valid_ids if job_id in saved_set]
+                if not valid_ids:
+                    return JobListResponse(items=[], total=0, page=params.page, page_size=params.page_size)
+            else:
+                valid_ids = saved_job_ids
 
         result_order: list[UUID] = []
 

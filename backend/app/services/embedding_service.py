@@ -64,7 +64,7 @@ class EmbeddingService:
     def __init__(self, model: str | None = None) -> None:
         self._settings = get_settings()
         self._provider = self._settings.embedding_provider
-        self._model = model or self._settings.embedding_model or "nomic-embed-text"
+        self._model = model or self._settings.embedding_model
         self._base_url = self._settings.ollama_base_url.rstrip("/")
 
     async def embed(self, text: str) -> list[float]:
@@ -80,7 +80,7 @@ class EmbeddingService:
             logger.warning("Embedding request cancelled")
             raise
 
-    async def embed_many(self, texts: Iterable[str], batch_size: int = 10) -> list[list[float]]:
+    async def embed_many(self, texts: Iterable[str], batch_size: int = 3) -> list[list[float]]:
         """Generate embeddings for multiple texts with concurrent batching."""
         texts_list = list(texts)
         results = []

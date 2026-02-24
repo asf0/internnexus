@@ -2,18 +2,41 @@
 
 from __future__ import annotations
 
+import hashlib
+from datetime import datetime, timezone
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
+from app.auth.dependencies import get_optional_user
 from app.cache.redis_pool import RedisService, get_redis_service
 from app.db import get_db
+from app.models import Job, JobClick, SavedJob, User
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.repositories.job import JobRepository
 from app.services.job_search import JobSearchParams, JobSearchService
 from app.services.location_service import LocationService
+from app.utils import add_utm_params
 
 router = APIRouter()
+
+
+class ClickRequest(BaseModel):
+    """Request body for job click tracking."""
+
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+
+
+class ClickResponse(BaseModel):
+    """Response for job click tracking."""
+
+    apply_url: str
+    job_id: str
 
 
 async def get_job_search_service(
@@ -29,6 +52,7 @@ async def get_job_search_service(
 async def list_jobs(
     request: Request,
     service: JobSearchService = Depends(get_job_search_service),
+    user: User | None = Depends(get_optional_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -39,8 +63,21 @@ async def list_jobs(
     work_mode: str | None = Query(None),
     posted_within: str | None = Query(None),
     match_ids: str | None = Query(None),
+    saved_only: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
 ) -> JobListResponse:
     """List jobs with optional filters and search."""
+    saved_job_ids = None
+    if saved_only:
+        if not user:
+            return JobListResponse(items=[], total=0, page=page, page_size=page_size)
+        saved_ids_result = await db.execute(
+            select(SavedJob.job_id)
+            .where(SavedJob.user_id == user.id)
+            .order_by(SavedJob.created_at.desc())
+        )
+        saved_job_ids = list(saved_ids_result.scalars().all())
+
     params = JobSearchParams(
         page=page,
         page_size=page_size,
@@ -52,6 +89,8 @@ async def list_jobs(
         work_mode=work_mode,
         posted_within=posted_within,
         match_ids=match_ids,
+        saved_only=saved_only,
+        saved_job_ids=saved_job_ids,
     )
     return await service.search(params)
 
@@ -151,3 +190,62 @@ async def get_job(
     await cache.set(cache_key, response.model_dump(), ttl=300)
 
     return response
+
+
+@router.post("/jobs/{job_id}/click", response_model=ClickResponse)
+@limiter.limit(RATE_LIMITS["job_click"])
+async def track_job_click(
+    request: Request,
+    job_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+    body: ClickRequest | None = None,
+) -> ClickResponse:
+    """Track a job click and return the apply URL with UTM params.
+
+    Works for both authenticated and anonymous users.
+    """
+    # Get job by ID
+    repo = JobRepository(db)
+    job = await repo.get_by_id(job_id)
+
+    if not job or job.is_active is not True:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Hash the client IP for privacy
+    client_ip = request.client.host if request.client else "unknown"
+    ip_hash = hashlib.sha256(f"click:{client_ip}".encode()).hexdigest()[:16]
+
+    # Get headers
+    user_agent = request.headers.get("user-agent")
+    referer = request.headers.get("referer")
+
+    # Get UTM params from body
+    utm_medium = body.utm_medium if body else None
+    utm_campaign = body.utm_campaign if body else None
+
+    # Create JobClick record
+    click = JobClick(
+        job_id=job_id,
+        user_id=user.id if user else None,
+        clicked_at=datetime.now(timezone.utc),
+        utm_source="internnexus",
+        utm_medium=utm_medium,
+        utm_campaign=utm_campaign,
+        ip_hash=ip_hash,
+        user_agent=user_agent[:500] if user_agent else None,
+        referer=referer[:500] if referer else None,
+    )
+    db.add(click)
+
+    await db.commit()
+
+    # Add UTM params to apply URL
+    apply_url = add_utm_params(
+        job.apply_url,
+        source="internnexus",
+        medium=utm_medium,
+        campaign=utm_campaign,
+    )
+
+    return ClickResponse(apply_url=apply_url, job_id=str(job_id))

@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.auth.jwt import decode_access_token
 from app.db import get_db
-from app.models import User
+from app.models import Admin, AdminRole, User
 
 security = HTTPBearer(auto_error=False)
 
@@ -155,3 +155,69 @@ async def get_optional_user(
         return None
 
     return user
+
+
+async def get_current_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    db: AsyncSession = Depends(get_db),
+) -> Admin:
+    """Dependency to get the current authenticated admin from JWT token.
+
+    First authenticates the user, then verifies they have admin access.
+
+    Args:
+        credentials: The Authorization header with Bearer token
+        db: Database session
+
+    Returns:
+        The Admin object for the authenticated user
+
+    Raises:
+        HTTPException: If authentication fails or user is not an admin
+    """
+    user = await get_current_user(credentials, db)
+
+    result = await db.execute(select(Admin).filter(Admin.user_id == user.id))
+    admin = result.scalar_one_or_none()
+
+    if admin is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    return admin
+
+
+async def get_current_super_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    db: AsyncSession = Depends(get_db),
+) -> Admin:
+    """Dependency to get the current authenticated super admin from JWT token.
+
+    First authenticates the user, then verifies they have super admin access.
+
+    Args:
+        credentials: The Authorization header with Bearer token
+        db: Database session
+
+    Returns:
+        The Admin object for the authenticated super admin
+
+    Raises:
+        HTTPException: If authentication fails or user is not a super admin
+    """
+    admin = await get_current_admin(credentials, db)
+
+    if admin.role != AdminRole.super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
+        )
+
+    return admin
+
+
+# Type aliases for dependency injection
+AdminDep = Annotated[Admin, Depends(get_current_admin)]
+SuperAdminDep = Annotated[Admin, Depends(get_current_super_admin)]

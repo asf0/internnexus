@@ -40,6 +40,16 @@ class MatchResult(BaseModel):
     title: str
     company: str
     location: str
+    apply_url: str
+    description_text: str
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    job_category: str | None = None
+    job_type: str | None = None
+    work_mode: str | None = None
+    posted_at: datetime | None = None
+    score_breakdown: dict[str, float] | None = None
 
 
 class MatchResponse(BaseModel):
@@ -49,6 +59,7 @@ class MatchResponse(BaseModel):
     page: int = 1
     page_size: int
     total_pages: int
+    reused_from_cache: bool = False
 
 
 class JobMatchResult(BaseModel):

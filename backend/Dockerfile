@@ -1,4 +1,5 @@
 # Backend Dockerfile
+# Build context must be repository root (see docker-compose.yml).
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -11,60 +12,18 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     curl \
-    # Playwright dependencies
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml
-COPY pyproject.toml .
+# Copy lockfiles from repository root for reproducible installs
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies using uv
-RUN uv pip install --system --no-cache \
-    fastapi \
-    uvicorn[standard] \
-    sqlalchemy \
-    asyncpg \
-    psycopg2-binary \
-    pydantic[email] \
-    pydantic-settings \
-    pgvector \
-    alembic \
-    httpx \
-    playwright \
-    playwright-stealth \
-    openai \
-    anthropic \
-    pypdf \
-    python-multipart \
-    slowapi \
-    redis \
-    tenacity \
-    python-jose[cryptography] \
-    argon2-cffi \
-    email-validator \
-    geostring \
-    pycountry \
-    pyyaml
-
-# Install Playwright browsers
-RUN playwright install chromium --with-deps
+# Install project dependencies (non-dev) from lockfile
+RUN uv pip install --system --no-cache -e .
 
 # Copy application code
-COPY app/ ./app/
-COPY alembic/ ./alembic/
-COPY alembic.ini .
+COPY backend/app/ ./app/
+COPY backend/alembic/ ./alembic/
+COPY backend/alembic.ini ./alembic.ini
 
 # Expose port
 EXPOSE 8000

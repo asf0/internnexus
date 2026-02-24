@@ -55,10 +55,8 @@ class JobRepository(BaseRepository[Job]):
             .order_by(Job.job_category)
         )
         result = await self.session.execute(stmt)
-        # Convert enum values to their string values for JSON serialization
-        return [
-            row[0].value if hasattr(row[0], "value") else row[0] for row in result.all() if row[0]
-        ]
+        # job_category is now a string, no enum conversion needed
+        return [row[0] for row in result.all() if row[0]]
 
     async def get_jobs_by_ids(self, ids: list[UUID]) -> list[Job]:
         """Get jobs by a list of IDs."""

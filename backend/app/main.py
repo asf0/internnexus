@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from app.api.auth import router as auth_router
+from app.api.admin import router as admin_router
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
 from app.api.users import router as users_router
@@ -66,6 +67,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(jobs_router, tags=["jobs"])
 app.include_router(matching_router, tags=["matching"])
+app.include_router(admin_router, tags=["admin"])
 
 
 @app.get("/health")
