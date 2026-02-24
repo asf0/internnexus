@@ -40,6 +40,7 @@ VALID_CATEGORY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 # Use all canonical categories - LLM must choose from this exact list
 VALID_CATEGORIES = CANONICAL_CATEGORIES
 CANDIDATE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_\-]+")
+MAX_REJECTION_SAMPLES_PER_BATCH = 5
 
 
 class ClassificationError(Exception):
@@ -216,11 +217,13 @@ class JobClassifier:
         Returns:
             Category slug (e.g., "software_engineering") or None if classification fails
         """
-        category, _reason = await self._classify_job_with_reason(title, description)
+        category, _reason, _raw_output = await self._classify_job_with_reason(title, description)
         return category
 
-    async def _classify_job_with_reason(self, title: str, description: str) -> tuple[str | None, str]:
-        """Classify a single job and return the category plus failure reason."""
+    async def _classify_job_with_reason(
+        self, title: str, description: str
+    ) -> tuple[str | None, str, str]:
+        """Classify a single job and return category, reason, and raw output sample."""
         try:
             if self._provider == "lmstudio":
                 return await self._classify_lmstudio(title, description)
@@ -230,17 +233,19 @@ class JobClassifier:
             raise
         except ClassificationError as e:
             logger.warning(f"Classification failed for '{title}': {e}")
-            return None, "http_or_timeout_error"
+            return None, "http_or_timeout_error", ""
         except Exception as e:
             logger.error(f"Unexpected classification error for '{title}': {e}")
-            return None, "unexpected_error"
+            return None, "unexpected_error", ""
 
-    async def _classify_ollama(self, title: str, description: str) -> tuple[str | None, str]:
+    async def _classify_ollama(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using Ollama native API."""
         return await self._classify_ollama_impl(title, description)
 
     @_retry_decorator
-    async def _classify_ollama_impl(self, title: str, description: str) -> tuple[str | None, str]:
+    async def _classify_ollama_impl(
+        self, title: str, description: str
+    ) -> tuple[str | None, str, str]:
         """Classify using Ollama native API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -279,14 +284,16 @@ class JobClassifier:
 
         raw_output = data.get("response", "")
         category, reason = _extract_canonical_category(raw_output)
-        return category, reason
+        return category, reason, raw_output
 
-    async def _classify_lmstudio(self, title: str, description: str) -> tuple[str | None, str]:
+    async def _classify_lmstudio(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using LM Studio OpenAI-compatible API."""
         return await self._classify_lmstudio_impl(title, description)
 
     @_retry_decorator
-    async def _classify_lmstudio_impl(self, title: str, description: str) -> tuple[str | None, str]:
+    async def _classify_lmstudio_impl(
+        self, title: str, description: str
+    ) -> tuple[str | None, str, str]:
         """Classify using LM Studio OpenAI-compatible API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -329,12 +336,12 @@ class JobClassifier:
         choices = data.get("choices", [])
         if not choices:
             logger.warning(f"No choices in LM Studio response for '{title}'")
-            return None, "empty_response"
+            return None, "empty_response", ""
 
         message = choices[0].get("message", {})
         raw_output = message.get("content", "")
         category, reason = _extract_canonical_category(raw_output)
-        return category, reason
+        return category, reason, raw_output
 
     def _handle_http_error(self, exc: httpx.HTTPStatusError, title: str, provider: str) -> None:
         """Handle HTTP status errors."""
@@ -381,22 +388,23 @@ class JobClassifier:
 
         async def classify_with_semaphore(
             idx: int, title: str, description: str
-        ) -> tuple[int, str | None, str]:
+        ) -> tuple[int, str | None, str, str]:
             nonlocal completed
             async with semaphore:
                 try:
-                    result, reason = await self._classify_job_with_reason(title, description)
+                    result, reason, raw_output = await self._classify_job_with_reason(title, description)
                 except Exception as e:
                     logger.error(f"Error classifying job '{title}': {e}")
                     result = None
                     reason = "unexpected_error"
+                    raw_output = ""
 
                 async with lock:
                     completed += 1
                     if completed % 10 == 0:
                         logger.info(f"Classification progress: {completed}/{len(jobs)}")
 
-                return (idx, result, reason)
+                return (idx, result, reason, raw_output)
 
         tasks = [
             classify_with_semaphore(i, title, description)
@@ -411,16 +419,26 @@ class JobClassifier:
 
         results: list[str | None] = [None] * len(jobs)
         rejection_reasons: dict[str, int] = {}
-        for idx, result, reason in results_with_idx:
+        rejection_samples: dict[str, list[str]] = {}
+        for idx, result, reason, raw_output in results_with_idx:
             results[idx] = result
             if result is None:
                 rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+                if raw_output:
+                    samples = rejection_samples.setdefault(reason, [])
+                    if len(samples) < MAX_REJECTION_SAMPLES_PER_BATCH:
+                        compact = " ".join(raw_output.strip().split())
+                        samples.append(compact[:180])
 
         success_count = sum(1 for r in results if r is not None)
         logger.info(f"Batch classification complete: {success_count}/{len(jobs)} successful")
         if rejection_reasons:
             details = ", ".join(f"{k}={v}" for k, v in sorted(rejection_reasons.items()))
             logger.info("Batch classification rejections: %s", details)
+            for reason, samples in rejection_samples.items():
+                if not samples:
+                    continue
+                logger.info("Batch rejection samples (%s): %s", reason, " | ".join(samples))
 
         return results
 
