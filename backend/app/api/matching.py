@@ -10,6 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
@@ -29,6 +30,16 @@ from app.services.resume_service import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+_RESUME_SCHEMA_ERROR_DETAIL = (
+    "Resume storage schema is outdated. Run database migrations "
+    "(uv run alembic upgrade head) and retry."
+)
+
+
+def _is_resume_schema_error(exc: ProgrammingError) -> bool:
+    message = str(getattr(exc, "orig", exc)).lower()
+    return "user_resumes" in message and "content_hash" in message
 
 _TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+#\.\-]{1,}")
 _STOPWORDS = {
@@ -463,7 +474,12 @@ async def match_profile_resume(
     min_score = max(0.0, min(min_score, 1.0))
     page_size = max(1, min(page_size, 100))
 
-    resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    try:
+        resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    except ProgrammingError as exc:
+        if _is_resume_schema_error(exc):
+            raise HTTPException(status_code=503, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+        raise
     user_resume = resume_result.scalar_one_or_none()
     if user_resume is None:
         raise HTTPException(status_code=400, detail="No profile resume found. Upload one in your profile first.")

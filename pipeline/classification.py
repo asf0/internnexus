@@ -22,10 +22,10 @@ from pipeline.category_mapping import CANONICAL_CATEGORIES, get_canonical_catego
 logger = logging.getLogger(__name__)
 
 # Default timeout for classification requests (seconds)
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 90.0
 
 # Maximum concurrent requests for batch processing
-MAX_CONCURRENT_REQUESTS = 5
+MAX_CONCURRENT_REQUESTS = 2
 
 # Maximum description length to send to LLM (chars)
 MAX_DESCRIPTION_LENGTH = 500
@@ -135,8 +135,8 @@ class JobClassifier:
         model: str | None = None,
         base_url: str | None = None,
         provider: str | None = None,
-        timeout: float = DEFAULT_TIMEOUT,
-        max_concurrent: int = MAX_CONCURRENT_REQUESTS,
+        timeout: float | None = None,
+        max_concurrent: int | None = None,
     ) -> None:
         """Initialize the classifier.
 
@@ -151,14 +151,18 @@ class JobClassifier:
         self._model = model or settings.resolved_classification_model
         self._base_url = (base_url or settings.resolved_classification_url).rstrip("/")
         self._provider = provider or settings.embedding_provider
-        self._timeout = timeout
-        self._max_concurrent = max_concurrent
+        configured_timeout = float(getattr(settings, "classification_timeout_seconds", DEFAULT_TIMEOUT))
+        configured_concurrency = int(getattr(settings, "classification_max_concurrent", MAX_CONCURRENT_REQUESTS))
+        self._timeout = float(timeout) if timeout is not None else configured_timeout
+        self._max_concurrent = int(max_concurrent) if max_concurrent is not None else configured_concurrency
+        self._keep_alive = str(getattr(settings, "classification_keep_alive", "30m"))
+        self._num_predict = int(getattr(settings, "classification_num_predict", 20))
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
+            self._client = httpx.AsyncClient(timeout=httpx.Timeout(self._timeout, connect=10.0))
         return self._client
 
     async def close(self) -> None:
@@ -209,9 +213,10 @@ class JobClassifier:
                     "model": self._model,
                     "prompt": prompt,
                     "stream": False,
+                    "keep_alive": self._keep_alive,
                     "options": {
                         "temperature": 0.1,
-                        "num_predict": 20,
+                        "num_predict": self._num_predict,
                     },
                 },
             )

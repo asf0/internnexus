@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   deleteUserResume,
   markAllNotificationsRead,
@@ -11,12 +11,32 @@ import type { NotificationItem, SavedJobRecord, UserResume } from "@/lib/types/u
 
 interface ProfileExtrasProps {
   initialResume: UserResume | null;
+  resumeLoadError?: string;
   initialNotifications: NotificationItem[];
   initialSavedJobs: SavedJobRecord[];
 }
 
+function formatNotificationPayload(payload: Record<string, unknown>): string {
+  const preferredKeys = ["message", "file_name", "job_title", "company", "status"];
+  for (const key of preferredKeys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  const parts = Object.entries(payload)
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${String(value)}`);
+  if (parts.length > 0) return parts.join(" | ");
+
+  const fallback = JSON.stringify(payload);
+  return fallback.length > 140 ? `${fallback.slice(0, 140)}...` : fallback;
+}
+
 export default function ProfileExtras({
   initialResume,
+  resumeLoadError,
   initialNotifications,
   initialSavedJobs,
 }: ProfileExtrasProps) {
@@ -25,17 +45,24 @@ export default function ProfileExtras({
   const [savedJobs] = useState<SavedJobRecord[]>(initialSavedJobs);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>("");
+  const [selectedResumeName, setSelectedResumeName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onResumeUpload = async (file: File | null) => {
     if (!file) return;
+    setSelectedResumeName(file.name);
     setBusy(true);
-    setMessage("");
+    setMessage("Uploading resume and generating embedding...");
     const result = await uploadUserResume(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     if (!result.success || !result.data) {
       setMessage(result.error || "Failed to upload resume.");
       setBusy(false);
       return;
     }
+    setSelectedResumeName("");
     setResume(result.data);
     setMessage("Resume metadata updated.");
     setBusy(false);
@@ -96,18 +123,46 @@ export default function ProfileExtras({
             )}
           </div>
         ) : (
-          <p className="text-sm text-slate-600 dark:text-md-on-surface-variant mb-3">
-            No resume uploaded yet.
-          </p>
+          <div className="mb-3">
+            <p className="text-sm text-slate-600 dark:text-md-on-surface-variant">
+              No resume uploaded yet.
+            </p>
+            {resumeLoadError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                Resume service error: {resumeLoadError}
+              </p>
+            )}
+          </div>
         )}
         <div className="flex flex-wrap gap-3">
-          <input
-            type="file"
-            accept=".pdf,.txt"
-            disabled={busy}
-            onChange={(event) => onResumeUpload(event.target.files?.[0] || null)}
-            className="text-sm"
-          />
+          {!resume && (
+            <div className="w-full space-y-2">
+              <label
+                htmlFor="resume-upload"
+                className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  busy
+                    ? "cursor-not-allowed border-slate-200 text-slate-400 dark:border-md-outline-variant dark:text-md-on-surface-variant"
+                    : "cursor-pointer border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-600 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                }`}
+              >
+                {busy ? "Uploading..." : "Upload Resume (PDF or TXT)"}
+              </label>
+              <input
+                id="resume-upload"
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.txt"
+                disabled={busy}
+                onChange={(event) => onResumeUpload(event.target.files?.[0] || null)}
+                className="sr-only"
+              />
+              <p className="text-xs text-slate-500 dark:text-md-on-surface-variant">
+                {selectedResumeName
+                  ? `Selected: ${selectedResumeName}`
+                  : "Max size 10MB. Your resume is used for better job matching."}
+              </p>
+            </div>
+          )}
           {resume && (
             <button
               type="button"
@@ -129,7 +184,7 @@ export default function ProfileExtras({
           <button
             type="button"
             onClick={onReadAll}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Mark all as read
           </button>
@@ -144,16 +199,20 @@ export default function ProfileExtras({
             <div
               key={row.id}
               className={`rounded border p-3 text-sm ${
-                row.is_read ? "border-slate-200 text-slate-600" : "border-blue-300 bg-blue-50"
+                row.is_read
+                  ? "border-slate-200 dark:border-md-outline-variant bg-white dark:bg-md-surface-container text-slate-600 dark:text-md-on-surface-variant"
+                  : "border-slate-200 dark:border-md-outline-variant border-l-4 border-l-blue-500 bg-white dark:bg-md-surface-container-high text-slate-800 dark:text-md-on-surface"
               }`}
             >
-              <div className="font-medium">{row.type}</div>
-              <div className="text-xs mt-1">{JSON.stringify(row.payload)}</div>
+              <div className="font-medium text-slate-900 dark:text-md-on-surface">{row.type}</div>
+              <div className="text-xs mt-1 text-slate-600 dark:text-md-on-surface-variant">
+                {formatNotificationPayload(row.payload)}
+              </div>
               {!row.is_read && (
                 <button
                   type="button"
                   onClick={() => onReadNotification(row.id)}
-                  className="mt-2 text-xs text-blue-700 hover:underline"
+                  className="mt-2 text-xs text-blue-700 dark:text-blue-400 hover:underline"
                 >
                   Mark as read
                 </button>
@@ -187,7 +246,17 @@ export default function ProfileExtras({
         )}
       </div>
 
-      {message && <p className="text-sm text-slate-700 dark:text-md-on-surface-variant">{message}</p>}
+      {message && (
+        <p
+          className={`text-sm ${
+            message.toLowerCase().includes("failed") || message.toLowerCase().includes("error")
+              ? "text-red-600 dark:text-red-400"
+              : "text-slate-700 dark:text-md-on-surface-variant"
+          }`}
+        >
+          {message}
+        </p>
+      )}
     </div>
   );
 }

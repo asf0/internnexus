@@ -143,18 +143,35 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
 // Backward compatibility alias
 export const getUserProfile = fetchUserProfile;
 
-export async function fetchUserResume(): Promise<UserResume | null> {
+export interface FetchUserResumeResult {
+  data: UserResume | null;
+  error?: string;
+}
+
+export async function fetchUserResume(): Promise<FetchUserResumeResult> {
   const backendToken = await getBackendToken();
-  if (!backendToken) return null;
+  if (!backendToken) return { data: null, error: "Not authenticated" };
   try {
     const response = await fetch(`${BACKEND_URL}/users/me/resume`, {
       headers: { Authorization: `Bearer ${backendToken}` },
       cache: "no-store",
     });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
+    if (!response.ok) {
+      let errorMessage = "Failed to load resume metadata";
+      try {
+        const errorData = await response.json();
+        errorMessage = parseApiError(errorData) || errorMessage;
+      } catch {
+        // Keep default message.
+      }
+      return { data: null, error: errorMessage };
+    }
+    return { data: await response.json() };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Error fetching resume metadata:", error);
+    }
+    return { data: null, error: "Failed to load resume metadata" };
   }
 }
 
@@ -170,8 +187,12 @@ export async function uploadUserResume(file: File): Promise<{ success: boolean; 
       body,
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
+      try {
+        const errorData = await response.json();
+        return { success: false, error: parseApiError(errorData) };
+      } catch {
+        return { success: false, error: `Resume upload failed (${response.status})` };
+      }
     }
     const data = (await response.json()) as UserResume;
     revalidatePath("/profile");

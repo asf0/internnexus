@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Classification configuration
     classification_model: str | None = None
     ollama_classification_url: str | None = None  # Defaults to ollama_base_url if not set
+    classification_timeout_seconds: float = 90.0
+    classification_max_concurrent: int = 2
+    classification_keep_alive: str = "30m"
+    classification_num_predict: int = 20
 
     # Auth/JWT configuration
     auth_secret: str

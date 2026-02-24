@@ -14,11 +14,12 @@ export default async function ProfilePage() {
   }
 
   const profile = await getUserProfile()
-  const [resume, notifications, savedJobs] = await Promise.all([
+  const [resumeResult, notifications, savedJobs] = await Promise.all([
     fetchUserResume(),
     fetchNotifications(),
     fetchSavedJobs(),
   ])
+  const resume = resumeResult.data
 
   if (!profile) {
     return (
@@ -271,6 +272,7 @@ export default async function ProfilePage() {
 
             <ProfileExtras
               initialResume={resume}
+              resumeLoadError={resumeResult.error}
               initialNotifications={notifications}
               initialSavedJobs={savedJobs}
             />

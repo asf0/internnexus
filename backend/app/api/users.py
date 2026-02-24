@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
@@ -31,6 +32,17 @@ from app.services.resume_service import (
 from app.services.user_service import UserService, get_user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+_RESUME_SCHEMA_ERROR_DETAIL = (
+    "Resume storage schema is outdated. Run database migrations "
+    "(uv run alembic upgrade head) and retry."
+)
+
+
+def _is_resume_schema_error(exc: ProgrammingError) -> bool:
+    message = str(getattr(exc, "orig", exc)).lower()
+    return "user_resumes" in message and "content_hash" in message
 
 
 class UserProfileResponse(BaseModel):
@@ -174,7 +186,12 @@ async def get_resume_metadata(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> UserResumeResponse | None:
-    result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    try:
+        result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    except ProgrammingError as exc:
+        if _is_resume_schema_error(exc):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+        raise
     resume = result.scalar_one_or_none()
     if resume is None:
         return None
@@ -236,7 +253,12 @@ async def upload_resume_metadata(
             detail="Embedding service returned an empty vector",
         )
 
-    existing_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    try:
+        existing_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+    except ProgrammingError as exc:
+        if _is_resume_schema_error(exc):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+        raise
     existing = existing_result.scalar_one_or_none()
 
     if existing:
@@ -257,8 +279,17 @@ async def upload_resume_metadata(
                 payload={"file_name": filename},
             )
         )
-        await db.commit()
-        await db.refresh(existing)
+        try:
+            await db.commit()
+            await db.refresh(existing)
+        except ProgrammingError as exc:
+            await db.rollback()
+            if _is_resume_schema_error(exc):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=_RESUME_SCHEMA_ERROR_DETAIL,
+                ) from exc
+            raise
         data = UserResumeResponse.model_validate(existing)
         data.has_embedding = existing.resume_embedding is not None
         return data
@@ -284,8 +315,14 @@ async def upload_resume_metadata(
             payload={"file_name": filename},
         )
     )
-    await db.commit()
-    await db.refresh(resume)
+    try:
+        await db.commit()
+        await db.refresh(resume)
+    except ProgrammingError as exc:
+        await db.rollback()
+        if _is_resume_schema_error(exc):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+        raise
     data = UserResumeResponse.model_validate(resume)
     data.has_embedding = resume.resume_embedding is not None
     return data
