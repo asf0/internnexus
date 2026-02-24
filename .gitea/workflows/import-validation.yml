@@ -46,10 +46,16 @@ jobs:
         run: |
           pip install pytest pytest-asyncio
           pip install -e ./backend
+
+      - name: Verify import-chain test file exists
+        run: |
+          set -e
+          test -f backend/tests/test_import_chains.py || (echo "Missing backend/tests/test_import_chains.py" && exit 1)
+          pwd
+          ls -la backend/tests | head -n 50
       
       - name: Run import chain tests
-        run: pytest tests/test_import_chains.py -v
-        working-directory: backend
+        run: pytest backend/tests/test_import_chains.py -v
       
       - name: Check for circular imports
         run: |
