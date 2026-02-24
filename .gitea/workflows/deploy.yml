@@ -110,8 +110,8 @@ jobs:
           docker compose pull || true
           # Start stateful deps first.
           docker compose up -d db redis
-          # Build and start app services, including pipeline.
-          docker compose up -d --build backend frontend pipeline
+          # Build and start web app services only.
+          docker compose up -d --build backend frontend
           docker compose up -d cloudflared
 
       - name: Health Check
