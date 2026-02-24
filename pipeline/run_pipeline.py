@@ -116,6 +116,7 @@ class PipelineRunner:
         }
         self.step_times = {}
         self.start_from_step = None
+        self.current_step: str | None = None
 
     async def run_health_checks(self) -> bool:
         if not self.config.health_check.enabled:
@@ -243,38 +244,47 @@ class PipelineRunner:
             return 0, 0
 
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
-        from sqlalchemy import select
+        from sqlalchemy import func, select
         from pipeline.classification import get_classifier, reset_classifier
 
         success, errors = 0, 0
 
         async with AsyncSessionLocal() as session:
-            query = (
-                select(Job)
-                .where(Job.job_category.is_(None))
-                .order_by(Job.posted_at.desc().nulls_last())
-            )
-            if limit:
-                query = query.limit(limit)
+            total_query = select(func.count()).select_from(Job).where(Job.job_category.is_(None))
+            total_result = await session.execute(total_query)
+            total_available = int(total_result.scalar() or 0)
+            total_jobs = min(limit, total_available) if limit else total_available
 
-            result = await session.execute(query)
-            jobs = result.scalars().all()
-
-            if not jobs:
+            if total_jobs == 0:
                 logger.info("No jobs to classify")
                 self.step_times[step_name] = time.time() - step_start
                 if state:
                     await state.mark_step_complete(step_name)
                 return 0, 0
 
-            logger.info(f"Classifying {len(jobs)} jobs without categories...")
+            logger.info("Classifying %d jobs without categories...", total_jobs)
 
             classifier = await get_classifier()
+            processed = 0
             try:
-                total_jobs = len(jobs)
-                for start in range(0, total_jobs, CLASSIFY_COMMIT_BATCH_SIZE):
-                    end = min(start + CLASSIFY_COMMIT_BATCH_SIZE, total_jobs)
-                    chunk = jobs[start:end]
+                while processed < total_jobs:
+                    batch_limit = min(CLASSIFY_COMMIT_BATCH_SIZE, total_jobs - processed)
+                    batch_query = (
+                        select(Job)
+                        .where(Job.job_category.is_(None))
+                        .order_by(Job.posted_at.desc().nulls_last(), Job.id.desc())
+                        .limit(batch_limit)
+                    )
+                    batch_result = await session.execute(batch_query)
+                    chunk = batch_result.scalars().all()
+                    if not chunk:
+                        logger.warning(
+                            "Classification stopped early at %d/%d jobs; no uncategorized rows returned",
+                            processed,
+                            total_jobs,
+                        )
+                        break
+
                     inputs = [(j.title, j.description_text or "") for j in chunk]
                     categories = await classifier.classify_batch(inputs)
 
@@ -286,9 +296,10 @@ class PipelineRunner:
                             errors += 1
 
                     await session.commit()
+                    processed += len(chunk)
                     logger.info(
                         "Classification commit progress: %d/%d (success=%d, errors=%d)",
-                        end,
+                        processed,
                         total_jobs,
                         success,
                         errors,
@@ -379,6 +390,7 @@ class PipelineRunner:
             logger.info("=" * 60)
 
             if not self.start_from_step or self.start_from_step == "discover":
+                self.current_step = "discover"
                 if not self.skip_discover:
                     self.results["companies_verified"] = await self.step_discover(state)
                 elif state:
@@ -387,22 +399,26 @@ class PipelineRunner:
             if not self.start_from_step or STEPS.index("sync_inactive") >= STEPS.index(
                 self.start_from_step or "sync_inactive"
             ):
+                self.current_step = "sync_inactive"
                 self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
 
             if not self.start_from_step or STEPS.index("ingest") >= STEPS.index(
                 self.start_from_step or "ingest"
             ):
+                self.current_step = "ingest"
                 jobs_count, batch_start_time = await self.step_ingest(state)
                 self.results["jobs_fetched"] = jobs_count
 
             if not self.start_from_step or STEPS.index("delete_inactive") >= STEPS.index(
                 self.start_from_step or "delete_inactive"
             ):
+                self.current_step = "delete_inactive"
                 self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
 
             if not self.start_from_step or STEPS.index("cleanup") >= STEPS.index(
                 self.start_from_step or "cleanup"
             ):
+                self.current_step = "cleanup"
                 self.results["locations_cleaned"] = await self.step_cleanup(
                     state, test_mode=self.test_mode, limit=self.limit
                 )
@@ -410,6 +426,7 @@ class PipelineRunner:
             if not self.start_from_step or STEPS.index("classify") >= STEPS.index(
                 self.start_from_step or "classify"
             ):
+                self.current_step = "classify"
                 success, errors = await self.step_classify(state, limit=self.limit)
                 self.results["jobs_classified"] = success
                 self.results["classification_errors"] = errors
@@ -417,22 +434,20 @@ class PipelineRunner:
             if not self.start_from_step or STEPS.index("embed") >= STEPS.index(
                 self.start_from_step or "embed"
             ):
+                self.current_step = "embed"
                 success, errors = await self.step_embed(state)
                 self.results["embeddings_success"] = success
                 self.results["embeddings_errors"] = errors
 
             if state:
                 await state.mark_completed(self.results)
+            self.current_step = None
 
             elapsed = time.time() - start
             self._log_summary(elapsed)
 
         except Exception as e:
-            current_step = STEPS[0]
-            for i, step in enumerate(STEPS):
-                if step in self.step_times:
-                    if i + 1 < len(STEPS):
-                        current_step = STEPS[i + 1]
+            current_step = self.current_step or STEPS[0]
             if state:
                 await state.mark_failed(e, current_step)
             raise
