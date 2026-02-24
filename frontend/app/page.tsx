@@ -55,7 +55,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           saved_only: params.saved_only,
         }, backendToken),
     fetchCompanies(),
-    fetchLocations(),
+    fetchLocations(
+      {
+        search: params.search,
+        company: params.company,
+        category: params.category,
+        job_type: params.job_type,
+        work_mode: params.work_mode,
+        posted_within: params.posted_within,
+        match_ids: undefined,
+        saved_only: params.saved_only,
+      },
+      backendToken
+    ),
     fetchCategories(),
   ]);
   

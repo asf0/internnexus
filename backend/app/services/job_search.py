@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
@@ -100,30 +100,7 @@ class JobSearchService:
 
     async def _execute_search(self, params: JobSearchParams) -> JobListResponse:
         """Execute the actual search query."""
-        base_stmt = select(Job)
-
-        valid_ids = self._parse_match_ids(params.match_ids)
-        saved_job_ids = params.saved_job_ids or []
-
-        if params.saved_only:
-            if not saved_job_ids:
-                return JobListResponse(items=[], total=0, page=params.page, page_size=params.page_size)
-            if valid_ids:
-                saved_set = set(saved_job_ids)
-                valid_ids = [job_id for job_id in valid_ids if job_id in saved_set]
-                if not valid_ids:
-                    return JobListResponse(items=[], total=0, page=params.page, page_size=params.page_size)
-            else:
-                valid_ids = saved_job_ids
-
-        result_order: list[UUID] = []
-
-        if params.search:
-            parsed = parse_search_query(params.search)
-            keyword_ids = await self._keyword_search(params.search, parsed, base_stmt)
-            result_order = list(keyword_ids)
-
-        stmt = self._apply_filters(base_stmt, params, valid_ids, result_order)
+        stmt, valid_ids, result_order = await self.build_filtered_stmt(params)
         stmt = self._apply_ordering(stmt, params, valid_ids, result_order)
 
         total = await self._count_results(stmt)
@@ -135,6 +112,46 @@ class JobSearchService:
             page=params.page,
             page_size=params.page_size,
         )
+
+    async def build_filtered_stmt(
+        self, params: JobSearchParams, include_location: bool = True
+    ):
+        """Build the filtered base statement used by list and facet endpoints.
+
+        Args:
+            params: Search parameters
+            include_location: Whether to apply the location filter (False for location facets)
+        """
+        base_stmt = select(Job)
+
+        valid_ids = self._parse_match_ids(params.match_ids)
+        saved_job_ids = params.saved_job_ids or []
+
+        if params.saved_only:
+            if not saved_job_ids:
+                return base_stmt.where(false()), [], []
+            if valid_ids:
+                saved_set = set(saved_job_ids)
+                valid_ids = [job_id for job_id in valid_ids if job_id in saved_set]
+                if not valid_ids:
+                    return base_stmt.where(false()), [], []
+            else:
+                valid_ids = saved_job_ids
+
+        result_order: list[UUID] = []
+        if params.search:
+            parsed = parse_search_query(params.search)
+            keyword_ids = await self._keyword_search(params.search, parsed, base_stmt)
+            result_order = list(keyword_ids)
+
+        stmt = self._apply_filters(
+            base_stmt,
+            params,
+            valid_ids,
+            result_order,
+            include_location=include_location,
+        )
+        return stmt, valid_ids, result_order
 
     def _parse_match_ids(self, match_ids: str | None) -> list[UUID]:
         """Parse match_ids parameter into list of UUIDs."""
@@ -217,7 +234,12 @@ class JobSearchService:
         return build_expr(expr)
 
     def _apply_filters(
-        self, stmt, params: JobSearchParams, valid_ids: list[UUID], result_order: list[UUID]
+        self,
+        stmt,
+        params: JobSearchParams,
+        valid_ids: list[UUID],
+        result_order: list[UUID],
+        include_location: bool = True,
     ):
         """Apply filters to the query."""
         if valid_ids:
@@ -229,7 +251,7 @@ class JobSearchService:
             companies = [c.strip() for c in params.company.split("|")]
             stmt = stmt.where(Job.company.in_(companies))
 
-        if params.location:
+        if include_location and params.location:
             stmt = self._apply_location_filter(stmt, params.location)
 
         if params.category:

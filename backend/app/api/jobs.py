@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -120,15 +121,72 @@ async def get_locations(
     request: Request,
     db: AsyncSession = Depends(get_db),
     cache: RedisService = Depends(get_redis_service),
+    user: User | None = Depends(get_optional_user),
+    search: str | None = Query(None),
+    company: str | None = Query(None),
+    location: str | None = Query(None),
+    category: str | None = Query(None),
+    job_type: str | None = Query(None),
+    work_mode: str | None = Query(None),
+    posted_within: str | None = Query(None),
+    match_ids: str | None = Query(None),
+    saved_only: bool = Query(False),
 ) -> list[dict]:
-    """Get all distinct locations with hierarchical structure (countries > states > cities)."""
-    cache_key = "filters:locations_hierarchy"
+    """Get location hierarchy with dynamic counts based on active non-location filters.
+
+    Facet behavior: location counts ignore current location selection while applying
+    all other active filters.
+    """
+    saved_job_ids = None
+    if saved_only:
+        if not user:
+            return []
+        saved_ids_result = await db.execute(
+            select(SavedJob.job_id)
+            .where(SavedJob.user_id == user.id)
+            .order_by(SavedJob.created_at.desc())
+        )
+        saved_job_ids = list(saved_ids_result.scalars().all())
+
+    params = JobSearchParams(
+        page=1,
+        page_size=20,
+        search=search,
+        company=company,
+        location=location,
+        category=category,
+        job_type=job_type,
+        work_mode=work_mode,
+        posted_within=posted_within,
+        match_ids=match_ids,
+        saved_only=saved_only,
+        saved_job_ids=saved_job_ids,
+    )
+
+    facet_cache_payload = {
+        "search": params.search or "",
+        "company": params.company or "",
+        "category": params.category or "",
+        "job_type": params.job_type or "",
+        "work_mode": params.work_mode or "",
+        "posted_within": params.posted_within or "",
+        "match_ids": params.match_ids or "",
+        "saved_only": params.saved_only,
+        "user_id": str(user.id) if (saved_only and user) else "",
+    }
+    cache_key = (
+        "filters:locations_hierarchy:"
+        + hashlib.md5(json.dumps(facet_cache_payload, sort_keys=True).encode()).hexdigest()
+    )
     cached = await cache.get(cache_key)
     if cached:
         return cached
 
+    search_service = JobSearchService(db, cache=None)
+    filtered_stmt, _, _ = await search_service.build_filtered_stmt(params, include_location=False)
+
     location_service = LocationService(db)
-    locations = await location_service.get_location_hierarchy()
+    locations = await location_service.get_location_hierarchy_from_filtered_jobs(filtered_stmt)
 
     await cache.set(cache_key, locations, ttl=300)
     return locations

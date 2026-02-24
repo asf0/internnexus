@@ -28,6 +28,14 @@ class LocationService:
         cities = await self._fetch_cities()
         return self._build_hierarchy(countries, states, cities)
 
+    async def get_location_hierarchy_from_filtered_jobs(self, filtered_jobs_stmt) -> list[dict]:
+        """Get hierarchical locations from a pre-filtered jobs statement."""
+        subq = filtered_jobs_stmt.subquery()
+        countries = await self._fetch_countries_from_subquery(subq)
+        states = await self._fetch_states_from_subquery(subq)
+        cities = await self._fetch_cities_from_subquery(subq)
+        return self._build_hierarchy(countries, states, cities)
+
     async def _fetch_countries(self) -> list[tuple[str, int]]:
         """Fetch countries with job counts.
 
@@ -38,6 +46,15 @@ class LocationService:
             select(Job.country, func.count(Job.id).label("job_count"))
             .where(Job.country.isnot(None))
             .group_by(Job.country)
+        )
+        return [(row.country, row.job_count) for row in result.all()]
+
+    async def _fetch_countries_from_subquery(self, subq) -> list[tuple[str, int]]:
+        """Fetch countries with counts from a filtered jobs subquery."""
+        result = await self.session.execute(
+            select(subq.c.country, func.count(subq.c.id).label("job_count"))
+            .where(subq.c.country.isnot(None))
+            .group_by(subq.c.country)
         )
         return [(row.country, row.job_count) for row in result.all()]
 
@@ -54,6 +71,15 @@ class LocationService:
         )
         return [(row.state, row.country, row.job_count) for row in result.all()]
 
+    async def _fetch_states_from_subquery(self, subq) -> list[tuple[str, str, int]]:
+        """Fetch states with country and counts from a filtered jobs subquery."""
+        result = await self.session.execute(
+            select(subq.c.state, subq.c.country, func.count(subq.c.id).label("job_count"))
+            .where(subq.c.state.isnot(None))
+            .group_by(subq.c.state, subq.c.country)
+        )
+        return [(row.state, row.country, row.job_count) for row in result.all()]
+
     async def _fetch_cities(self) -> list[tuple[str, str | None, str, int]]:
         """Fetch cities with state, country, and job counts.
 
@@ -64,6 +90,21 @@ class LocationService:
             select(Job.city, Job.state, Job.country, func.count(Job.id).label("job_count"))
             .where(Job.city.isnot(None))
             .group_by(Job.city, Job.state, Job.country)
+            .limit(200)
+        )
+        return [(row.city, row.state, row.country, row.job_count) for row in result.all()]
+
+    async def _fetch_cities_from_subquery(self, subq) -> list[tuple[str, str | None, str, int]]:
+        """Fetch cities with state/country and counts from a filtered jobs subquery."""
+        result = await self.session.execute(
+            select(
+                subq.c.city,
+                subq.c.state,
+                subq.c.country,
+                func.count(subq.c.id).label("job_count"),
+            )
+            .where(subq.c.city.isnot(None))
+            .group_by(subq.c.city, subq.c.state, subq.c.country)
             .limit(200)
         )
         return [(row.city, row.state, row.country, row.job_count) for row in result.all()]

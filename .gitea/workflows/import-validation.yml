@@ -20,6 +20,21 @@ jobs:
     runs-on: docker
     container:
       image: python:3.12-slim
+    env:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      EMBEDDING_PROVIDER: ollama
+      EMBEDDING_MODEL: test-embedding-model
+      OLLAMA_BASE_URL: http://localhost:11434
+      AUTH_SECRET: test_auth_secret_minimum_32_chars_long
+      REDIS_URL: redis://localhost:6379/0
+      GREENHOUSE_API_URL: https://boards-api.greenhouse.io/v1/boards
+      LEVER_API_URL: https://api.lever.co/v0/postings
+      SIMPLIFY_JOBS_INTERN_URL: https://example.com/intern
+      SIMPLIFY_JOBS_NEW_GRAD_URL: https://example.com/new-grad
     steps:
       - name: Install Git
         run: apt-get update && apt-get install -y git
