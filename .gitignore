@@ -61,6 +61,10 @@ rntemp/
 scripts/
 
 tests/
+!backend/tests/
+!backend/tests/**
+!frontend/tests/
+!frontend/tests/**
 AGENTS.md
 .test/
 .opencode/
