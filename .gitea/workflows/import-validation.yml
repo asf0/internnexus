@@ -1,0 +1,56 @@
+name: Import Chain Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**/*.py'
+      - 'pyproject.toml'
+      - 'pipeline/**/*.py'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**/*.py'
+      - 'pyproject.toml'
+      - 'pipeline/**/*.py'
+
+jobs:
+  import-chain-tests:
+    name: Import Chain Tests
+    runs-on: docker
+    container:
+      image: python:3.12-slim
+    steps:
+      - name: Install Git
+        run: apt-get update && apt-get install -y git
+      
+      - name: Checkout code
+        run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+      
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-asyncio
+          pip install -e .
+      
+      - name: Run import chain tests
+        run: pytest backend/tests/test_import_chains.py -v
+        working-directory: .
+      
+      - name: Check for circular imports
+        run: |
+          python -c "
+          import sys
+          sys.setrecursionlimit(50)
+          sys.path.insert(0, 'backend')
+          import app.main
+          print('✓ No circular imports detected')
+          "
+      
+      - name: Validate entry points
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'backend')
+          import app.main
+          print('✓ main.py imports cleanly')
+          "

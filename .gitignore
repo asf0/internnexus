@@ -38,6 +38,12 @@ Thumbs.db
 .ruff_cache/
 .mypy_cache/
 
+# Pipeline runtime artifacts
+pipeline/output/
+pipeline/discovery/output/
+pipeline/.backfill_progress.json
+pipeline/apis/*.old
+
 # Test artifacts
 .hypothesis/
 backend/.hypothesis/
