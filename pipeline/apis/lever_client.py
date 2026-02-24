@@ -73,7 +73,7 @@ from typing import Any
 
 import httpx
 
-from backend.app.config import get_settings
+from pipeline.backend_bridge import get_settings
 from pipeline.apis.utils import parse_unix_timestamp, parse_job_type, parse_work_mode
 from pipeline.schemas import JobSchema
 

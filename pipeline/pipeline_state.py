@@ -9,12 +9,11 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.db import AsyncSessionLocal
-from backend.app.models import PipelineRun, PipelineRunStatus
+from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, PipelineRun, PipelineRunStatus
 
 logger = logging.getLogger(__name__)
 
-STEPS = ["discover", "ingest", "cleanup", "embed", "delete_old"]
+STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"]
 
 
 class PipelineStateManager:

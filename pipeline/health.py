@@ -9,9 +9,9 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.config import get_settings
-from backend.app.db import AsyncSessionLocal
+from pipeline.backend_bridge import get_settings
 from pipeline.pipeline_config import get_config
+from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

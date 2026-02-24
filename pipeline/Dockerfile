@@ -27,10 +27,10 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml .
 COPY uv.lock .
 
-# Install Python dependencies using uv
-# We install all dependencies including dev for pipeline operations
-# Playwright Python package is installed but browsers are NOT downloaded
-RUN uv pip install --system --no-cache -e ".[dev]"
+# Install Python dependencies using uv (non-dev for production runtime)
+# Playwright Python package is installed via project dependencies,
+# but browsers are not downloaded in this image.
+RUN uv pip install --system --no-cache -e .
 
 # Copy backend code (needed for imports)
 COPY backend/app/ ./backend/app/

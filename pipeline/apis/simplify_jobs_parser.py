@@ -9,7 +9,7 @@ from typing import Dict
 
 import httpx
 
-from backend.app.config import get_settings
+from pipeline.backend_bridge import get_settings
 
 settings = get_settings()
 
@@ -121,21 +121,6 @@ async def get_category_context_async() -> Dict[str, str]:
     try:
         parser = SimplifyJobsCategoryParser()
         categories = await parser.get_all_categories()
-        return categories
-    except Exception as e:
-        logger.error(f"Failed to get category context: {e}")
-        return {}
-
-
-def get_category_context() -> Dict[str, str]:
-    """Get category context for enrichment.
-
-    Returns:
-        Dict mapping company names to job categories
-    """
-    try:
-        parser = SimplifyJobsCategoryParser()
-        categories = asyncio.run(parser.get_all_categories())
         return categories
     except Exception as e:
         logger.error(f"Failed to get category context: {e}")

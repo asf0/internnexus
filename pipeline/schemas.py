@@ -7,13 +7,6 @@ from pydantic import BaseModel, Field
 
 
 JobSource = Literal["greenhouse", "lever", "ashby"]
-JobCategory = Literal[
-    "software_engineering",
-    "product_management",
-    "data_science_ai",
-    "quantitative_finance",
-    "hardware_engineering",
-]
 JobType = Literal["internship", "full_time", "part_time"]
 WorkMode = Literal["remote", "hybrid", "on_site"]
 
@@ -29,7 +22,7 @@ class JobSchema(BaseModel):
     apply_url: str
     description_text: str
     posted_at: datetime | None = None
-    job_category: JobCategory | None = None
+    job_category: str | None = None
     job_type: JobType | None = None
     work_mode: WorkMode | None = None
     description_embedding: list[float] | None = None

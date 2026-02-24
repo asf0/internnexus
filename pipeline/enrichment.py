@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from backend.app.services.embedding_service import EmbeddingService
+from pipeline.backend_bridge import EmbeddingService
+from pipeline.classification import get_classifier
 from pipeline.schemas import JobSchema
 
 
@@ -24,17 +25,41 @@ def _get_embedder() -> EmbeddingService | None:
 
 async def enrich_jobs(
     jobs: list[JobSchema],
-    category_context: dict | None = None,
+    category_context: dict | None = None,  # Deprecated: LLM classification replaces this
     skip_embedding: bool = False,
+    skip_classification: bool = False,
 ) -> list[JobSchema]:
-    """Pass through jobs with optional embedding generation.
+    """Enrich jobs with embeddings and AI-based category classification.
 
-    Currently disabled: location normalization, category detection,
-    job type detection, work mode detection - to test clean ATS data.
+    Args:
+        jobs: List of jobs to enrich
+        category_context: Deprecated - no longer used, kept for backward compatibility
+        skip_embedding: If True, skip embedding generation
+        skip_classification: If True, skip category classification
+
+    Returns:
+        Enriched jobs list (same objects, modified in place)
     """
     if not jobs:
         return []
 
+    # Classify jobs that don't have a category
+    if not skip_classification:
+        jobs_to_classify = [j for j in jobs if not j.job_category]
+        if jobs_to_classify:
+            try:
+                classifier = await get_classifier()
+                inputs = [(j.title, j.description_text or "") for j in jobs_to_classify]
+                categories = await classifier.classify_batch(inputs)
+                for job, category in zip(jobs_to_classify, categories):
+                    if category:
+                        job.job_category = category
+                classified_count = sum(1 for c in categories if c)
+                logger.info(f"Classified {classified_count}/{len(jobs_to_classify)} jobs")
+            except Exception as e:
+                logger.warning(f"Failed to classify jobs: {e}")
+
+    # Generate embeddings for jobs with descriptions
     if not skip_embedding:
         embedder = _get_embedder()
         if embedder:

@@ -8,13 +8,13 @@ This script runs the full pipeline:
 3. Fetch & ingest jobs - Fetch from all sources, deduplicate, upsert to DB
 4. Delete inactive - Remove jobs not found in APIs (sync model)
 5. Cleanup locations - Normalize city/state/country fields
-6. Generate embeddings - Create vector embeddings for job matching
+6. Classify jobs - LLM-based category classification
+7. Generate embeddings - Create vector embeddings for job matching
 
 Run modes:
   - Full pipeline:    python run_pipeline.py
   - Continuous:       python run_pipeline.py --continuous
-  - Cron (daily):     python run_pipeline.py --cron [--cron-hour 0]
-  - Single step:      python run_pipeline.py --step discover|sync_inactive|ingest|delete_inactive|cleanup|embed
+  - Single step:      python run_pipeline.py --step discover|sync_inactive|ingest|delete_inactive|cleanup|classify|embed
   - Combined:         python run_pipeline.py --step ingest --delete-inactive
   - Dry run:          python run_pipeline.py --dry-run
   - Resume failed:    python run_pipeline.py --resume
@@ -29,6 +29,8 @@ Examples:
   python run_pipeline.py --step cleanup                 # Normalize locations
   python run_pipeline.py --step cleanup --all           # Re-process ALL locations
   python run_pipeline.py --step cleanup --test          # Test mode: CSV output only
+  python run_pipeline.py --step classify                # Classify jobs without categories
+  python run_pipeline.py --step classify --limit 100    # Classify only 100 jobs
   python run_pipeline.py --step embed                   # Only generate embeddings
   python run_pipeline.py -c                             # Run continuously
   python run_pipeline.py --dry-run                      # Preview without changes
@@ -44,11 +46,14 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
+try:
+    from pipeline.path_setup import ensure_project_paths
+except ModuleNotFoundError:
+    # Support direct script execution from inside pipeline/ directory.
+    from path_setup import ensure_project_paths
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+ensure_project_paths()
 
 from pipeline.fetch import fetch_and_ingest
 from pipeline.pipeline import mark_all_jobs_inactive
@@ -69,7 +74,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "embed"]
+STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"]
+
+
+def _log_step_rate(step_name: str, duration_s: float, items: int | None) -> None:
+    """Log throughput for count-based steps."""
+    if items is None or duration_s <= 0:
+        return
+    rate = items / duration_s
+    logger.info(f"Step '{step_name}' throughput: {rate:.1f} items/sec ({items} items)")
 
 
 class PipelineRunner:
@@ -93,6 +106,8 @@ class PipelineRunner:
             "companies_verified": 0,
             "jobs_fetched": 0,
             "locations_cleaned": 0,
+            "jobs_classified": 0,
+            "classification_errors": 0,
             "embeddings_success": 0,
             "embeddings_errors": 0,
             "jobs_marked_inactive": 0,
@@ -135,6 +150,7 @@ class PipelineRunner:
         count = sum(len(v) for v in slugs.values())
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'discover' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], count)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -149,9 +165,13 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would fetch jobs from APIs and scrapers")
             return 0, datetime.now(timezone.utc)
 
-        jobs_count, batch_start = await fetch_and_ingest()
+        jobs_count, batch_start = await fetch_and_ingest(
+            api_fetch_concurrency=self.config.api.fetch_concurrency,
+            not_found_cooldown_hours=self.config.api.slug_404_cooldown_hours,
+        )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'ingest' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], jobs_count)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -173,10 +193,16 @@ class PipelineRunner:
             return 0
 
         count = await cleanup_locations(
-            since=since, process_all=self.process_all, test_mode=test_mode, limit=limit
+            since=since,
+            process_all=self.process_all,
+            test_mode=test_mode,
+            limit=limit,
+            parse_concurrency=self.config.cleanup.parse_concurrency,
+            chunk_size=self.config.cleanup.chunk_size,
         )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'cleanup' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], count)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -191,9 +217,76 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would generate embeddings for jobs without them")
             return 0, 0
 
-        success, errors = await generate_embeddings(batch_size=self.config.embeddings.batch_size)
+        success, errors = await generate_embeddings(
+            batch_size=self.config.embeddings.batch_size,
+            parallel_batches=self.config.embeddings.parallel_batches,
+        )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'embed' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], success)
+
+        if state:
+            await state.mark_step_complete(step_name)
+
+        return success, errors
+
+    async def step_classify(
+        self, state: PipelineStateManager | None, limit: int | None = None
+    ) -> tuple[int, int]:
+        """Classify jobs without categories using LLM."""
+        step_start = time.time()
+        step_name = "classify"
+
+        if self.dry_run:
+            logger.info("[DRY RUN] Would classify jobs without categories")
+            return 0, 0
+
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
+        from sqlalchemy import select
+        from pipeline.classification import get_classifier, reset_classifier
+
+        success, errors = 0, 0
+
+        async with AsyncSessionLocal() as session:
+            query = (
+                select(Job)
+                .where(Job.job_category.is_(None))
+                .order_by(Job.posted_at.desc().nulls_last())
+            )
+            if limit:
+                query = query.limit(limit)
+
+            result = await session.execute(query)
+            jobs = result.scalars().all()
+
+            if not jobs:
+                logger.info("No jobs to classify")
+                self.step_times[step_name] = time.time() - step_start
+                if state:
+                    await state.mark_step_complete(step_name)
+                return 0, 0
+
+            logger.info(f"Classifying {len(jobs)} jobs without categories...")
+
+            classifier = await get_classifier()
+            try:
+                inputs = [(j.title, j.description_text or "") for j in jobs]
+                categories = await classifier.classify_batch(inputs)
+
+                for job, category in zip(jobs, categories):
+                    if category:
+                        job.job_category = category
+                        success += 1
+                    else:
+                        errors += 1
+
+                await session.commit()
+            finally:
+                reset_classifier()
+
+        self.step_times[step_name] = time.time() - step_start
+        logger.info(f"Step 'classify' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], success)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -209,13 +302,14 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would mark all jobs as inactive")
             return 0
 
-        from backend.app.db import AsyncSessionLocal
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
         async with AsyncSessionLocal() as session:
             count = await mark_all_jobs_inactive(session)
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'sync_inactive' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], count)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -234,6 +328,7 @@ class PipelineRunner:
         count = await delete_inactive_jobs()
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'delete_inactive' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], count)
 
         if state:
             await state.mark_step_complete(step_name)
@@ -300,6 +395,13 @@ class PipelineRunner:
                     state, test_mode=self.test_mode, limit=self.limit
                 )
 
+            if not self.start_from_step or STEPS.index("classify") >= STEPS.index(
+                self.start_from_step or "classify"
+            ):
+                success, errors = await self.step_classify(state, limit=self.limit)
+                self.results["jobs_classified"] = success
+                self.results["classification_errors"] = errors
+
             if not self.start_from_step or STEPS.index("embed") >= STEPS.index(
                 self.start_from_step or "embed"
             ):
@@ -336,6 +438,8 @@ class PipelineRunner:
         logger.info(f"  Companies verified: {self.results['companies_verified']}")
         logger.info(f"  Jobs fetched: {self.results['jobs_fetched']}")
         logger.info(f"  Locations cleaned: {self.results['locations_cleaned']}")
+        logger.info(f"  Jobs classified: {self.results['jobs_classified']}")
+        logger.info(f"  Classification errors: {self.results['classification_errors']}")
         logger.info(f"  Embeddings generated: {self.results['embeddings_success']}")
         logger.info(f"  Embedding errors: {self.results['embeddings_errors']}")
         logger.info(f"  Jobs marked inactive: {self.results['jobs_marked_inactive']}")
@@ -374,43 +478,6 @@ async def run_continuous(runner: PipelineRunner, interval: int):
         await asyncio.sleep(interval)
 
 
-async def run_cron(runner: PipelineRunner, hour: int = 0):
-    """Run pipeline once daily at the specified hour (UTC).
-
-    Args:
-        runner: PipelineRunner instance
-        hour: Hour to run at (0-23, UTC). Default is midnight (0).
-    """
-    while True:
-        now = datetime.now(timezone.utc)
-        target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
-
-        if now >= target:
-            target = target + timedelta(days=1)
-
-        wait_seconds = (target - now).total_seconds()
-        logger.info(
-            f"Next scheduled run at {target.strftime('%Y-%m-%d %H:%M:%S')} UTC (in {wait_seconds / 3600:.1f} hours)"
-        )
-
-        await asyncio.sleep(wait_seconds)
-
-        try:
-            logger.info("=" * 60)
-            logger.info(
-                f"CRON TRIGGERED - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-            logger.info("=" * 60)
-            await runner.run()
-            runner.resume_run_id = None
-        except Exception as e:
-            logger.error(f"Pipeline error: {e}")
-            incomplete = await get_incomplete_run()
-            if incomplete:
-                runner.resume_run_id = incomplete.id
-            await asyncio.sleep(300)  # Wait 5 min before retry
-
-
 def main():
     config = get_config()
 
@@ -420,9 +487,8 @@ def main():
         epilog="""
 Examples:
   python run_pipeline.py                      # Run full pipeline once
-  python run_pipeline.py --cron               # Run daily at midnight UTC
-  python run_pipeline.py --cron --cron-hour 3 # Run daily at 3 AM UTC
-  python run_pipeline.py -c                   # Run continuously (every 6 hours)
+  python run_pipeline.py -c                   # Run continuously (every hour by default)
+  python run_pipeline.py -c --interval 3600   # Run continuously every hour
   python run_pipeline.py --step ingest        # Only fetch new jobs  
   python run_pipeline.py --step ingest --delete-inactive  # Fetch + delete inactive
   python run_pipeline.py --step sync_inactive # Mark all jobs inactive
@@ -445,7 +511,15 @@ Examples:
     )
     parser.add_argument(
         "--step",
-        choices=["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "embed"],
+        choices=[
+            "discover",
+            "sync_inactive",
+            "ingest",
+            "delete_inactive",
+            "cleanup",
+            "classify",
+            "embed",
+        ],
         help="Run only a specific step",
     )
     parser.add_argument(
@@ -471,17 +545,6 @@ Examples:
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="Limit number of jobs to process (for --test mode)"
-    )
-    parser.add_argument(
-        "--cron",
-        action="store_true",
-        help="Run in cron mode: execute once daily at scheduled time",
-    )
-    parser.add_argument(
-        "--cron-hour",
-        type=int,
-        default=0,
-        help="Hour (0-23 UTC) to run daily cron job (default: 0 = midnight UTC)",
     )
 
     args = parser.parse_args()
@@ -531,6 +594,8 @@ Examples:
                 await runner.step_delete_inactive(None)
             elif args.step == "cleanup":
                 await runner.step_cleanup(None, test_mode=args.test)
+            elif args.step == "classify":
+                await runner.step_classify(None, limit=args.limit)
             elif args.step == "embed":
                 await runner.step_embed(None)
         else:
@@ -561,27 +626,6 @@ Examples:
             await run_continuous(runner, interval)
 
         asyncio.run(run_continuous_main())
-    elif args.cron:
-
-        async def run_cron_main():
-            resume_run_id = None
-            incomplete = await get_incomplete_run()
-            if incomplete:
-                resume_run_id = incomplete.id
-                logger.info(f"Resuming incomplete run: {resume_run_id}")
-
-            runner = PipelineRunner(
-                skip_discover=args.skip_discover,
-                dry_run=args.dry_run,
-                process_all=args.all,
-                resume_run_id=resume_run_id,
-                test_mode=args.test,
-                limit=args.limit,
-            )
-            logger.info(f"Starting cron mode (daily at {args.cron_hour}:00 UTC)")
-            await run_cron(runner, hour=args.cron_hour)
-
-        asyncio.run(run_cron_main())
     else:
         asyncio.run(run_once())
 

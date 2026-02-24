@@ -5,6 +5,20 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from pipeline.location.constants import (
+    COUNTRIES_AS_CITIES,
+    STATES_AS_CITIES,
+    INVALID_CITY_PATTERNS,
+    STATE_MAPPINGS,
+    ABBR_TO_STATE,
+    CANADIAN_PROVINCES,
+    INDIAN_STATES,
+    INDIAN_STATE_ABBR,
+    AUSTRALIAN_STATES,
+    GERMAN_STATES,
+    UK_REGIONS,
+)
+
 # =============================================================================
 # PRE-COMPILED REGEX PATTERNS
 # Compiled once at module import for optimal performance (~20-30% speedup)
@@ -55,427 +69,11 @@ _FAKE_CITY_PATTERNS = [
 ]
 _FAKE_CITY_PREFIX_PATTERN = re.compile(r"^(remote|zone|region)\s+\w+", re.IGNORECASE)
 
-# Countries that should NEVER be in city field
-_COUNTRIES_AS_CITIES = {
-    "afghanistan",
-    "albania",
-    "algeria",
-    "andorra",
-    "angola",
-    "antarctica",
-    "argentina",
-    "armenia",
-    "australia",
-    "austria",
-    "azerbaijan",
-    "bahrain",
-    "bangladesh",
-    "belarus",
-    "belgium",
-    "belize",
-    "benin",
-    "bhutan",
-    "bolivia",
-    "bosnia",
-    "bosnia and herzegovina",
-    "botswana",
-    "brazil",
-    "brunei",
-    "bulgaria",
-    "burkina faso",
-    "burundi",
-    "cambodia",
-    "cameroon",
-    "canada",
-    "cape verde",
-    "central african republic",
-    "chad",
-    "chile",
-    "china",
-    "colombia",
-    "comoros",
-    "congo",
-    "costa rica",
-    "croatia",
-    "cuba",
-    "cyprus",
-    "czech republic",
-    "czechia",
-    "denmark",
-    "djibouti",
-    "dominica",
-    "dominican republic",
-    "ecuador",
-    "egypt",
-    "el salvador",
-    "equatorial guinea",
-    "eritrea",
-    "estonia",
-    "eswatini",
-    "ethiopia",
-    "fiji",
-    "finland",
-    "france",
-    "gabon",
-    "gambia",
-    "georgia",
-    "germany",
-    "ghana",
-    "greece",
-    "grenada",
-    "guatemala",
-    "guinea",
-    "guinea-bissau",
-    "guyana",
-    "haiti",
-    "honduras",
-    "hungary",
-    "iceland",
-    "india",
-    "indonesia",
-    "iran",
-    "iraq",
-    "ireland",
-    "israel",
-    "italy",
-    "jamaica",
-    "japan",
-    "jordan",
-    "kazakhstan",
-    "kenya",
-    "kiribati",
-    "kosovo",
-    "kuwait",
-    "kyrgyzstan",
-    "laos",
-    "latvia",
-    "lebanon",
-    "lesotho",
-    "liberia",
-    "libya",
-    "liechtenstein",
-    "lithuania",
-    "luxembourg",
-    "macedonia",
-    "madagascar",
-    "malawi",
-    "malaysia",
-    "maldives",
-    "mali",
-    "malta",
-    "marshall islands",
-    "mauritania",
-    "mauritius",
-    "mexico",
-    "micronesia",
-    "moldova",
-    "monaco",
-    "mongolia",
-    "montenegro",
-    "morocco",
-    "mozambique",
-    "myanmar",
-    "namibia",
-    "nauru",
-    "nepal",
-    "netherlands",
-    "new zealand",
-    "nicaragua",
-    "niger",
-    "nigeria",
-    "north korea",
-    "korea",
-    "north macedonia",
-    "norway",
-    "oman",
-    "pakistan",
-    "palau",
-    "palestine",
-    "panama",
-    "papua new guinea",
-    "paraguay",
-    "peru",
-    "philippines",
-    "poland",
-    "portugal",
-    "qatar",
-    "romania",
-    "russia",
-    "rwanda",
-    "saint kitts and nevis",
-    "saint lucia",
-    "saint vincent and the grenadines",
-    "samoa",
-    "san marino",
-    "sao tome and principe",
-    "saudi arabia",
-    "senegal",
-    "serbia",
-    "seychelles",
-    "sierra leone",
-    "singapore",
-    "slovakia",
-    "slovenia",
-    "solomon islands",
-    "somalia",
-    "south africa",
-    "south korea",
-    "south sudan",
-    "spain",
-    "sri lanka",
-    "sudan",
-    "suriname",
-    "swaziland",
-    "sweden",
-    "switzerland",
-    "syria",
-    "taiwan",
-    "tajikistan",
-    "tanzania",
-    "thailand",
-    "timor-leste",
-    "togo",
-    "tonga",
-    "trinidad and tobago",
-    "tunisia",
-    "turkey",
-    "turkmenistan",
-    "tuvalu",
-    "uganda",
-    "ukraine",
-    "united arab emirates",
-    "uae",
-    "united kingdom",
-    "uk",
-    "united states",
-    "us",
-    "usa",
-    "uruguay",
-    "uzbekistan",
-    "vanuatu",
-    "vatican city",
-    "venezuela",
-    "vietnam",
-    "yemen",
-    "zambia",
-    "zimbabwe",
-    # Continents/regions
-    "africa",
-    "asia",
-    "europe",
-    "north america",
-    "south america",
-    "oceania",
-    "latin america",
-    "central america",
-    "caribbean",
-    "middle east",
-    "european union",
-    "americas",
-}
-
-# States/provinces/regions that should NEVER be in city field
-_STATES_AS_CITIES = {
-    # US states
-    "alabama",
-    "alaska",
-    "arizona",
-    "arkansas",
-    "california",
-    "colorado",
-    "connecticut",
-    "delaware",
-    "florida",
-    "georgia",
-    "hawaii",
-    "idaho",
-    "illinois",
-    "indiana",
-    "iowa",
-    "kansas",
-    "kentucky",
-    "louisiana",
-    "maine",
-    "maryland",
-    "massachusetts",
-    "michigan",
-    "minnesota",
-    "mississippi",
-    "missouri",
-    "montana",
-    "nebraska",
-    "nevada",
-    "new hampshire",
-    "new jersey",
-    "new mexico",
-    "new york",
-    "north carolina",
-    "north dakota",
-    "ohio",
-    "oklahoma",
-    "oregon",
-    "pennsylvania",
-    "rhode island",
-    "south carolina",
-    "south dakota",
-    "tennessee",
-    "texas",
-    "utah",
-    "vermont",
-    "virginia",
-    "washington",
-    "west virginia",
-    "wisconsin",
-    "wyoming",
-    "district of columbia",
-    "puerto rico",
-    # Canadian provinces
-    "alberta",
-    "british columbia",
-    "manitoba",
-    "new brunswick",
-    "newfoundland and labrador",
-    "nova scotia",
-    "ontario",
-    "prince edward island",
-    "quebec",
-    "saskatchewan",
-    "yukon",
-    "northwest territories",
-    "nunavut",
-    # UK regions
-    "england",
-    "scotland",
-    "wales",
-    "northern ireland",
-    # Indian states
-    "andhra pradesh",
-    "arunachal pradesh",
-    "assam",
-    "bihar",
-    "chhattisgarh",
-    "goa",
-    "gujarat",
-    "haryana",
-    "himachal pradesh",
-    "jharkhand",
-    "karnataka",
-    "kerala",
-    "madhya pradesh",
-    "maharashtra",
-    "manipur",
-    "meghalaya",
-    "mizoram",
-    "nagaland",
-    "odisha",
-    "punjab",
-    "rajasthan",
-    "sikkim",
-    "tamil nadu",
-    "telangana",
-    "tripura",
-    "uttar pradesh",
-    "uttarakhand",
-    "west bengal",
-    "delhi",
-    # Australian states
-    "new south wales",
-    "victoria",
-    "queensland",
-    "south australia",
-    "western australia",
-    "tasmania",
-    "australian capital territory",
-    "northern territory",
-    # German states
-    "bavaria",
-    "baden-wurttemberg",
-    "bavaria",
-    "brandenburg",
-    "hesse",
-    "lower saxony",
-    "mecklenburg-vorpommern",
-    "north rhine-westphalia",
-    "rhineland-palatinate",
-    "saarland",
-    "saxony",
-    "saxony-anhalt",
-    "schleswig-holstein",
-    "thuringia",
-    # Other regions
-    "flanders",
-    "wallonia",
-    "catalonia",
-    "basque country",
-    "galicia",
-    "andalusia",
-    "ile-de-france",
-    "brittany",
-    "normandy",
-    "provence-alpes-cote d'azur",
-    "occitanie",
-    "hauts-de-france",
-    "grand est",
-    "pays de la loire",
-    "auvergne-rhone-alpes",
-    "aquitaine",
-    # UK regions/counties
-    "greater london",
-    "greater london area",
-    "greater manchester",
-    "berkshire",
-    "hampshire",
-    "surrey",
-    "kent",
-    "essex",
-    "middlesex",
-    "lancashire",
-    "yorkshire",
-    "cheshire",
-    "hertfordshire",
-    "buckinghamshire",
-    "oxfordshire",
-    "cambridgeshire",
-    "devon",
-    "cornwall",
-    "somerset",
-    "dorset",
-    "wiltshire",
-    "gloucestershire",
-    "warwickshire",
-    "northamptonshire",
-    "leicestershire",
-    "nottinghamshire",
-    "derbyshire",
-    "staffordshire",
-    "shropshire",
-    "herefordshire",
-    "worcestershire",
-    "west midlands",
-}
-
-# Patterns that indicate invalid city values (multi-location, addresses, etc.)
-_INVALID_CITY_PATTERNS = [
-    re.compile(r"^all\s+", re.IGNORECASE),  # "All Hubs", "All locations", "All Offices"
-    re.compile(r"^flex\s*[-–]", re.IGNORECASE),  # "Flex - Berlin", "Flex-London"
-    re.compile(r"^home[-:\s]", re.IGNORECASE),  # "Home-based", "Home Office"
-    re.compile(r"\s+or\s+", re.IGNORECASE),  # "London or Dublin"
-    re.compile(r";", re.IGNORECASE),  # Multi-location with semicolon
-    re.compile(r"^\d+\s+\w+", re.IGNORECASE),  # Starts with number (addresses)
-    re.compile(
-        r"\bstreet\b|\bst\b|\bavenue\b|\bave\b|\bblvd\b|\broad\b", re.IGNORECASE
-    ),  # Street addresses
-    re.compile(r"^\w,\s*\w", re.IGNORECASE),  # "A, B" pattern (single letters)
-    re.compile(r"^across\s+", re.IGNORECASE),  # "Across Canada", "Across Quebec"
-    re.compile(r"^any", re.IGNORECASE),  # "Any Office", "Anywhere"
-    re.compile(r"^beyond\s+", re.IGNORECASE),  # "Beyond Meridian", "Beyond Therapy"
-    re.compile(r"^[a-zA-Z]$", re.IGNORECASE),  # Single letters A, B, C
-    re.compile(r"^contract", re.IGNORECASE),  # "Contract", "Contractors"
-    re.compile(r"^hybrid$", re.IGNORECASE),  # "Hybrid"
-    re.compile(r"^central\s", re.IGNORECASE),  # "Central - United States", "Central Singapore"
-    re.compile(r"^lt\s*-\s*", re.IGNORECASE),  # "LT - North America"
-    re.compile(r"^greater\s+", re.IGNORECASE),  # "Greater London", "Greater Manchester"
-]
+# Internal references to imported constants (lowercase versions for case-insensitive matching)
+_COUNTRIES_AS_CITIES = COUNTRIES_AS_CITIES
+_STATES_AS_CITIES = STATES_AS_CITIES
+_INVALID_CITY_PATTERNS = INVALID_CITY_PATTERNS
+_STATE_NAME_MAPPINGS = STATE_MAPPINGS
 
 # Country patterns with word boundaries
 _COUNTRY_PATTERNS = [
@@ -847,75 +445,24 @@ def extract_country_from_text(text: str) -> str | None:
     return None
 
 
-def expand_state_abbreviation(state_abbr: str) -> str | None:
-    """Expand US and Canadian state abbreviations."""
-    states = {
-        "AL": "Alabama",
-        "AK": "Alaska",
-        "AZ": "Arizona",
-        "AR": "Arkansas",
-        "CA": "California",
-        "CO": "Colorado",
-        "CT": "Connecticut",
-        "DE": "Delaware",
-        "FL": "Florida",
-        "GA": "Georgia",
-        "HI": "Hawaii",
-        "ID": "Idaho",
-        "IL": "Illinois",
-        "IN": "Indiana",
-        "IA": "Iowa",
-        "KS": "Kansas",
-        "KY": "Kentucky",
-        "LA": "Louisiana",
-        "ME": "Maine",
-        "MD": "Maryland",
-        "MA": "Massachusetts",
-        "MI": "Michigan",
-        "MN": "Minnesota",
-        "MS": "Mississippi",
-        "MO": "Missouri",
-        "MT": "Montana",
-        "NE": "Nebraska",
-        "NV": "Nevada",
-        "NH": "New Hampshire",
-        "NJ": "New Jersey",
-        "NM": "New Mexico",
-        "NY": "New York",
-        "NC": "North Carolina",
-        "ND": "North Dakota",
-        "OH": "Ohio",
-        "OK": "Oklahoma",
-        "OR": "Oregon",
-        "PA": "Pennsylvania",
-        "RI": "Rhode Island",
-        "SC": "South Carolina",
-        "SD": "South Dakota",
-        "TN": "Tennessee",
-        "TX": "Texas",
-        "UT": "Utah",
-        "VT": "Vermont",
-        "VA": "Virginia",
-        "WA": "Washington",
-        "WV": "West Virginia",
-        "WI": "Wisconsin",
-        "WY": "Wyoming",
-        "DC": "District of Columbia",
-        "AB": "Alberta",
-        "BC": "British Columbia",
-        "MB": "Manitoba",
-        "NB": "New Brunswick",
-        "NL": "Newfoundland and Labrador",
-        "NS": "Nova Scotia",
-        "NT": "Northwest Territories",
-        "NU": "Nunavut",
-        "ON": "Ontario",
-        "PE": "Prince Edward Island",
-        "QC": "Quebec",
-        "SK": "Saskatchewan",
-        "YT": "Yukon",
-    }
-    return states.get(state_abbr.upper())
+def expand_state_abbreviation(state_abbr: str, country_hint: str | None = None) -> str | None:
+    """Expand state abbreviation based on country context.
+
+    Args:
+        state_abbr: Two-letter state abbreviation (e.g., "TN", "KA")
+        country_hint: Optional country name to resolve ambiguous abbreviations.
+                     If "India", uses Indian state abbreviations.
+                     If None or other countries, uses US/Canadian abbreviations.
+
+    Returns:
+        Full state name or None if not found.
+    """
+    abbr_upper = state_abbr.upper()
+
+    if country_hint == "India":
+        return INDIAN_STATE_ABBR.get(abbr_upper)
+
+    return ABBR_TO_STATE.get(abbr_upper)
 
 
 def is_remote_pattern(location: str) -> bool:
@@ -983,11 +530,15 @@ def extract_city_before_state(text: str) -> str | None:
     return None
 
 
-def extract_state(text: str) -> str | None:
+def extract_state(text: str, country_hint: str | None = None) -> str | None:
     """Extract state from text using pre-compiled patterns and known state names.
 
     Note: This function extracts geographic regions that are sub-national (states, provinces).
     Countries like "UK", "Germany", etc. should NOT be extracted as states - they are countries.
+
+    Args:
+        text: Text to extract state from.
+        country_hint: Optional country name to resolve ambiguous abbreviations.
     """
     if not text:
         return None
@@ -1040,14 +591,21 @@ def extract_state(text: str) -> str | None:
     match = _STATE_ABBR_PATTERN.search(text_clean)
     if match:
         state_abbr = match.group(1)
-        full_state = expand_state_abbreviation(state_abbr)
+        full_state = expand_state_abbreviation(state_abbr, country_hint)
         if full_state:
             return full_state
 
     if text_clean and len(text_clean) > 2:
         text_lower = text_clean.lower()
 
-        # US states
+        all_known_states = (
+            list(CANADIAN_PROVINCES)
+            + list(INDIAN_STATES)
+            + list(AUSTRALIAN_STATES)
+            + list(GERMAN_STATES)
+            + list(UK_REGIONS)
+        )
+
         us_states = [
             "alabama",
             "alaska",
@@ -1102,104 +660,6 @@ def extract_state(text: str) -> str | None:
             "district of columbia",
         ]
 
-        # Canadian provinces
-        canadian_provinces = [
-            "alberta",
-            "british columbia",
-            "manitoba",
-            "new brunswick",
-            "newfoundland and labrador",
-            "nova scotia",
-            "ontario",
-            "prince edward island",
-            "quebec",
-            "saskatchewan",
-        ]
-
-        # Indian states
-        indian_states = [
-            "andhra pradesh",
-            "arunachal pradesh",
-            "assam",
-            "bihar",
-            "chhattisgarh",
-            "goa",
-            "gujarat",
-            "haryana",
-            "himachal pradesh",
-            "jharkhand",
-            "karnataka",
-            "kerala",
-            "madhya pradesh",
-            "maharashtra",
-            "manipur",
-            "meghalaya",
-            "mizoram",
-            "nagaland",
-            "odisha",
-            "punjab",
-            "rajasthan",
-            "sikkim",
-            "tamil nadu",
-            "telangana",
-            "tripura",
-            "uttar pradesh",
-            "uttarakhand",
-            "west bengal",
-            "delhi",
-            "jammu and kashmir",
-            "ladakh",
-            "puducherry",
-        ]
-
-        # Australian states/territories
-        australian_states = [
-            "new south wales",
-            "victoria",
-            "queensland",
-            "south australia",
-            "western australia",
-            "tasmania",
-            "australian capital territory",
-            "northern territory",
-        ]
-
-        # German states (Bundesländer)
-        german_states = [
-            "baden-württemberg",
-            "bavaria",
-            "bayern",
-            "berlin",
-            "brandenburg",
-            "bremen",
-            "hamburg",
-            "hesse",
-            "hessen",
-            "lower saxony",
-            "mecklenburg-vorpommern",
-            "north rhine-westphalia",
-            "nordrhein-westfalen",
-            "rhineland-palatinate",
-            "saarland",
-            "saxony",
-            "sachsen",
-            "saxony-anhalt",
-            "schleswig-holstein",
-            "thuringia",
-            "thüringen",
-        ]
-
-        # UK regions
-        uk_regions = [
-            "england",
-            "scotland",
-            "wales",
-            "northern ireland",
-            "greater london",
-            "london",
-        ]
-
-        # French regions (for region-level recognition)
         french_regions = [
             "île-de-france",
             "auvergne-rhône-alpes",
@@ -1216,7 +676,6 @@ def extract_state(text: str) -> str | None:
             "corse",
         ]
 
-        # Italian regions
         italian_regions = [
             "abruzzo",
             "aosta valley",
@@ -1245,7 +704,6 @@ def extract_state(text: str) -> str | None:
             "veneto",
         ]
 
-        # Spanish regions
         spanish_regions = [
             "andalusia",
             "andalucía",
@@ -1276,7 +734,6 @@ def extract_state(text: str) -> str | None:
             "valencian community",
         ]
 
-        # Mexican states
         mexican_states = [
             "aguascalientes",
             "baja california",
@@ -1314,7 +771,6 @@ def extract_state(text: str) -> str | None:
             "mexico city",
         ]
 
-        # Brazilian states
         brazilian_states = [
             "acre",
             "alagoas",
@@ -1345,14 +801,9 @@ def extract_state(text: str) -> str | None:
             "tocantins",
         ]
 
-        # All known states for lookup
         all_known_states = (
             us_states
-            + canadian_provinces
-            + indian_states
-            + australian_states
-            + german_states
-            + uk_regions
+            + all_known_states
             + french_regions
             + italian_regions
             + spanish_regions
@@ -1366,321 +817,6 @@ def extract_state(text: str) -> str | None:
     return None
 
 
-# State name normalization mappings
-# NOTE: normalize_state_name() strips whitespace before lookup, so keys should not have trailing spaces
-_STATE_NAME_MAPPINGS = {
-    # === US STATE VARIATIONS ===
-    "Washington D.C.": "District of Columbia",
-    "Washington, D.C.": "District of Columbia",
-    "Washington D.C": "District of Columbia",
-    "District Of Columbia": "District of Columbia",
-    "New York State": "New York",
-    "Washington State": "Washington",
-    "NY": "New York",
-    "California, Washington": None,
-    "Seattle, Washington": "Washington",
-    "San Francisco, Seattle": None,
-    # === ACCENTED CHARACTERS -> ASCII ===
-    "São Paulo": "Sao Paulo",
-    "Québec": "Quebec",
-    "Córdoba": "Cordoba",
-    "Karnātaka": "Karnataka",
-    "Mahārāshtra": "Maharashtra",
-    "Telangāna": "Telangana",
-    "Rājasthān": "Rajasthan",
-    "México": "Mexico",
-    "Nuevo León": "Nuevo Leon",
-    "Ceará": "Ceara",
-    "Espírito Santo": "Espirito Santo",
-    "Kraków": "Krakow",
-    # === FRENCH REGIONS ===
-    "Ile de France": "Île-de-France",
-    "Ile-De-France": "Île-de-France",
-    "Ile-de-France": "Île-de-France",
-    "Île-De-France": "Île-de-France",
-    "Hauts-De-France": "Hauts-de-France",
-    "Pays De La Loire": "Pays de la Loire",
-    "Bretagne": "Brittany",
-    "Brittany": "Brittany",
-    "Alsace": "Grand Est",
-    "Grand Est": "Grand Est",
-    "Occitanie": "Occitanie",
-    # === GERMAN STATES ===
-    "Bayern": "Bavaria",
-    "Nordrhein-Westfalen": "North Rhine-Westphalia",
-    "Northrhine-Westfalia": "North Rhine-Westphalia",
-    "North Rhine Westphalia": "North Rhine-Westphalia",
-    "Thüringen": "Thuringia",
-    # === ITALIAN REGIONS ===
-    "Toscana": "Tuscany",
-    "Milano": None,
-    "Roma": None,
-    "Firenze": None,
-    "Florence": None,
-    "Rome": None,
-    "Milan": None,
-    # === SPANISH REGIONS ===
-    "Comunidad de Madrid": None,
-    "Community of Madrid": None,
-    "Comunidad Valenciana": "Valencia",
-    "País Vasco": "Basque Country",
-    "Islas Baleares": "Balearic Islands",
-    "Murcia": "Murcia",
-    "Santander": None,
-    # === BRAZILIAN STATES (keep - these are valid) ===
-    "Rio De Janeiro": "Rio de Janeiro",
-    "Rio Grande Do Norte": "Rio Grande do Norte",
-    "Rio Grande Do Sul": "Rio Grande do Sul",
-    # === MEXICAN STATES ===
-    "Ciudad de Mexico": None,
-    "Mexico City": None,
-    # === CANADIAN PROVINCES ===
-    "Newfoundland And Labrador": "Newfoundland and Labrador",
-    # === UK/LONDON VARIATIONS -> None ===
-    "London": None,
-    "London, City of": None,
-    "London, United Kingdom": None,
-    "Greater London": None,
-    "England": None,
-    "Scotland": None,
-    "Wales": None,
-    "Northern Ireland": None,
-    "Berkshire": None,
-    "Gloucestershire": None,
-    "Hampshire": None,
-    "Middlesex": None,
-    "Midlothian": None,
-    "Camden": None,
-    "Ealing": None,
-    "Newham": None,
-    "Southwark": None,
-    "Hammersmith and Fulham": None,
-    "Bristol": None,
-    "Bristol, City of": None,
-    "Leeds": None,
-    "Manchester": None,
-    "Liverpool": None,
-    "Sheffield": None,
-    "Glasgow": None,
-    "Edinburgh": None,
-    # === NETHERLANDS PROVINCES ===
-    "Noord-Holland": "North Holland",
-    "North Holland": "North Holland",
-    "North Brabant": "North Brabant",
-    "South Holland": "South Holland",
-    # === AUSTRALIAN STATES ===
-    "NSW": "New South Wales",
-    "Victoria": "Victoria",
-    "Queensland": "Queensland",
-    "South Australia": "South Australia",
-    "Western Australia": "Western Australia",
-    "Tasmania": "Tasmania",
-    "Australian Capital Territory": "Australian Capital Territory",
-    "Northern Territory": "Northern Territory",
-    "Canberra": None,
-    # === SPELLING CORRECTIONS ===
-    "Manilla": None,
-    "Ha Noi": None,
-    "Karnaka": "Karnataka",
-    "Guateng": "Gauteng",
-    # === MAJOR CITIES -> None ===
-    "Tokyo": None,
-    "Jakarta": None,
-    "Singapore": None,
-    "Hong Kong": None,
-    "Seoul": None,
-    "Shanghai": None,
-    "Beijing": None,
-    "Shenzhen": None,
-    "Dubai": None,
-    "Abu Dhabi": None,
-    "Amsterdam": None,
-    "Rotterdam": None,
-    "Brussels": None,
-    "Brussels-Capital Region": None,
-    "Paris": None,
-    "Berlin": None,
-    "Berlin-Brandenburg": None,
-    "Berlin/Brandenburg": None,
-    "Berlin/ Brandenburg metropolitan region": None,
-    "Munich": None,
-    "Hamburg": None,
-    "Frankfurt": None,
-    "Vienna": None,
-    "Zurich": None,
-    "Geneva": None,
-    "Bern": None,
-    "Lugano": None,
-    "Vaud": None,
-    "Zug": None,
-    "Stockholm": None,
-    "Oslo": None,
-    "Copenhagen": None,
-    "Helsinki": None,
-    "Lisbon": None,
-    "Prague": None,
-    "Warsaw": None,
-    "Budapest": None,
-    "Athens": None,
-    "Dublin": None,
-    "Sydney": None,
-    "Melbourne": None,
-    "Brisbane": None,
-    "Perth": None,
-    "Auckland": None,
-    "Toronto": None,
-    "Vancouver": None,
-    "Montreal": None,
-    "Calgary": None,
-    "Ottawa": None,
-    "Mexico City": None,
-    "Birmingham": None,
-    "Boston": None,
-    "Miami": None,
-    "Delhi": None,
-    "Buenos Aires": None,
-    "Santiago": None,
-    "Lima": None,
-    "Bogota": None,
-    "Tel Aviv": None,
-    "Jerusalem": None,
-    "Riyadh": None,
-    "Riyadh Province": None,
-    "Cairo": None,
-    "Lagos": None,
-    "Nairobi": None,
-    "Cape Town": None,
-    "Johannesburg": None,
-    "Bangkok": None,
-    "Kuala Lumpur": None,
-    "Manila": None,
-    "Ho Chi Minh City": None,
-    "Hanoi": None,
-    "Taipei": None,
-    "Kyiv": None,
-    "Riga": None,
-    "Vilnius": None,
-    "Ljubljana": None,
-    "Zagreb": None,
-    "Grad Zagreb": None,
-    "Bratislava": None,
-    "Belgrade": None,
-    "Tehran": None,
-    "Tbilisi": None,
-    "Sofia": None,
-    "Krakow": None,
-    "New Delhi": None,
-    "Hangzhou": None,
-    "Qingdao": None,
-    "Osaka": None,
-    "Giza": None,
-    "Catanzaro": None,
-    "Cordoba": None,
-    "Barcelona": None,
-    "Madrid": None,
-    "Harare": None,
-    "Lefkosia": None,
-    "Limassol": None,
-    "Yokne'am": None,
-    "Bnei Brak": None,
-    "Gush Dan": None,
-    "Heredia": None,
-    "Ankara": None,
-    "Livadia": None,
-    "Angre": None,
-    "Baki": None,
-    "Arequipa": None,
-    "Faro": None,
-    "Santander": None,
-    "Lugano": None,
-    "Shanghai Shi": None,
-    "East China": None,
-    "Kanto": None,
-    "Tokyo Metropolis": None,
-    "Gyeonggi Province": None,
-    "Central Singapore": None,
-    "Orchard Road": None,
-    "National Capital Region": None,
-    "National Capital Region (Manila)": None,
-    "Capital Region": None,
-    # === COUNTRIES -> None ===
-    "Australia": None,
-    "China": None,
-    "Germany": None,
-    "France": None,
-    "India": None,
-    "Indonesia": None,
-    "Ireland": None,
-    "Israel": None,
-    "Japan": None,
-    "Korea": None,
-    "Netherlands": None,
-    "Portugal": None,
-    "Saudi Arabia": None,
-    "South Korea": None,
-    "Switzerland": None,
-    "Taiwan": None,
-    "UAE": None,
-    "UK": None,
-    "United Kingdom": None,
-    "United States": None,
-    "US": None,
-    "Vietnam": None,
-    "Argentina": None,
-    "Bolivia": None,
-    "Brazil": None,
-    "Mexico": None,
-    "Colombia": None,
-    "Kuwait": None,
-    "Kazakhstan": None,
-    "Romania": None,
-    "Thailand": None,
-    "Croatia": None,
-    "Canada": None,
-    "Turkey": None,
-    "Norway": None,
-    "Sweden": None,
-    "Denmark": None,
-    "Finland": None,
-    "Poland": None,
-    "Austria": None,
-    "Czechia": None,
-    "Czech Republic": None,
-    "Hungary": None,
-    "Greece": None,
-    "Philippines": None,
-    "Malaysia": None,
-    "New Zealand": None,
-    "South Africa": None,
-    "Nigeria": None,
-    "Kenya": None,
-    "Egypt": None,
-    "Pakistan": None,
-    "Bangladesh": None,
-    "Chile": None,
-    "Peru": None,
-    "Ecuador": None,
-    "Venezuela": None,
-    "Bosnia and Herzegovina": None,
-    # === TRAILING SPACE VARIATIONS -> None ===
-    "Canada ": None,
-    "Jakarta ": None,
-    "Tokyo ": None,
-    # === INVALID/ADDRESS VALUES -> None ===
-    "Remote": None,
-    "Hybrid": None,
-    "EU": None,
-    "Europe": None,
-    "United States & Canada": None,
-    "United States Minor Outlying Islands": None,
-    "FORA, Albert House, 256-260 Old Street, London, EC1V 9DD": None,
-    "Kleine-Gartmanplantsoen 21, 1017RP, Amsterdam": None,
-    "Gangnam": None,
-    # === VALID STATES (keep as-is for normalization) ===
-    "New South Wales": "New South Wales",
-}
-
-
 def infer_country_from_state(state: str | None) -> str | None:
     """Infer country from state/province name."""
     if not state:
@@ -1688,26 +824,9 @@ def infer_country_from_state(state: str | None) -> str | None:
 
     state_lower = state.lower()
 
-    # Canadian provinces
-    canadian_provinces = [
-        "alberta",
-        "british columbia",
-        "manitoba",
-        "new brunswick",
-        "newfoundland and labrador",
-        "nova scotia",
-        "ontario",
-        "prince edward island",
-        "quebec",
-        "saskatchewan",
-        "yukon",
-        "northwest territories",
-        "nunavut",
-    ]
-    if state_lower in canadian_provinces:
+    if state_lower in CANADIAN_PROVINCES:
         return "Canada"
 
-    # US states
     us_states = [
         "alabama",
         "alaska",
@@ -1764,80 +883,13 @@ def infer_country_from_state(state: str | None) -> str | None:
     if state_lower in us_states:
         return "United States"
 
-    # Indian states
-    indian_states = [
-        "andhra pradesh",
-        "arunachal pradesh",
-        "assam",
-        "bihar",
-        "chhattisgarh",
-        "goa",
-        "gujarat",
-        "haryana",
-        "himachal pradesh",
-        "jharkhand",
-        "karnataka",
-        "kerala",
-        "madhya pradesh",
-        "maharashtra",
-        "manipur",
-        "meghalaya",
-        "mizoram",
-        "nagaland",
-        "odisha",
-        "punjab",
-        "rajasthan",
-        "sikkim",
-        "tamil nadu",
-        "telangana",
-        "tripura",
-        "uttar pradesh",
-        "uttarakhand",
-        "west bengal",
-        "delhi",
-    ]
-    if state_lower in indian_states:
+    if state_lower in INDIAN_STATES:
         return "India"
 
-    # Australian states
-    australian_states = [
-        "new south wales",
-        "victoria",
-        "queensland",
-        "south australia",
-        "western australia",
-        "tasmania",
-        "australian capital territory",
-        "northern territory",
-    ]
-    if state_lower in australian_states:
+    if state_lower in AUSTRALIAN_STATES:
         return "Australia"
 
-    # German states
-    german_states = [
-        "baden-württemberg",
-        "bavaria",
-        "bayern",
-        "berlin",
-        "brandenburg",
-        "bremen",
-        "hamburg",
-        "hesse",
-        "hessen",
-        "lower saxony",
-        "mecklenburg-vorpommern",
-        "north rhine-westphalia",
-        "nordrhein-westfalen",
-        "rhineland-palatinate",
-        "saarland",
-        "saxony",
-        "sachsen",
-        "saxony-anhalt",
-        "schleswig-holstein",
-        "thuringia",
-        "thüringen",
-    ]
-    if state_lower in german_states:
+    if state_lower in GERMAN_STATES:
         return "Germany"
 
     return None
@@ -2442,7 +1494,9 @@ def normalize_location(location: str | None) -> dict[str, Any]:
                     state_abbr = city_state_match.group(2)
                     if not is_fake_city(potential_city):
                         city = potential_city
-                        state = expand_state_abbreviation(state_abbr)
+                        # Try to infer country from city for context
+                        inferred_country = infer_country_from_city(potential_city)
+                        state = expand_state_abbreviation(state_abbr, inferred_country)
                 else:
                     # For single part, check if it's a major city that can infer country
                     # (prefer city interpretation over state interpretation)
@@ -2460,10 +1514,13 @@ def normalize_location(location: str | None) -> dict[str, Any]:
     elif len(parts) == 2:
         first, second = parts[0], parts[1]
 
+        # Detect country from second part first for context-aware state extraction
+        second_country = extract_country_from_text(second)
+
         # Special case: two DIFFERENT US states (e.g., "California, Washington") - data bug
         # Note: "New York, NY" is valid because city and state have the same name
-        first_state = extract_state(first)
-        second_state = extract_state(second)
+        first_state = extract_state(first, second_country)
+        second_state = extract_state(second, second_country)
         if first_state and second_state and first_state != second_state:
             # Two different states - this is ambiguous/bad data
             return {
@@ -2473,23 +1530,22 @@ def normalize_location(location: str | None) -> dict[str, Any]:
 
         if is_street_address(first):
             city = extract_city_from_street_address(first)
-            state = extract_state(second)
+            state = extract_state(second, second_country)
 
             if not city:
                 city = extract_city_before_state(second)
         else:
             # Try to extract state FIRST (important: CA, NY, etc. are state abbreviations)
-            state = extract_state(second)
+            state = extract_state(second, second_country)
 
             if state:
                 # Second part is a state - use first part as city
                 city = first if not is_fake_city(first) else None
             else:
                 # Check if second part is a country
-                second_country = extract_country_from_text(second)
                 if second_country and len(second.strip()) <= 20:
                     # Check if first part is actually a state (e.g., "Pennsylvania, United States")
-                    first_state = extract_state(first)
+                    first_state = extract_state(first, second_country)
                     if first_state and infer_country_from_state(first_state) == second_country:
                         # First part is a state in this country - use it as state, not city
                         state = first_state
@@ -2503,12 +1559,15 @@ def normalize_location(location: str | None) -> dict[str, Any]:
                     city = first if not is_fake_city(first) else None
 
     elif len(parts) >= 3:
+        # First detect country from the last part to provide context for state abbreviation
+        detected_country = extract_country_from_text(parts[-1])
+
         if is_street_address(parts[0]):
             city = parts[1] if not is_fake_city(parts[1]) else None
-            state = extract_state(parts[2]) if len(parts) > 2 else None
+            state = extract_state(parts[2], detected_country) if len(parts) > 2 else None
         else:
             city = parts[0] if not is_fake_city(parts[0]) else None
-            potential_state = extract_state(parts[1])
+            potential_state = extract_state(parts[1], detected_country)
 
             # Don't treat a repeated city name as a state
             # (e.g., "Singapore, Singapore, Singapore" or "Tokyo, Tokyo, Japan")
@@ -2522,6 +1581,10 @@ def normalize_location(location: str | None) -> dict[str, Any]:
                 potential_country = extract_country_from_text(parts[2])
                 if potential_country:
                     country = potential_country
+
+            # Use detected country if we found one
+            if detected_country:
+                country = detected_country
 
     # Normalize state name (fix DC variations, accents, etc.)
     if state:

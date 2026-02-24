@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.db import AsyncSessionLocal
-from pipeline.enrichment import enrich_jobs
-from pipeline.pipeline import fetch_api_jobs, upsert_jobs, fingerprint_for
-from pipeline.apis.simplify_jobs_parser import get_category_context_async
+from pipeline.pipeline import fetch_api_jobs, upsert_jobs
+from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +17,12 @@ ENABLE_LINKEDIN = False
 ENABLE_INDEED = False
 
 
-async def fetch_and_ingest(session: AsyncSession | None = None) -> tuple[int, datetime]:
+async def fetch_and_ingest(
+    session: AsyncSession | None = None,
+    *,
+    api_fetch_concurrency: int = 10,
+    not_found_cooldown_hours: int = 24,
+) -> tuple[int, datetime]:
     """Fetch jobs from all sources and upsert to database.
 
     Args:
@@ -36,32 +38,14 @@ async def fetch_and_ingest(session: AsyncSession | None = None) -> tuple[int, da
     logger.info(f"Batch start time: {batch_start_time.isoformat()}")
     logger.info("=" * 60)
 
-    logger.info("Loading category context...")
-    category_context = await get_category_context_async()
-
     logger.info("Fetching from API sources (Greenhouse, Lever, Ashby)...")
-    api_jobs = fetch_api_jobs()
+    api_jobs = await fetch_api_jobs(
+        api_fetch_concurrency=api_fetch_concurrency,
+        not_found_cooldown_hours=not_found_cooldown_hours,
+    )
     logger.info(f"Fetched {len(api_jobs)} jobs from APIs")
 
     all_jobs = api_jobs
-
-    seen_fingerprints = {}
-    unique_jobs = []
-    for job in all_jobs:
-        fp = fingerprint_for(job)
-        if fp not in seen_fingerprints:
-            unique_jobs.append(job)
-            seen_fingerprints[fp] = True
-
-    if len(unique_jobs) < len(all_jobs):
-        logger.info(
-            f"Deduped {len(all_jobs) - len(unique_jobs)} jobs within batch "
-            f"({len(unique_jobs)} unique)"
-        )
-    all_jobs = unique_jobs
-
-    logger.info("Enriching jobs (disabled - testing clean ATS data)...")
-    all_jobs = await enrich_jobs(all_jobs, category_context, skip_embedding=True)
 
     logger.info("Upserting to database (new jobs will be added, existing updated)...")
 

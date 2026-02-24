@@ -118,7 +118,7 @@ from typing import Any
 
 import httpx
 
-from backend.app.config import get_settings
+from pipeline.backend_bridge import get_settings
 from pipeline.apis.utils import parse_iso_datetime, parse_job_type, parse_work_mode
 from pipeline.schemas import JobSchema
 
@@ -162,14 +162,10 @@ class AshbyClient:
             List of JobSchema objects with all fields from Ashby API
         """
         url = f"{self.base_url}/{company_slug}"
-        try:
-            response = self._client.get(url, params={"includeCompensation": "true"})
-            response.raise_for_status()
-            payload = response.json()
-            return self._normalize_jobs(company_slug, payload.get("jobs", []))
-        except Exception as exc:
-            logger.warning("Ashby v2 fetch failed for %s: %s", company_slug, exc)
-            return []
+        response = self._client.get(url, params={"includeCompensation": "true"})
+        response.raise_for_status()
+        payload = response.json()
+        return self._normalize_jobs(company_slug, payload.get("jobs", []))
 
     def fetch_all_slugs(self, slugs: list[str] | None = None) -> list[JobSchema]:
         """Fetch jobs from all known Ashby slugs.

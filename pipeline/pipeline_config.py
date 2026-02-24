@@ -15,10 +15,18 @@ class PipelineConfig(BaseModel):
 
 class CleanupConfig(BaseModel):
     process_all: bool = False
+    parse_concurrency: int = 12
+    chunk_size: int = 5000
 
 
 class EmbeddingsConfig(BaseModel):
     batch_size: int = 50
+    parallel_batches: int = 2
+
+
+class ApiConfig(BaseModel):
+    fetch_concurrency: int = 10
+    slug_404_cooldown_hours: int = 24
 
 
 class DiscoveryConfig(BaseModel):
@@ -33,6 +41,7 @@ class HealthCheckConfig(BaseModel):
 
 class Config(BaseModel):
     pipeline: PipelineConfig = PipelineConfig()
+    api: ApiConfig = ApiConfig()
     cleanup: CleanupConfig = CleanupConfig()
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()

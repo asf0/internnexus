@@ -57,7 +57,7 @@ from typing import Any
 
 import httpx
 
-from backend.app.config import get_settings
+from pipeline.backend_bridge import get_settings
 from pipeline.apis.utils import (
     parse_iso_datetime,
     detect_job_type_from_title,

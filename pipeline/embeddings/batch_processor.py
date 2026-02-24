@@ -1,0 +1,358 @@
+"""Batch processing logic for embedding generation."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from pipeline.backend_bridge import (
+    EmbeddingError,
+    EmbeddingService,
+    RateLimitError,
+    clean_text_for_embedding,
+)
+from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
+
+logger = logging.getLogger(__name__)
+
+LOGS_DIR = Path(__file__).parent.parent.parent.parent / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+
+EMBEDDING_BATCH_SIZE = 10
+LOG_FLUSH_BATCH_SIZE = 100
+
+
+def _get_skipped_jobs_log_path() -> Path:
+    """Get today's log file path for skipped jobs."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return LOGS_DIR / f"skipped_jobs_{today}.jsonl"
+
+
+def _get_failed_jobs_log_path() -> Path:
+    """Get today's log file path for failed jobs."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return LOGS_DIR / f"failed_jobs_{today}.jsonl"
+
+
+def _rotate_old_logs() -> None:
+    """Delete log files older than 7 days."""
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        for pattern in ["skipped_jobs_*.jsonl", "failed_jobs_*.jsonl"]:
+            _rotate_log_files(pattern, cutoff)
+    except Exception as e:
+        logger.debug(f"Log rotation error: {e}")
+
+
+def _rotate_log_files(pattern: str, cutoff: datetime) -> None:
+    """Rotate log files matching pattern older than cutoff."""
+    for log_file in LOGS_DIR.glob(pattern):
+        try:
+            date_str = log_file.stem.split("_")[-1]
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if file_date < cutoff:
+                log_file.unlink()
+                logger.debug(f"Rotated old log: {log_file.name}")
+        except (ValueError, OSError):
+            pass
+
+
+def _log_skipped_job(job: Job, reason: str, text_length: int) -> None:
+    """Log a skipped job to the daily log file."""
+    try:
+        _rotate_old_logs()
+        log_path = _get_skipped_jobs_log_path()
+
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "job_id": str(job.id),
+            "company": job.company,
+            "title": job.title,
+            "apply_url": job.apply_url,
+            "reason": reason,
+            "text_length": text_length,
+        }
+
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        logger.debug(f"Failed to log skipped job: {e}")
+
+
+def _append_jsonl_batch(path: Path, entries: list[dict[str, Any]]) -> None:
+    """Append multiple JSONL records in a single write."""
+    if not entries:
+        return
+    try:
+        _rotate_old_logs()
+        with open(path, "a", encoding="utf-8") as f:
+            f.writelines(json.dumps(entry) + "\n" for entry in entries)
+    except Exception as e:
+        logger.debug(f"Failed to append JSONL batch: {e}")
+
+
+def _log_failed_job(
+    job: Job,
+    error_type: str,
+    error_message: str,
+    will_retry: bool,
+    retry_attempt: int = 0,
+) -> None:
+    """Log a failed job to the daily log file."""
+    try:
+        _rotate_old_logs()
+        log_path = _get_failed_jobs_log_path()
+
+        entry: dict[str, Any] = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "job_id": str(job.id),
+            "company": job.company,
+            "title": job.title,
+            "apply_url": job.apply_url,
+            "error_type": error_type,
+            "error_message": error_message[:500] if error_message else "",
+            "will_retry": will_retry,
+        }
+        if retry_attempt > 0:
+            entry["retry_attempt"] = retry_attempt
+
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        logger.debug(f"Failed to log failed job: {e}")
+
+
+def _classify_error(error: BaseException) -> tuple[str, bool]:
+    """Classify error as (error_type, is_retryable)."""
+    if isinstance(error, RateLimitError):
+        return "rate_limit", True
+    if isinstance(error, EmbeddingError):
+        return "embedding_error", error.retryable
+    if isinstance(error, asyncio.TimeoutError):
+        return "timeout", True
+    if isinstance(error, asyncio.CancelledError):
+        return "cancelled", False
+    return "unknown", True
+
+
+async def _fetch_job_ids_batch(db: AsyncSession, batch_size: int) -> list[int]:
+    """Fetch a batch of job IDs without embeddings."""
+    cleaned_text = func.regexp_replace(
+        func.regexp_replace(
+            func.regexp_replace(Job.description_text, r"<[^>]+>", " ", "g"),
+            r"&[a-zA-Z]+;",
+            " ",
+            "g",
+        ),
+        r"\s+",
+        " ",
+        "g",
+    )
+    result = await db.execute(
+        select(Job.id)
+        .where(Job.description_embedding.is_(None))
+        .where(func.length(func.trim(cleaned_text)) >= 30)
+        .order_by(Job.id)
+        .limit(batch_size)
+    )
+    job_ids = result.scalars().all()
+    return list(job_ids)
+
+
+async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[int]) -> list[Job]:
+    """Fetch specific jobs by ID for retry."""
+    if not job_ids:
+        return []
+    result = await db.execute(select(Job).where(Job.id.in_(job_ids)))
+    jobs = result.scalars().all()
+    return list(jobs)
+
+
+async def _get_remaining_count(db: AsyncSession) -> int:
+    """Get the current count of jobs without embeddings."""
+    cleaned_text = func.regexp_replace(
+        func.regexp_replace(
+            func.regexp_replace(Job.description_text, r"<[^>]+>", " ", "g"),
+            r"&[a-zA-Z]+;",
+            " ",
+            "g",
+        ),
+        r"\s+",
+        " ",
+        "g",
+    )
+    result = await db.execute(
+        select(func.count())
+        .select_from(Job)
+        .where(Job.description_embedding.is_(None))
+        .where(func.length(func.trim(cleaned_text)) >= 30)
+    )
+    return result.scalar() or 0
+
+
+async def _process_batch(
+    db: AsyncSession,
+    jobs: list[Job],
+    embedder: EmbeddingService,
+    batch_num: int,
+    retry_attempt: int = 0,
+) -> tuple[int, int, int, list[tuple[Job, BaseException]]]:
+    """Process a single batch of jobs with embeddings."""
+    if not jobs:
+        return 0, 0, 0, []
+
+    jobs_in_db, texts = _prepare_job_texts(jobs)
+    skipped = len(jobs) - len(jobs_in_db)
+
+    if not jobs_in_db:
+        return 0, 0, skipped, []
+
+    success, errors, failed = await _embed_and_save(
+        db, jobs_in_db, texts, embedder, batch_num, retry_attempt
+    )
+    return success, errors, skipped, failed
+
+
+def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
+    """Prepare job texts for embedding, filtering invalid ones."""
+    jobs_in_db = []
+    texts = []
+    skipped_entries: list[dict[str, Any]] = []
+    log_path = _get_skipped_jobs_log_path()
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    for job in jobs:
+        desc_raw = getattr(job, "description_text", None)
+        desc_str = str(desc_raw) if desc_raw is not None else ""
+        text = clean_text_for_embedding(desc_str)
+        text_length = len(text)
+
+        if not text:
+            skipped_entries.append(
+                {
+                    "timestamp": timestamp,
+                    "job_id": str(job.id),
+                    "company": job.company,
+                    "title": job.title,
+                    "apply_url": job.apply_url,
+                    "reason": "empty_text",
+                    "text_length": text_length,
+                }
+            )
+            if len(skipped_entries) >= LOG_FLUSH_BATCH_SIZE:
+                _append_jsonl_batch(log_path, skipped_entries)
+                skipped_entries.clear()
+            continue
+        if text_length < 30:
+            skipped_entries.append(
+                {
+                    "timestamp": timestamp,
+                    "job_id": str(job.id),
+                    "company": job.company,
+                    "title": job.title,
+                    "apply_url": job.apply_url,
+                    "reason": "too_short",
+                    "text_length": text_length,
+                }
+            )
+            if len(skipped_entries) >= LOG_FLUSH_BATCH_SIZE:
+                _append_jsonl_batch(log_path, skipped_entries)
+                skipped_entries.clear()
+            continue
+
+        jobs_in_db.append(job)
+        texts.append(text)
+
+    if skipped_entries:
+        _append_jsonl_batch(log_path, skipped_entries)
+
+    return jobs_in_db, texts
+
+
+async def _embed_and_save(
+    db: AsyncSession,
+    jobs: list[Job],
+    texts: list[str],
+    embedder: EmbeddingService,
+    batch_num: int,
+    retry_attempt: int,
+) -> tuple[int, int, list[tuple[Job, BaseException]]]:
+    """Embed texts and save to database."""
+    success = 0
+    errors = 0
+    failed: list[tuple[Job, BaseException]] = []
+
+    for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+        batch_texts = texts[i : i + EMBEDDING_BATCH_SIZE]
+        batch_jobs = jobs[i : i + EMBEDDING_BATCH_SIZE]
+
+        try:
+            embeddings = await embedder.embed_many(batch_texts, batch_size=EMBEDDING_BATCH_SIZE)
+            for job, embedding in zip(batch_jobs, embeddings):
+                job.description_embedding = embedding
+                db.add(job)
+                success += 1
+        except asyncio.CancelledError:
+            logger.warning(f"  Batch {batch_num} cancelled during embedding")
+            raise
+        except Exception as e:
+            batch_success, batch_errors, batch_failed = _handle_batch_error(
+                batch_jobs, e, batch_num, retry_attempt
+            )
+            success += batch_success
+            errors += batch_errors
+            failed.extend(batch_failed)
+
+    await db.commit()
+    return success, errors, failed
+
+
+def _handle_batch_error(
+    batch_jobs: list[Job],
+    error: BaseException,
+    batch_num: int,
+    retry_attempt: int,
+) -> tuple[int, int, list[tuple[Job, BaseException]]]:
+    """Handle an error during batch embedding."""
+    error_type, is_retryable = _classify_error(error)
+    failed: list[tuple[Job, BaseException]] = []
+
+    if is_retryable:
+        for job in batch_jobs:
+            failed.append((job, error))
+        logger.warning(f"  Batch {batch_num} sub-batch error (retryable): {error_type} - {error}")
+        return 0, 0, failed
+
+    for job in batch_jobs:
+        _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt)
+    logger.warning(f"  Batch {batch_num} sub-batch error (permanent): {error_type} - {error}")
+    return 0, len(batch_jobs), failed
+
+
+async def _process_with_semaphore(
+    semaphore: asyncio.Semaphore,
+    job_ids: list[int],
+    embedder: EmbeddingService,
+    batch_num: int,
+    retry_attempt: int = 0,
+) -> tuple[int, int, int, list[tuple[Job, BaseException]]]:
+    """Process a batch with semaphore-controlled concurrency."""
+    async with semaphore:
+        async with AsyncSessionLocal() as db:
+            jobs = await _fetch_jobs_by_ids(db, job_ids)
+            result = await _process_batch(
+                db, jobs, embedder, batch_num, retry_attempt=retry_attempt
+            )
+            success, errors, skipped, failed = result
+            logger.info(
+                f"  Batch {batch_num}: {success} success, {errors} errors, {skipped} skipped"
+                + (f" (retry {retry_attempt})" if retry_attempt > 0 else "")
+            )
+            return result

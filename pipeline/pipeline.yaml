@@ -1,14 +1,20 @@
 pipeline:
-  delete_after_days: 7
-  continuous_interval: 21600
+  continuous_interval: 3600
   backoff_on_error: 300
   max_backoff_multiplier: 5
 
+api:
+  fetch_concurrency: 10
+  slug_404_cooldown_hours: 24
+
 cleanup:
   process_all: false
+  parse_concurrency: 12
+  chunk_size: 5000
 
 embeddings:
   batch_size: 50
+  parallel_batches: 2
 
 discovery:
   enabled: true
