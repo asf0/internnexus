@@ -101,7 +101,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </h1>
             </Link>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Find your next job opportunity with InternNexus, the ultimate job discovery and matching platform for students and recent graduates.
+            Find your next job opportunity with InternNexus.
           </p>
         </div>
         <div className="flex items-center gap-4">
