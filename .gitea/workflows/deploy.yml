@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_pipeline:
+        description: "Also rebuild/restart pipeline service"
+        required: false
+        default: "false"
 
 jobs:
   deploy:
@@ -53,8 +58,14 @@ jobs:
           docker compose pull || true
           # Start stateful deps first.
           docker compose up -d db redis
-          # Build and start app services.
-          docker compose up -d --build backend pipeline frontend
+          # Build and start app services (leave pipeline untouched by default).
+          docker compose up -d --build backend frontend
+          if [ "${{ gitea.event.inputs.deploy_pipeline }}" = "true" ]; then
+            echo "Manual trigger requested pipeline deploy"
+            docker compose up -d --build pipeline
+          else
+            echo "Skipping pipeline deploy to avoid interrupting long-running jobs"
+          fi
           docker compose up -d cloudflared
 
       - name: Health Check
