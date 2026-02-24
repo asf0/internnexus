@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 LOGS_DIR = Path(__file__).parent.parent.parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
-EMBEDDING_BATCH_SIZE = 10
+EMBEDDING_BATCH_SIZE = 2
 LOG_FLUSH_BATCH_SIZE = 100
 
 

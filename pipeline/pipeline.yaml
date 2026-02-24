@@ -14,7 +14,7 @@ cleanup:
 
 embeddings:
   batch_size: 50
-  parallel_batches: 2
+  parallel_batches: 1
 
 discovery:
   enabled: true
