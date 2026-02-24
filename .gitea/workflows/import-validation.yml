@@ -3,18 +3,8 @@ name: Import Chain Validation
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'backend/**/*.py'
-      - 'pyproject.toml'
-      - 'pipeline/**/*.py'
-      - '.gitea/workflows/import-validation.yml'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'backend/**/*.py'
-      - 'pyproject.toml'
-      - 'pipeline/**/*.py'
-      - '.gitea/workflows/import-validation.yml'
   workflow_dispatch:
 
 jobs:
@@ -55,8 +45,13 @@ jobs:
           pwd
           python --version
           ls -la
-      
-      - name: Check for circular imports
+
+      - name: Run import-chain tests
+        run: |
+          cd backend
+          pytest tests/test_import_chains.py -q
+
+      - name: Check import smoke
         run: |
           python -c "
           import sys
@@ -67,7 +62,7 @@ jobs:
           import app.api.matching
           print('✓ No circular imports detected')
           "
-      
+
       - name: Validate entry points
         run: |
           python -c "
