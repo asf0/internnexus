@@ -86,6 +86,19 @@ def _log_step_rate(step_name: str, duration_s: float, items: int | None) -> None
     logger.info(f"Step '{step_name}' throughput: {rate:.1f} items/sec ({items} items)")
 
 
+def _get_resume_step_from_db_run(step_completed: str | None) -> str | None:
+    """Return the next step name for a DB run's completed step."""
+    if not step_completed:
+        return STEPS[0]
+    try:
+        idx = STEPS.index(step_completed)
+    except ValueError:
+        return None
+    if idx < len(STEPS) - 1:
+        return STEPS[idx + 1]
+    return None
+
+
 class PipelineRunner:
     def __init__(
         self,
@@ -115,8 +128,23 @@ class PipelineRunner:
             "inactive_jobs_deleted": 0,
         }
         self.step_times = {}
-        self.start_from_step = None
         self.current_step: str | None = None
+
+    def _reset_run_state(self) -> None:
+        """Reset transient state so each run is independent in continuous mode."""
+        self.results = {
+            "companies_verified": 0,
+            "jobs_fetched": 0,
+            "locations_cleaned": 0,
+            "jobs_classified": 0,
+            "classification_errors": 0,
+            "embeddings_success": 0,
+            "embeddings_errors": 0,
+            "jobs_marked_inactive": 0,
+            "inactive_jobs_deleted": 0,
+        }
+        self.step_times = {}
+        self.current_step = None
 
     async def run_health_checks(self) -> bool:
         if not self.config.health_check.enabled:
@@ -374,27 +402,42 @@ class PipelineRunner:
 
     async def run(self) -> dict:
         start = time.time()
+        self._reset_run_state()
 
         incomplete_run = await get_incomplete_run()
-        if incomplete_run and not self.resume_run_id:
-            logger.warning(f"Found incomplete run: {incomplete_run.id}")
-            logger.warning(f"  Started: {incomplete_run.started_at}")
-            logger.warning(f"  Last completed step: {incomplete_run.step_completed}")
-            logger.warning("Use --resume to continue or --fresh to start new")
-            return self.results
+        start_from_step = None
+        resume_run_id = None
+        if incomplete_run:
+            resume_step = _get_resume_step_from_db_run(incomplete_run.step_completed)
+            if resume_step:
+                resume_run_id = incomplete_run.id
+                start_from_step = resume_step
+                logger.info(
+                    "Resuming incomplete run %s from step '%s' (last completed: %s)",
+                    incomplete_run.id,
+                    start_from_step,
+                    incomplete_run.step_completed,
+                )
+            else:
+                logger.warning(
+                    "Incomplete run %s has no resumable next step (last completed: %s). "
+                    "Starting a fresh run.",
+                    incomplete_run.id,
+                    incomplete_run.step_completed,
+                )
+        elif self.resume_run_id:
+            logger.warning(
+                "Requested resume run %s but no incomplete run found in DB. Starting fresh.",
+                self.resume_run_id,
+            )
 
         state = None
         batch_start_time = None
 
         if not self.dry_run:
-            state = PipelineStateManager(run_id=self.resume_run_id)
+            state = PipelineStateManager(run_id=resume_run_id)
             await state.__aenter__()
             await state.start_run()
-
-            if self.resume_run_id and incomplete_run:
-                self.start_from_step = state.get_resume_step(incomplete_run)
-                if self.start_from_step:
-                    logger.info(f"Resuming from step: {self.start_from_step}")
 
         try:
             logger.info("=" * 60)
@@ -403,50 +446,50 @@ class PipelineRunner:
                 logger.info("*** DRY RUN MODE - No changes will be made ***")
             logger.info("=" * 60)
 
-            if not self.start_from_step or self.start_from_step == "discover":
+            if not start_from_step or start_from_step == "discover":
                 self.current_step = "discover"
                 if not self.skip_discover:
                     self.results["companies_verified"] = await self.step_discover(state)
                 elif state:
                     await state.mark_step_complete("discover")
 
-            if not self.start_from_step or STEPS.index("sync_inactive") >= STEPS.index(
-                self.start_from_step or "sync_inactive"
+            if not start_from_step or STEPS.index("sync_inactive") >= STEPS.index(
+                start_from_step or "sync_inactive"
             ):
                 self.current_step = "sync_inactive"
                 self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
 
-            if not self.start_from_step or STEPS.index("ingest") >= STEPS.index(
-                self.start_from_step or "ingest"
+            if not start_from_step or STEPS.index("ingest") >= STEPS.index(
+                start_from_step or "ingest"
             ):
                 self.current_step = "ingest"
                 jobs_count, batch_start_time = await self.step_ingest(state)
                 self.results["jobs_fetched"] = jobs_count
 
-            if not self.start_from_step or STEPS.index("delete_inactive") >= STEPS.index(
-                self.start_from_step or "delete_inactive"
+            if not start_from_step or STEPS.index("delete_inactive") >= STEPS.index(
+                start_from_step or "delete_inactive"
             ):
                 self.current_step = "delete_inactive"
                 self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
 
-            if not self.start_from_step or STEPS.index("cleanup") >= STEPS.index(
-                self.start_from_step or "cleanup"
+            if not start_from_step or STEPS.index("cleanup") >= STEPS.index(
+                start_from_step or "cleanup"
             ):
                 self.current_step = "cleanup"
                 self.results["locations_cleaned"] = await self.step_cleanup(
                     state, test_mode=self.test_mode, limit=self.limit
                 )
 
-            if not self.start_from_step or STEPS.index("classify") >= STEPS.index(
-                self.start_from_step or "classify"
+            if not start_from_step or STEPS.index("classify") >= STEPS.index(
+                start_from_step or "classify"
             ):
                 self.current_step = "classify"
                 success, errors = await self.step_classify(state, limit=self.limit)
                 self.results["jobs_classified"] = success
                 self.results["classification_errors"] = errors
 
-            if not self.start_from_step or STEPS.index("embed") >= STEPS.index(
-                self.start_from_step or "embed"
+            if not start_from_step or STEPS.index("embed") >= STEPS.index(
+                start_from_step or "embed"
             ):
                 self.current_step = "embed"
                 success, errors = await self.step_embed(state)

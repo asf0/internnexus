@@ -198,3 +198,160 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
         await runner.run()
 
     assert fake_state.failed_step == "classify"
+
+
+@pytest.mark.asyncio
+async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
+    executed_steps = []
+    run_id_args = []
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            run_id_args.append(run_id)
+            self.run_id = run_id or "new-run"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, _step: str):
+            return None
+
+        async def mark_step_complete(self, _step: str):
+            return None
+
+        def get_resume_step(self, run):
+            steps = run_pipeline.STEPS
+            if not run.step_completed:
+                return steps[0]
+            idx = steps.index(run.step_completed)
+            return steps[idx + 1] if idx < len(steps) - 1 else None
+
+    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
+
+    async def _get_incomplete_run():
+        return SimpleNamespace(id="run-123", step_completed="cleanup", started_at="now")
+
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
+
+    async def _step(name, returns=None):
+        executed_steps.append(name)
+        return returns if returns is not None else 0
+
+    async def _ingest(*_args, **_kwargs):
+        executed_steps.append("ingest")
+        from datetime import datetime, timezone
+
+        return 0, datetime.now(timezone.utc)
+
+    runner = run_pipeline.PipelineRunner()
+    runner.step_discover = lambda *_a, **_k: _step("discover")
+    runner.step_sync_inactive = lambda *_a, **_k: _step("sync_inactive")
+    runner.step_ingest = _ingest
+    runner.step_delete_inactive = lambda *_a, **_k: _step("delete_inactive")
+    runner.step_cleanup = lambda *_a, **_k: _step("cleanup")
+    runner.step_classify = lambda *_a, **_k: _step("classify", (0, 0))
+    runner.step_embed = lambda *_a, **_k: _step("embed", (0, 0))
+
+    await runner.run()
+
+    assert executed_steps == ["classify", "embed"]
+    assert run_id_args == ["run-123"]
+
+
+@pytest.mark.asyncio
+async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
+    run_id_args = []
+    executed_runs = []
+    current_steps = []
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            run_id_args.append(run_id)
+            self.run_id = run_id or "new-run"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, _step: str):
+            return None
+
+        async def mark_step_complete(self, _step: str):
+            return None
+
+        def get_resume_step(self, run):
+            steps = run_pipeline.STEPS
+            if not run.step_completed:
+                return steps[0]
+            idx = steps.index(run.step_completed)
+            return steps[idx + 1] if idx < len(steps) - 1 else None
+
+    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
+
+    incomplete_runs = [
+        SimpleNamespace(id="run-123", step_completed="cleanup", started_at="now"),
+        None,
+    ]
+
+    async def _get_incomplete_run():
+        return incomplete_runs.pop(0)
+
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
+
+    def _record(name):
+        async def _inner(*_args, **_kwargs):
+            current_steps.append(name)
+            if name == "ingest":
+                from datetime import datetime, timezone
+
+                return 0, datetime.now(timezone.utc)
+            if name in {"classify", "embed"}:
+                return 0, 0
+            return 0
+
+        return _inner
+
+    runner = run_pipeline.PipelineRunner()
+    runner.step_discover = _record("discover")
+    runner.step_sync_inactive = _record("sync_inactive")
+    runner.step_ingest = _record("ingest")
+    runner.step_delete_inactive = _record("delete_inactive")
+    runner.step_cleanup = _record("cleanup")
+    runner.step_classify = _record("classify")
+    runner.step_embed = _record("embed")
+
+    await runner.run()
+    executed_runs.append(list(current_steps))
+    current_steps.clear()
+
+    await runner.run()
+    executed_runs.append(list(current_steps))
+
+    assert executed_runs[0] == ["classify", "embed"]
+    assert executed_runs[1] == [
+        "discover",
+        "sync_inactive",
+        "ingest",
+        "delete_inactive",
+        "cleanup",
+        "classify",
+        "embed",
+    ]
+    assert run_id_args == ["run-123", None]
