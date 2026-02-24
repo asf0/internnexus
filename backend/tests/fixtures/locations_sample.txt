@@ -1,0 +1,150 @@
+    137 Remote
+     55 San Francisco
+     46 Mountain View
+     43 Bellevue
+     43 Amsterdam
+     42 New York
+     37 Chicago
+     36 London
+     36 Atlanta
+     27 Austin
+     24 Boston
+     20 Toronto
+     20 Seattle
+     20 Denver
+     19 Washington
+     18 Paris
+     16 Berlin
+     15 Vancouver
+     15 Los Angeles
+     14 New York City
+     14 Bengaluru
+     13 Dublin
+     12 SF
+     12 Copenhagen
+     12 Charlotte
+     12 Bangalore
+     11 Manchester
+     11 Dallas
+     11 California
+     11 Brownsville
+     10 Sydney
+     10 Springfield
+     10 Phoenix
+     10 Montreal
+     10 Miami
+     10 Birmingham
+      9 Warsaw
+      9 Tokyo
+      9 Seoul
+      9 San Diego
+      9 Raleigh
+      9 Portland
+      9 Philadelphia
+      9 Minneapolis
+      9 Aurora
+      9 Arlington
+      8 United Kingdom
+      8 Tampa
+      8 San Jose
+      8 Salt Lake City
+      8 Richmond
+      8 Ottawa
+      8 Nashville
+      8 Jacksonville
+      8 Irving
+      8 Fort Lauderdale
+      8 Costa Mesa
+      8 Columbia
+      8 Cincinnati
+      8 Cambridge
+      8 Belgrade
+      8 Barcelona
+      8 Athens
+      7 Santa Clara
+      7 Madrid
+      7 Las Vegas
+      7 Jersey City
+      7 Hyderabad
+      7 Cleveland
+      7 Bordeaux
+      7 Baltimore
+      6 USA - Atlanta
+      6 Tel Aviv
+      6 Singapore
+      6 San Mateo
+      6 Rome
+      6 Pune
+      6 Princeton
+      6 Pittsburgh
+      6 Palo Alto
+      6 Osaka
+      6 Orlando
+      6 Oklahoma City
+      6 Munich
+      6 Mexico City
+      6 Melbourne
+      6 Manila
+      6 Kitchener
+      6 Jackson
+      6 Illinois
+      6 Houston
+      6 Glendale
+      6 Germany
+      6 Durham
+      6 Detroit
+      6 Columbus
+      6 Charleston
+      6 Calgary
+      6 Belfast
+      6 Alexandria
+      5 US
+      5 Tulsa
+      5 Tallinn
+      5 St. Louis
+      5 Sioux Falls
+      5 Shanghai
+      5 Scottsdale
+      5 Sao Paulo
+      5 San Francisco Bay Area
+      5 Sacramento
+      5 Rotterdam
+      5 Rochester
+      5 Reno
+      5 Redwood City
+      5 Portugal
+      5 Perth
+      5 Omaha
+      5 Oakland
+      5 NYC
+      5 New Delhi
+      5 Nairobi
+      5 Mesa
+      5 Madison
+      5 Lomira
+      5 Lehi
+      5 Lancaster
+      5 Kansas City
+      5 Istanbul
+      5 Indianapolis
+      5 Harrisburg
+      5 Hanover
+      5 Edinburgh
+      5 Dubai
+      5 District of Columbia
+      5 Des Moines
+      5 Chennai
+      5 Carrollton
+      5 Boise
+      5 Bogotá
+      5 Allentown
+      5 Albuquerque
+      5 Abilene
+      4 Zurich
+      4 Zagreb
+      4 York
+      4 Wilmington
+      4 Vienna
+      4 USA
+      4 Toulouse
+      4 Tallahassee
