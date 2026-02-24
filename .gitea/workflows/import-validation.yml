@@ -53,34 +53,34 @@ jobs:
             pytest tests/test_import_chains.py -q
           else
             python -m compileall -q app
-            python -c "
-import sys
-sys.path.insert(0, '.')
-import app.main
-import app.api.auth
-import app.api.jobs
-import app.api.matching
-print('✓ backend import validation passed')
-"
+            python - <<'PY'
+            import sys
+            sys.path.insert(0, '.')
+            import app.main
+            import app.api.auth
+            import app.api.jobs
+            import app.api.matching
+            print('backend import validation passed')
+            PY
           fi
 
       - name: Check import smoke
         run: |
-          python -c "
+          python - <<'PY'
           import sys
           sys.path.insert(0, 'backend')
           import app.main
           import app.api.auth
           import app.api.jobs
           import app.api.matching
-          print('✓ No circular imports detected')
-          "
+          print('No circular imports detected')
+          PY
 
       - name: Validate entry points
         run: |
-          python -c "
+          python - <<'PY'
           import sys
           sys.path.insert(0, 'backend')
           import app.main
-          print('✓ main.py imports cleanly')
-          "
+          print('main.py imports cleanly')
+          PY
