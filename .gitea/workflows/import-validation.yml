@@ -7,12 +7,15 @@ on:
       - 'backend/**/*.py'
       - 'pyproject.toml'
       - 'pipeline/**/*.py'
+      - '.gitea/workflows/import-validation.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'backend/**/*.py'
       - 'pyproject.toml'
       - 'pipeline/**/*.py'
+      - '.gitea/workflows/import-validation.yml'
+  workflow_dispatch:
 
 jobs:
   import-chain-tests:
