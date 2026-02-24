@@ -288,21 +288,35 @@ class PipelineRunner:
                     inputs = [(j.title, j.description_text or "") for j in chunk]
                     categories = await classifier.classify_batch(inputs)
 
+                    batch_success = 0
+                    batch_errors = 0
                     for job, category in zip(chunk, categories):
                         if category:
                             job.job_category = category
                             success += 1
+                            batch_success += 1
                         else:
                             errors += 1
+                            batch_errors += 1
 
                     await session.commit()
                     processed += len(chunk)
+                    batch_success_rate = (batch_success / len(chunk)) * 100 if chunk else 0.0
+                    cumulative_success_rate = (success / processed) * 100 if processed else 0.0
                     logger.info(
-                        "Classification commit progress: %d/%d (success=%d, errors=%d)",
+                        (
+                            "Classification commit progress: %d/%d "
+                            "(batch_success=%d, batch_errors=%d, batch_success_rate=%.1f%%; "
+                            "success=%d, errors=%d, cumulative_success_rate=%.1f%%)"
+                        ),
                         processed,
                         total_jobs,
+                        batch_success,
+                        batch_errors,
+                        batch_success_rate,
                         success,
                         errors,
+                        cumulative_success_rate,
                     )
             finally:
                 reset_classifier()

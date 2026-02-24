@@ -17,7 +17,11 @@ from tenacity import (
 )
 
 from pipeline.backend_bridge import get_settings
-from pipeline.category_mapping import CANONICAL_CATEGORIES, get_canonical_category
+from pipeline.category_mapping import (
+    CANONICAL_CATEGORIES,
+    CATEGORY_MAPPING,
+    INVALID_CATEGORIES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,7 @@ VALID_CATEGORY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # Use all canonical categories - LLM must choose from this exact list
 VALID_CATEGORIES = CANONICAL_CATEGORIES
+CANDIDATE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_\-]+")
 
 
 class ClassificationError(Exception):
@@ -81,50 +86,80 @@ def _build_classification_prompt(title: str, description: str) -> str:
 
     categories_str = ", ".join(VALID_CATEGORIES)
 
-    prompt = f"""Classify this job into ONE category. You MUST output ONLY one of these exact category slugs (lowercase, underscores):
+    prompt = f"""Classify this job into ONE category slug.
+Output requirements:
+- Return EXACTLY one slug from the allowed list
+- Lowercase with underscores only
+- No numbering, punctuation, or explanation
+
+Allowed slugs:
 {categories_str}
 
 Title: {title}
 Description: {truncated_desc}
 
-Category:"""
+Examples:
+software_engineering
+data_science
+product_management
+
+Category slug:"""
 
     return prompt
 
 
-def _normalize_category(raw_output: str) -> str | None:
-    """Normalize and validate the LLM output to a canonical category slug."""
-    if not raw_output:
+def _normalize_slug_token(raw_token: str) -> str | None:
+    """Normalize one token candidate into a category-like slug."""
+    if not raw_token:
         return None
 
-    # Strip whitespace
-    category = raw_output.strip()
-
-    # Remove any quotes or extra formatting
-    category = category.strip("\"'")
-
-    # Convert to lowercase
-    category = category.lower()
-
-    # Replace spaces and hyphens with underscores
+    category = raw_token.strip().strip("\"'").lower()
     category = re.sub(r"[\s\-]+", "_", category)
-
-    # Remove any non-alphanumeric characters except underscores
     category = re.sub(r"[^a-z0-9_]", "", category)
-
-    # Remove leading/trailing underscores
     category = category.strip("_")
-
-    # Remove consecutive underscores
     category = re.sub(r"_+", "_", category)
 
-    # Validate the format
     if not category or not VALID_CATEGORY_PATTERN.match(category):
         return None
+    return category
 
-    # Map to canonical category
-    canonical = get_canonical_category(category)
-    return canonical
+
+def _extract_canonical_category(raw_output: str) -> tuple[str | None, str]:
+    """Extract the first valid canonical category from model output."""
+    if not raw_output or not raw_output.strip():
+        return None, "empty_response"
+
+    for raw_token in CANDIDATE_TOKEN_PATTERN.findall(raw_output):
+        normalized = _normalize_slug_token(raw_token)
+        if not normalized:
+            continue
+        canonical = _map_category_strict(normalized)
+        if canonical:
+            return canonical, "ok"
+
+    return None, "no_mappable_token"
+
+
+def _map_category_strict(category: str) -> str | None:
+    """Strict category mapping that does not fall back to operations."""
+    category_lower = category.lower().strip()
+    if not category_lower:
+        return None
+    if category_lower in INVALID_CATEGORIES:
+        return None
+    if category_lower in CANONICAL_CATEGORIES:
+        return category_lower
+    if category_lower in CATEGORY_MAPPING:
+        return CATEGORY_MAPPING[category_lower]
+
+    for suffix in ["_engineering", "_management", "_operations", "_development", "_analysis"]:
+        if category_lower.endswith(suffix):
+            base = category_lower[: -len(suffix)]
+            if base in CATEGORY_MAPPING:
+                return CATEGORY_MAPPING[base]
+            if base in CANONICAL_CATEGORIES:
+                return base
+    return None
 
 
 class JobClassifier:
@@ -181,27 +216,31 @@ class JobClassifier:
         Returns:
             Category slug (e.g., "software_engineering") or None if classification fails
         """
+        category, _reason = await self._classify_job_with_reason(title, description)
+        return category
+
+    async def _classify_job_with_reason(self, title: str, description: str) -> tuple[str | None, str]:
+        """Classify a single job and return the category plus failure reason."""
         try:
             if self._provider == "lmstudio":
                 return await self._classify_lmstudio(title, description)
-            else:
-                return await self._classify_ollama(title, description)
+            return await self._classify_ollama(title, description)
         except asyncio.CancelledError:
             logger.warning("Classification request cancelled")
             raise
         except ClassificationError as e:
             logger.warning(f"Classification failed for '{title}': {e}")
-            return None
+            return None, "http_or_timeout_error"
         except Exception as e:
             logger.error(f"Unexpected classification error for '{title}': {e}")
-            return None
+            return None, "unexpected_error"
 
-    async def _classify_ollama(self, title: str, description: str) -> str | None:
+    async def _classify_ollama(self, title: str, description: str) -> tuple[str | None, str]:
         """Classify using Ollama native API."""
         return await self._classify_ollama_impl(title, description)
 
     @_retry_decorator
-    async def _classify_ollama_impl(self, title: str, description: str) -> str | None:
+    async def _classify_ollama_impl(self, title: str, description: str) -> tuple[str | None, str]:
         """Classify using Ollama native API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -238,15 +277,16 @@ class JobClassifier:
             self._handle_http_error(exc, title, "Ollama")
             return None
 
-        raw_output = data.get("response", "").strip()
-        return _normalize_category(raw_output)
+        raw_output = data.get("response", "")
+        category, reason = _extract_canonical_category(raw_output)
+        return category, reason
 
-    async def _classify_lmstudio(self, title: str, description: str) -> str | None:
+    async def _classify_lmstudio(self, title: str, description: str) -> tuple[str | None, str]:
         """Classify using LM Studio OpenAI-compatible API."""
         return await self._classify_lmstudio_impl(title, description)
 
     @_retry_decorator
-    async def _classify_lmstudio_impl(self, title: str, description: str) -> str | None:
+    async def _classify_lmstudio_impl(self, title: str, description: str) -> tuple[str | None, str]:
         """Classify using LM Studio OpenAI-compatible API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -289,11 +329,12 @@ class JobClassifier:
         choices = data.get("choices", [])
         if not choices:
             logger.warning(f"No choices in LM Studio response for '{title}'")
-            return None
+            return None, "empty_response"
 
         message = choices[0].get("message", {})
-        raw_output = message.get("content", "").strip()
-        return _normalize_category(raw_output)
+        raw_output = message.get("content", "")
+        category, reason = _extract_canonical_category(raw_output)
+        return category, reason
 
     def _handle_http_error(self, exc: httpx.HTTPStatusError, title: str, provider: str) -> None:
         """Handle HTTP status errors."""
@@ -340,21 +381,22 @@ class JobClassifier:
 
         async def classify_with_semaphore(
             idx: int, title: str, description: str
-        ) -> tuple[int, str | None]:
+        ) -> tuple[int, str | None, str]:
             nonlocal completed
             async with semaphore:
                 try:
-                    result = await self.classify_job(title, description)
+                    result, reason = await self._classify_job_with_reason(title, description)
                 except Exception as e:
                     logger.error(f"Error classifying job '{title}': {e}")
                     result = None
+                    reason = "unexpected_error"
 
                 async with lock:
                     completed += 1
                     if completed % 10 == 0:
                         logger.info(f"Classification progress: {completed}/{len(jobs)}")
 
-                return (idx, result)
+                return (idx, result, reason)
 
         tasks = [
             classify_with_semaphore(i, title, description)
@@ -368,11 +410,17 @@ class JobClassifier:
             raise
 
         results: list[str | None] = [None] * len(jobs)
-        for idx, result in results_with_idx:
+        rejection_reasons: dict[str, int] = {}
+        for idx, result, reason in results_with_idx:
             results[idx] = result
+            if result is None:
+                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
 
         success_count = sum(1 for r in results if r is not None)
         logger.info(f"Batch classification complete: {success_count}/{len(jobs)} successful")
+        if rejection_reasons:
+            details = ", ".join(f"{k}={v}" for k, v in sorted(rejection_reasons.items()))
+            logger.info("Batch classification rejections: %s", details)
 
         return results
 

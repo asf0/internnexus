@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     classification_timeout_seconds: float = 90.0
     classification_max_concurrent: int = 2
     classification_keep_alive: str = "30m"
-    classification_num_predict: int = 20
+    classification_num_predict: int = 64
 
     # Auth/JWT configuration
     auth_secret: str

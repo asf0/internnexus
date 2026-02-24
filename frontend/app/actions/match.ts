@@ -4,6 +4,8 @@ import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
 import type { MatchResponse } from "@/lib/types/job";
 
+const MATCH_REQUEST_TIMEOUT_MS = 90000;
+
 function emptyMatch(error: string): MatchResponse {
   return {
     matches: [],
@@ -14,6 +16,19 @@ function emptyMatch(error: string): MatchResponse {
     total_pages: 0,
     error,
   };
+}
+
+async function fetchWithTimeout(input: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MATCH_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function matchResume(formData: FormData): Promise<MatchResponse> {
@@ -32,13 +47,21 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
   const body = new FormData();
   body.append("file", file, file.name);
 
-  const response = await fetch(`${BACKEND_URL}/match`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${backendToken}`,
-    },
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${BACKEND_URL}/match`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${backendToken}`,
+      },
+      body,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return emptyMatch("Matching timed out. Please try again.");
+    }
+    return emptyMatch("Unable to reach matching service. Please try again.");
+  }
 
   if (!response.ok) {
     let detail = "";
@@ -72,7 +95,11 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
     };
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    return emptyMatch("Matching service returned an invalid response.");
+  }
 }
 
 export async function matchProfileResume(): Promise<MatchResponse> {
@@ -81,12 +108,20 @@ export async function matchProfileResume(): Promise<MatchResponse> {
     return emptyMatch("Authentication required. Please sign in.");
   }
 
-  const response = await fetch(`${BACKEND_URL}/match/profile`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${backendToken}`,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${BACKEND_URL}/match/profile`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${backendToken}`,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return emptyMatch("Matching timed out. Please try again.");
+    }
+    return emptyMatch("Unable to reach matching service. Please try again.");
+  }
 
   if (!response.ok) {
     let detail = "";
@@ -104,7 +139,11 @@ export async function matchProfileResume(): Promise<MatchResponse> {
     return emptyMatch(detail || `Failed to match profile resume (HTTP ${response.status}).`);
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    return emptyMatch("Matching service returned an invalid response.");
+  }
 }
 
 export async function fetchMatchPage(
