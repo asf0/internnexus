@@ -4,12 +4,12 @@ import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
 
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: ReactNode;
-  children: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
-  showCloseButton?: boolean;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly title?: ReactNode;
+  readonly children: ReactNode;
+  readonly size?: "sm" | "md" | "lg" | "xl";
+  readonly showCloseButton?: boolean;
 }
 
 const sizeClasses = {
@@ -34,8 +34,8 @@ export default function Modal({
         onClose();
       }
     };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+    globalThis.addEventListener("keydown", handleEscape);
+    return () => globalThis.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
   // Prevent body scroll when modal is open

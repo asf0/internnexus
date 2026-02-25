@@ -24,6 +24,9 @@ from sqlalchemy.sql import func
 
 from .db import Base
 
+JOBS_ID_FK = "jobs.id"
+USERS_ID_FK = "users.id"
+
 
 class JobSource(enum.Enum):
     greenhouse = "greenhouse"
@@ -99,7 +102,7 @@ class Job(Base):
 class GreenhouseJobMetadata(Base):
     __tablename__ = "greenhouse_job_metadata"
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
     )
     external_id: Mapped[str] = mapped_column(String, nullable=False)
     internal_job_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -120,7 +123,7 @@ class LeverJobMetadata(Base):
     __tablename__ = "lever_job_metadata"
 
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
     )
     external_id: Mapped[str] = mapped_column(String, nullable=False)
     commitment: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -148,7 +151,7 @@ class LeverJobMetadata(Base):
 class AshbyJobMetadata(Base):
     __tablename__ = "ashby_job_metadata"
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
     )
     external_id: Mapped[str] = mapped_column(String, nullable=False)
     department: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -248,10 +251,10 @@ class SavedJob(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -268,7 +271,7 @@ class UserResume(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), unique=True, nullable=False
     )
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -297,10 +300,10 @@ class AppliedJob(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     applied_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -317,7 +320,7 @@ class UserNotification(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     type: Mapped[str] = mapped_column(String(80), nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
@@ -335,7 +338,7 @@ class Admin(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), unique=True, nullable=False
     )
     role: Mapped[AdminRole] = mapped_column(
         Enum(AdminRole, name="admin_role"),
@@ -344,7 +347,7 @@ class Admin(Base):
         server_default="admin",
     )
     granted_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="SET NULL"), nullable=True
     )
     granted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -361,10 +364,10 @@ class JobClick(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), nullable=False, index=True
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="SET NULL"), nullable=True
     )
     clicked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
@@ -387,7 +390,7 @@ class Account(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     provider: Mapped[str] = mapped_column(String, nullable=False)
     provider_account_id: Mapped[str] = mapped_column(String, nullable=False)
@@ -417,7 +420,7 @@ class Session(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -447,7 +450,7 @@ class PasswordHistory(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -5,10 +5,10 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { LocationItem } from "@/lib/types";
 
 interface LocationSelectProps {
-  locations: LocationItem[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
+  readonly locations: LocationItem[];
+  readonly selected: string[];
+  readonly onChange: (selected: string[]) => void;
+  readonly placeholder: string;
 }
 
 export default function LocationSelect({
@@ -106,7 +106,7 @@ export default function LocationSelect({
   return (
     <div ref={ref} className="relative">
       <div
-        role="button"
+        role="combobox"
         tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(event) => {

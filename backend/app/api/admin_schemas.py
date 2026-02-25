@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Generic, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -73,10 +72,7 @@ class AdminJobUpdateRequest(BaseModel):
     is_active: bool | None = None
 
 
-T = TypeVar("T")
-
-
-class AdminListResponse(BaseModel, Generic[T]):
+class AdminListResponse[T](BaseModel):
     """Generic paginated list response for admin endpoints."""
 
     items: list[T]

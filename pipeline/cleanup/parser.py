@@ -17,14 +17,16 @@ PLAIN_REMOTE_PATTERNS = [
     r"^anywhere$",
 ]
 
+UNITED_STATES = "United States"
+
 LOCATION_OVERRIDES = {
-    "mountain view": {"city": "Mountain View", "state": None, "country": "United States"},
+    "mountain view": {"city": "Mountain View", "state": None, "country": UNITED_STATES},
     "singapore": {"city": "Singapore", "state": None, "country": "Singapore"},
     "belgrade": {"city": "Belgrade", "state": None, "country": "Serbia"},
     "mexico city": {"city": "Mexico City", "state": None, "country": "Mexico"},
     "vancouver": {"city": "Vancouver", "state": None, "country": "Canada"},
-    "nyc": {"city": "New York", "state": "New York", "country": "United States"},
-    "sf": {"city": "San Francisco", "state": "California", "country": "United States"},
+    "nyc": {"city": "New York", "state": "New York", "country": UNITED_STATES},
+    "sf": {"city": "San Francisco", "state": "California", "country": UNITED_STATES},
 }
 
 

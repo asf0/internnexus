@@ -17,7 +17,7 @@ from app.api.schemas import JobListResponse
 from app.cache.redis_pool import RedisService
 from app.models import Job
 from app.repositories.job import JobRepository
-from app.services.search_parser import ParsedSearch, parse_search_query
+from app.services.search_parser import ParsedSearch, SearchTerm, parse_search_query
 
 MAX_SEARCH_LENGTH = 100
 JobSelect = Select[tuple[Job]]
@@ -107,7 +107,7 @@ class JobSearchService:
     async def _execute_search(self, params: JobSearchParams) -> JobListResponse:
         """Execute the actual search query."""
         stmt, valid_ids, result_order = await self.build_filtered_stmt(params)
-        stmt = self._apply_ordering(stmt, params, valid_ids, result_order)
+        stmt = self._apply_ordering(stmt, valid_ids, result_order)
 
         total = await self._count_results(stmt)
         items = await self._paginate(stmt, params.page, params.page_size)
@@ -210,36 +210,36 @@ class JobSearchService:
 
     def _build_boolean_tsquery(self, expr: Any) -> str:
         """Convert boolean expression to PostgreSQL tsquery format."""
-        from app.services.search_parser import SearchTerm
+        return self._build_expr_tsquery(expr)
 
-        def build_term(term: SearchTerm) -> str:
-            value = term.value.lower().strip()
-            value = re.sub(r"[&|!():*<>\"]", " ", value)
-            words = [w for w in re.findall(r"\w+", value) if w][:5]
-            if not words:
-                return ""
-            if term.is_exact:
-                return "(" + " <-> ".join(words) + ")"
-            return " & ".join(f"{w}:*" for w in words)
+    def _build_term_tsquery(self, term: SearchTerm) -> str:
+        value = term.value.lower().strip()
+        value = re.sub(r"[&|!():*<>\"]", " ", value)
+        words = [w for w in re.findall(r"\w+", value) if w][:5]
+        if not words:
+            return ""
+        if term.is_exact:
+            return "(" + " <-> ".join(words) + ")"
+        return " & ".join(f"{w}:*" for w in words)
 
-        def build_expr(e) -> str:
-            if isinstance(e, SearchTerm):
-                return build_term(e)
+    def _build_expr_tsquery(self, expr: Any) -> str:
+        if isinstance(expr, SearchTerm):
+            return self._build_term_tsquery(expr)
 
-            parts = [build_expr(t) for t in e.terms if t]
-            parts = [p for p in parts if p]
-            if not parts:
-                return ""
-
-            if e.operator == "NOT":
-                return f"!({parts[0]})" if parts else ""
-            if e.operator == "AND":
-                return "(" + " & ".join(parts) + ")"
-            if e.operator == "OR":
-                return "(" + " | ".join(parts) + ")"
+        parts = [self._build_expr_tsquery(term) for term in expr.terms if term]
+        parts = [part for part in parts if part]
+        if not parts:
             return ""
 
-        return build_expr(expr)
+        operator_map = {
+            "NOT": lambda tokens: f"!({tokens[0]})",
+            "AND": lambda tokens: "(" + " & ".join(tokens) + ")",
+            "OR": lambda tokens: "(" + " | ".join(tokens) + ")",
+        }
+        formatter = operator_map.get(expr.operator)
+        if formatter is None:
+            return ""
+        return formatter(parts)
 
     def _apply_filters(
         self,
@@ -355,7 +355,6 @@ class JobSearchService:
     def _apply_ordering(
         self,
         stmt: JobSelect,
-        params: JobSearchParams,
         valid_ids: list[UUID],
         result_order: list[UUID],
     ) -> JobSelect:

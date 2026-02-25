@@ -4,11 +4,11 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 
 interface MultiSelectProps {
-  options: string[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
-  labelMap?: Record<string, string>;
+  readonly options: string[];
+  readonly selected: string[];
+  readonly onChange: (selected: string[]) => void;
+  readonly placeholder: string;
+  readonly labelMap?: Record<string, string>;
 }
 
 export default function MultiSelect({ options, selected, onChange, placeholder, labelMap }: MultiSelectProps) {
@@ -62,7 +62,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
   return (
     <div ref={ref} className="relative">
       <div
-        role="button"
+        role="combobox"
         tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(event) => {
