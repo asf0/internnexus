@@ -6,7 +6,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Annotated, cast
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -224,7 +224,9 @@ async def _rank_matches(
 
     try:
         result = await db.execute(stmt)
-        candidate_rows = cast(list[tuple[Job, float | None]], result.tuples().all())
+        candidate_rows: list[tuple[Job, float | None]] = [
+            (job, semantic) for job, semantic in result.tuples().all()
+        ]
     except Exception as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)

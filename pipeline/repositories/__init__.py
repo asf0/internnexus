@@ -124,7 +124,7 @@ class JobRepository(Protocol):
     async def get_jobs_without_embeddings(
         self,
         batch_size: int,
-    ) -> list[int]:
+    ) -> list[UUID]:
         """Get job IDs that need embeddings generated.
 
         Filters out jobs with empty/short description text (< 30 chars
@@ -134,18 +134,18 @@ class JobRepository(Protocol):
             batch_size: Maximum number of job IDs to fetch
 
         Returns:
-            List of job IDs (integer primary keys)
+            List of job IDs (UUID primary keys)
         """
         ...
 
     async def get_jobs_by_ids(
         self,
-        job_ids: list[int],
+        job_ids: list[UUID],
     ) -> list[dict]:
-        """Fetch jobs by their integer IDs.
+        """Fetch jobs by their UUIDs.
 
         Args:
-            job_ids: List of job integer IDs
+            job_ids: List of job UUIDs
 
         Returns:
             List of job data dictionaries
@@ -154,13 +154,13 @@ class JobRepository(Protocol):
 
     async def update_job_embedding(
         self,
-        job_id: int,
+        job_id: UUID,
         embedding: list[float],
     ) -> None:
         """Update a job's embedding vector.
 
         Args:
-            job_id: The job's integer ID
+            job_id: The job's UUID
             embedding: The embedding vector to store
         """
         ...

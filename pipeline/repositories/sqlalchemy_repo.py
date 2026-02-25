@@ -7,7 +7,7 @@ All other pipeline modules should use the repository protocol for database acces
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, text, update
@@ -23,6 +23,19 @@ from backend.app.models import (
     PipelineRunStatus,
 )
 from pipeline.repositories import JobLocationData, LocationUpdate, MetadataBatch
+
+__all__ = [
+    "AsyncSessionLocal",
+    "Job",
+    "JobSource",
+    "PipelineRun",
+    "PipelineRunStatus",
+    "AshbyJobMetadata",
+    "GreenhouseJobMetadata",
+    "LeverJobMetadata",
+    "SQLAlchemyJobRepository",
+    "get_repository",
+]
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -244,7 +257,8 @@ class SQLAlchemyJobRepository:
         )
         result = await self._session.execute(refresh_stmt)
         await self._session.commit()
-        return result.rowcount if hasattr(result, "rowcount") else 0
+        rowcount = cast(Any, result).rowcount
+        return int(rowcount or 0)
 
     async def fetch_metadata_batch(
         self,
@@ -318,7 +332,7 @@ class SQLAlchemyJobRepository:
     async def get_jobs_without_embeddings(
         self,
         batch_size: int,
-    ) -> list[int]:
+    ) -> list[UUID]:
         """Get job IDs that need embeddings generated.
 
         Filters out jobs with empty/short description text (< 30 chars
@@ -328,7 +342,7 @@ class SQLAlchemyJobRepository:
             batch_size: Maximum number of job IDs to fetch
 
         Returns:
-            List of job IDs (integer primary keys)
+            List of job IDs (UUID primary keys)
         """
         # Clean HTML and entities from description_text
         cleaned_text = func.regexp_replace(
@@ -357,12 +371,12 @@ class SQLAlchemyJobRepository:
 
     async def get_jobs_by_ids(
         self,
-        job_ids: list[int],
+        job_ids: list[UUID],
     ) -> list[dict]:
         """Fetch jobs by their integer IDs.
 
         Args:
-            job_ids: List of job integer IDs
+            job_ids: List of job UUIDs
 
         Returns:
             List of job data dictionaries with id, company, title, apply_url
@@ -396,13 +410,13 @@ class SQLAlchemyJobRepository:
 
     async def update_job_embedding(
         self,
-        job_id: int,
+        job_id: UUID,
         embedding: list[float],
     ) -> None:
         """Update a job's embedding vector.
 
         Args:
-            job_id: The job's integer ID
+            job_id: The job's UUID
             embedding: The embedding vector to store
         """
         stmt = update(Job).where(Job.id == job_id).values(description_embedding=embedding)
@@ -422,7 +436,8 @@ class SQLAlchemyJobRepository:
         stmt = update(Job).where(Job.is_active.is_(True)).values(is_active=False)
         result = await self._session.execute(stmt)
         await self._session.commit()
-        return getattr(result, "rowcount", 0) or 0
+        rowcount = cast(Any, result).rowcount
+        return int(rowcount or 0)
 
     async def delete_inactive_jobs(self) -> int:
         """Delete all jobs marked as inactive.
@@ -437,7 +452,8 @@ class SQLAlchemyJobRepository:
         stmt = delete(Job).where(Job.is_active.is_(False))
         result = await self._session.execute(stmt)
         await self._session.commit()
-        return getattr(result, "rowcount", 0) or 0
+        rowcount = cast(Any, result).rowcount
+        return int(rowcount or 0)
 
     async def get_total_count(
         self,
