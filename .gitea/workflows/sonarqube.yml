@@ -19,7 +19,7 @@ jobs:
       SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
     steps:
       - name: Install dependencies
-        run: apt-get update && apt-get install -y git curl unzip openjdk-17-jre-headless
+        run: apt-get update && apt-get install -y git curl unzip default-jre-headless
 
       - name: Checkout
         run: |
