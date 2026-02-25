@@ -47,7 +47,7 @@ ignore = ["E402"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
-reportGeneralTypeIssues = "warning"
+reportGeneralTypeIssues = "error"
 
 [tool.setuptools]
 packages = ["app"]

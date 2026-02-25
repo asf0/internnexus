@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Protocol, cast
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -78,6 +79,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    class _SettingsFactory(Protocol):
+        def __call__(self) -> Settings: ...
+
     # BaseSettings resolves required fields from environment at runtime.
-    # Keep this focused suppression until Pyright can model settings injection.
-    return Settings()  # pyright: ignore[reportCallIssue]
+    # Cast the class constructor to a zero-arg factory for static checking.
+    settings_factory = cast(_SettingsFactory, Settings)
+    return settings_factory()
