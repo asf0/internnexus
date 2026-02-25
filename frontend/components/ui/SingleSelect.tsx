@@ -4,10 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Check } from "lucide-react";
 
 interface SingleSelectProps {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
+  readonly options: { value: string; label: string }[];
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly placeholder: string;
 }
 
 export function SingleSelect({ options, value, onChange, placeholder }: SingleSelectProps) {
@@ -29,9 +29,12 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
 
   return (
     <div ref={ref} className="relative">
-      <div
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex min-h-[38px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
       >
         <span
           className={
@@ -46,12 +49,13 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
           size={16}
           className={`ml-2 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
-      </div>
+      </button>
 
       {isOpen && (
         <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
           <div className="max-h-52 overflow-y-auto">
-            <div
+            <button
+              type="button"
               onClick={() => {
                 onChange("");
               }}
@@ -61,9 +65,10 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
               {!value && (
                 <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
               )}
-            </div>
+            </button>
             {options.map((option) => (
-              <div
+              <button
+                type="button"
                 key={option.value}
                 onClick={() => {
                   onChange(option.value);
@@ -74,7 +79,7 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
                 {value === option.value && (
                   <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
                 )}
-              </div>
+              </button>
             ))}
           </div>
           <div className="flex items-center justify-between border-t border-slate-200 bg-white p-2 dark:border-md-outline-variant dark:bg-md-surface-container">

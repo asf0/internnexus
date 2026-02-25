@@ -1,15 +1,17 @@
 """Unit tests for crypto module - RSA+AES hybrid encryption."""
 
 import base64
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
+
 from app.auth.crypto import (
-    TokenEncryptor,
+    CIPHERTEXT_VERSION,
     EncryptionError,
+    TokenEncryptor,
+    encrypt_token,
     generate_rsa_key_pair,
     get_encryptor,
-    encrypt_token,
 )
 
 
@@ -38,6 +40,7 @@ class TestTokenEncryptor:
 
         # Assert
         assert encrypted != plaintext
+        assert encrypted.startswith(CIPHERTEXT_VERSION)
         assert decrypted == plaintext
 
     def test_encrypt_empty_string(self, encryptor):
@@ -132,6 +135,23 @@ class TestTokenEncryptor:
         # Act & Assert
         with pytest.raises(EncryptionError):
             encryptor.decrypt("not-valid-base64!!!")
+
+    def test_decrypt_legacy_ciphertext_rejected(self, encryptor):
+        """Test that legacy/non-versioned ciphertext is rejected."""
+        legacy_payload = base64.b64encode(b"legacy-ciphertext").decode("utf-8")
+        with pytest.raises(EncryptionError, match="Legacy token format unsupported"):
+            encryptor.decrypt(legacy_payload)
+
+    def test_decrypt_tampered_ciphertext_fails(self, encryptor):
+        """Test authenticated encryption rejects tampered ciphertext."""
+        encrypted = encryptor.encrypt("sensitive-token")
+        payload = encrypted[len(CIPHERTEXT_VERSION) :]
+        raw = bytearray(base64.b64decode(payload))
+        raw[-1] ^= 0x01
+        tampered = CIPHERTEXT_VERSION + base64.b64encode(bytes(raw)).decode("utf-8")
+
+        with pytest.raises(EncryptionError):
+            encryptor.decrypt(tampered)
 
     def test_pkcs7_padding(self, encryptor):
         """Test PKCS7 padding with various block sizes."""

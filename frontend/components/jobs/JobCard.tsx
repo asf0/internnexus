@@ -7,14 +7,14 @@ import { getMatchColor, formatCategoryLabel } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
 interface JobCardProps {
-  job: Job;
-  isSelected: boolean;
-  matchPercentage?: number;
-  onClick: () => void;
-  isSaved?: boolean;
-  onToggleSave?: (shouldSave: boolean) => void;
-  isApplied?: boolean;
-  onToggleApplied?: (shouldApply: boolean) => void;
+  readonly job: Job;
+  readonly isSelected: boolean;
+  readonly matchPercentage?: number;
+  readonly onClick: () => void;
+  readonly isSaved?: boolean;
+  readonly onToggleSave?: (shouldSave: boolean) => void;
+  readonly isApplied?: boolean;
+  readonly onToggleApplied?: (shouldApply: boolean) => void;
 }
 
 export function JobCard({
@@ -30,6 +30,13 @@ export function JobCard({
   return (
     <article
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      tabIndex={0}
       className={`mb-3 cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${
         isSelected
           ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950"

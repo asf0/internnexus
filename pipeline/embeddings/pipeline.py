@@ -106,11 +106,12 @@ async def _run_embedding_pipeline(
 
     except asyncio.CancelledError:
         logger.warning("Embedding generation cancelled. Saving progress...")
+        raise
+    finally:
+        await _log_final_stats(db, total_success, total_errors, total_skipped)
 
-    await _log_final_stats(db, total_success, total_errors, total_skipped)
-
-    if total_errors > 0:
-        logger.info(f"Failed jobs logged to: {_get_failed_jobs_log_path()}")
+        if total_errors > 0:
+            logger.info(f"Failed jobs logged to: {_get_failed_jobs_log_path()}")
 
     return total_success, total_errors
 
@@ -262,7 +263,7 @@ def _accumulate_results(
             total_errors += errors
             total_skipped += skipped
             for job, error in failed:
-                retry_queue.append((job.id, error, 0))
+                retry_queue.append((int(job.id), error, 0))
     return total_success, total_errors, total_skipped
 
 

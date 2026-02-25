@@ -4,12 +4,12 @@ import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
 
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: ReactNode;
-  children: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
-  showCloseButton?: boolean;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly title?: ReactNode;
+  readonly children: ReactNode;
+  readonly size?: "sm" | "md" | "lg" | "xl";
+  readonly showCloseButton?: boolean;
 }
 
 const sizeClasses = {
@@ -34,8 +34,8 @@ export default function Modal({
         onClose();
       }
     };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+    globalThis.addEventListener("keydown", handleEscape);
+    return () => globalThis.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
   // Prevent body scroll when modal is open
@@ -55,9 +55,11 @@ export default function Modal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
         onClick={onClose}
+        aria-label="Close modal"
       />
 
       {/* Modal Card */}

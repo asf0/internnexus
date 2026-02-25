@@ -4,11 +4,11 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 
 interface MultiSelectProps {
-  options: string[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  placeholder: string;
-  labelMap?: Record<string, string>;
+  readonly options: string[];
+  readonly selected: string[];
+  readonly onChange: (selected: string[]) => void;
+  readonly placeholder: string;
+  readonly labelMap?: Record<string, string>;
 }
 
 export default function MultiSelect({ options, selected, onChange, placeholder, labelMap }: MultiSelectProps) {
@@ -61,9 +61,12 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
 
   return (
     <div ref={ref} className="relative">
-      <div
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
       >
         {selected.length === 0 ? (
           <span className="text-slate-400 dark:text-md-on-surface">{placeholder}</span>
@@ -95,7 +98,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
           size={16}
           className={`ml-auto text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
-      </div>
+      </button>
 
       {isOpen && (
         <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
@@ -114,7 +117,8 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
               <div className="px-3 py-2 text-sm text-slate-400">No results found</div>
             ) : (
               filteredOptions.map((option) => (
-                <div
+                <button
+                  type="button"
                   key={option}
                   onClick={() => toggleOption(option)}
                   className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
@@ -123,7 +127,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                   {selected.includes(option) && (
                     <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
                   )}
-                </div>
+                </button>
               ))
             )}
           </div>

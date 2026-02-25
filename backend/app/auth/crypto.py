@@ -9,12 +9,13 @@ from typing import Any
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from app.config import get_settings
 
 
 AES_KEY_SIZE = 32
-AES_IV_SIZE = 16
+AES_GCM_NONCE_SIZE = 12
+CIPHERTEXT_VERSION = "v2:"
 
 
 class EncryptionError(Exception):
@@ -26,7 +27,7 @@ class EncryptionError(Exception):
 class TokenEncryptor:
     """RSA+AES hybrid encryption for sensitive tokens.
 
-    Uses RSA to encrypt a randomly generated AES key, then AES-CBC to encrypt
+    Uses RSA to encrypt a randomly generated AES key, then AES-GCM to encrypt
     the actual data. This allows for secure storage of OAuth tokens in the database.
 
     The hybrid approach combines:
@@ -89,7 +90,7 @@ class TokenEncryptor:
             plaintext: The string to encrypt
 
         Returns:
-            Base64-encoded encrypted data (encrypted_aes_key + iv + ciphertext)
+            Versioned encrypted data: v2:<base64(encrypted_aes_key + nonce + ciphertext_and_tag)>
 
         Raises:
             EncryptionError: If encryption fails
@@ -99,7 +100,7 @@ class TokenEncryptor:
 
         try:
             aes_key = secrets.token_bytes(AES_KEY_SIZE)
-            iv = secrets.token_bytes(AES_IV_SIZE)
+            nonce = secrets.token_bytes(AES_GCM_NONCE_SIZE)
 
             encrypted_aes_key = self._public_key.encrypt(
                 aes_key,
@@ -111,14 +112,11 @@ class TokenEncryptor:
             )
 
             plaintext_bytes = plaintext.encode("utf-8")
-            padded_plaintext = self._pkcs7_pad(plaintext_bytes, AES_KEY_SIZE)
+            cipher = AESGCM(aes_key)
+            ciphertext = cipher.encrypt(nonce, plaintext_bytes, None)
 
-            cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
-            encryptor = cipher.encryptor()
-            ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
-
-            result = encrypted_aes_key + iv + ciphertext
-            return base64.b64encode(result).decode("utf-8")
+            result = encrypted_aes_key + nonce + ciphertext
+            return f"{CIPHERTEXT_VERSION}{base64.b64encode(result).decode('utf-8')}"
 
         except Exception as exc:
             raise EncryptionError(f"Encryption failed: {exc}") from exc
@@ -127,7 +125,7 @@ class TokenEncryptor:
         """Decrypt a string using RSA+AES hybrid encryption.
 
         Args:
-            ciphertext_b64: Base64-encoded encrypted data
+            ciphertext_b64: Versioned encrypted data string
 
         Returns:
             Decrypted plaintext string
@@ -141,13 +139,21 @@ class TokenEncryptor:
         if self._private_key is None:
             raise EncryptionError("Private key not available for decryption")
 
+        if not ciphertext_b64.startswith(CIPHERTEXT_VERSION):
+            raise EncryptionError("Legacy token format unsupported")
+
         try:
-            encrypted_data = base64.b64decode(ciphertext_b64)
+            encoded_payload = ciphertext_b64[len(CIPHERTEXT_VERSION) :]
+            encrypted_data = base64.b64decode(encoded_payload, validate=True)
 
             rsa_key_size = self._private_key.key_size // 8
+            min_payload_size = rsa_key_size + AES_GCM_NONCE_SIZE + 1
+            if len(encrypted_data) < min_payload_size:
+                raise EncryptionError("Encrypted payload is too short")
+
             encrypted_aes_key = encrypted_data[:rsa_key_size]
-            iv = encrypted_data[rsa_key_size : rsa_key_size + AES_IV_SIZE]
-            ciphertext = encrypted_data[rsa_key_size + AES_IV_SIZE :]
+            nonce = encrypted_data[rsa_key_size : rsa_key_size + AES_GCM_NONCE_SIZE]
+            ciphertext = encrypted_data[rsa_key_size + AES_GCM_NONCE_SIZE :]
 
             aes_key = self._private_key.decrypt(
                 encrypted_aes_key,
@@ -158,27 +164,12 @@ class TokenEncryptor:
                 ),
             )
 
-            cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
-            decryptor = cipher.decryptor()
-            padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-
-            plaintext = self._pkcs7_unpad(padded_plaintext)
+            cipher = AESGCM(aes_key)
+            plaintext = cipher.decrypt(nonce, ciphertext, None)
             return plaintext.decode("utf-8")
 
         except Exception as exc:
             raise EncryptionError(f"Decryption failed: {exc}") from exc
-
-    @staticmethod
-    def _pkcs7_pad(data: bytes, block_size: int) -> bytes:
-        """Apply PKCS7 padding."""
-        padding_length = block_size - (len(data) % block_size)
-        return data + bytes([padding_length] * padding_length)
-
-    @staticmethod
-    def _pkcs7_unpad(data: bytes) -> bytes:
-        """Remove PKCS7 padding."""
-        padding_length = data[-1]
-        return data[:-padding_length]
 
 
 def generate_rsa_key_pair(key_size: int = 2048) -> tuple[str, str]:
@@ -239,7 +230,7 @@ def get_encryptor() -> TokenEncryptor:
     return _encryptor_instance
 
 
-def encrypt_token(plaintext: str) -> str:
+def encrypt_token(plaintext: str | None) -> str:
     """Encrypt a token string.
 
     Args:

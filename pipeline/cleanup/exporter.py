@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import logging
 from pathlib import Path
@@ -18,6 +19,42 @@ from pipeline.location.simple_parser import normalize_state_name
 from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository
 
 logger = logging.getLogger(__name__)
+
+
+def _write_csv_header(csv_path: Path) -> None:
+    with open(csv_path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "id",
+                "source",
+                "original_location",
+                "city",
+                "state",
+                "country",
+                "fix_source",
+            ],
+        )
+        writer.writeheader()
+
+
+def _append_csv_rows(csv_path: Path, rows: list[dict[str, str]]) -> None:
+    if not rows:
+        return
+    with open(csv_path, "a", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "id",
+                "source",
+                "original_location",
+                "city",
+                "state",
+                "country",
+                "fix_source",
+            ],
+        )
+        writer.writerows(rows)
 
 
 async def _get_total_count(repo: SQLAlchemyJobRepository, since, process_all) -> int:
@@ -40,78 +77,65 @@ async def _process_test_mode_chunked(session: AsyncSession, since, process_all, 
 
     logger.info("Building unique location cache and writing to CSV...")
 
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "id",
-                "source",
-                "original_location",
-                "city",
-                "state",
-                "country",
-                "fix_source",
-            ],
-        )
-        writer.writeheader()
+    await asyncio.to_thread(_write_csv_header, csv_path)
 
-        last_id = None
-        while True:
+    last_id = None
+    while True:
+        if limit and total_processed >= limit:
+            break
+
+        rows, ashby_map, greenhouse_map, lever_map = await _fetch_jobs_chunk(
+            repo, since, process_all, last_id, chunk_size
+        )
+        if not rows:
+            break
+
+        last_id = rows[-1]["id"]
+        batch_results = []
+
+        for row in rows:
             if limit and total_processed >= limit:
                 break
 
-            rows, ashby_map, greenhouse_map, lever_map = await _fetch_jobs_chunk(
-                repo, since, process_all, last_id, chunk_size
+            total_processed += 1
+            location = row["location"]
+
+            if not location:
+                continue
+
+            if location not in unique_locations:
+                unique_locations[location] = await _parse_location_only(location)
+                if len(unique_locations) % 500 == 0:
+                    logger.info(f"Normalized {len(unique_locations)} unique locations...")
+
+            parsed_result = unique_locations[location]
+
+            if parsed_result.get("state"):
+                parsed_result["state"] = normalize_state_name(parsed_result["state"])
+
+            metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
+
+            final_result, source_used = _merge_location_results(
+                location, parsed_result, metadata_result, metadata_source
             )
-            if not rows:
-                break
 
-            last_id = rows[-1]["id"]
-            batch_results = []
+            batch_results.append(
+                {
+                    "id": str(row["id"]),
+                    "source": str(row["source"]),
+                    "original_location": location or "",
+                    "city": final_result["city"] or "",
+                    "state": final_result["state"] or "",
+                    "country": final_result["country"] or "",
+                    "fix_source": source_used,
+                }
+            )
 
-            for row in rows:
-                if limit and total_processed >= limit:
-                    break
+        if batch_results:
+            await asyncio.to_thread(_append_csv_rows, csv_path, batch_results)
 
-                total_processed += 1
-                location = row["location"]
-
-                if not location:
-                    continue
-
-                if location not in unique_locations:
-                    unique_locations[location] = await _parse_location_only(location)
-                    if len(unique_locations) % 500 == 0:
-                        logger.info(f"Normalized {len(unique_locations)} unique locations...")
-
-                parsed_result = unique_locations[location]
-
-                if parsed_result.get("state"):
-                    parsed_result["state"] = normalize_state_name(parsed_result["state"])
-
-                metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
-
-                final_result, source_used = _merge_location_results(
-                    location, parsed_result, metadata_result, metadata_source
-                )
-
-                batch_results.append(
-                    {
-                        "id": str(row["id"]),
-                        "source": str(row["source"]),
-                        "original_location": location or "",
-                        "city": final_result["city"] or "",
-                        "state": final_result["state"] or "",
-                        "country": final_result["country"] or "",
-                        "fix_source": source_used,
-                    }
-                )
-
-            if batch_results:
-                writer.writerows(batch_results)
-
-            if total_processed % 5000 == 0:
-                logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
+        if total_processed % 5000 == 0:
+            logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
 
     logger.info(f"Normalized {len(unique_locations)} unique locations")
     logger.info(f"Processed {total_processed} jobs")

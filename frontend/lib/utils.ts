@@ -18,37 +18,37 @@ export function formatCategoryLabel(category: string | null | undefined): string
 }
 
 export function parseApiError(error: unknown): string {
-  if (error && typeof error === 'object') {
-    if ('detail' in error) {
-      const detail = (error as { detail?: { message?: string } | string }).detail;
-      if (typeof detail === 'string') return detail;
-      if (detail && typeof detail === 'object' && 'message' in detail) {
-        return detail.message || "An error occurred";
-      }
-    }
-    if ('message' in error) {
-      const message = (error as { message?: string }).message;
-      if (typeof message === 'string') return message;
-    }
+  if (!error || typeof error !== "object") {
+    return "An error occurred";
   }
+
+  const detail = (error as { detail?: { message?: string } | string }).detail;
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "message" in detail) {
+    return detail.message || "An error occurred";
+  }
+
+  const message = (error as { message?: string }).message;
+  if (typeof message === "string") return message;
+
   return "An error occurred";
 }
 
 export function generateJobSlug(title: string, company: string, id: string): string {
   const titleSlug = title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replaceAll(/[^a-z0-9\s-]/g, "")
+    .replaceAll(/\s+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/(^-)|(-$)/g, "")
     .slice(0, 50);
 
   const companySlug = company
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replaceAll(/[^a-z0-9\s-]/g, "")
+    .replaceAll(/\s+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/(^-)|(-$)/g, "")
     .slice(0, 30);
 
   const idSuffix = id.slice(0, 8);

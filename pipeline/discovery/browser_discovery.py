@@ -329,7 +329,7 @@ async def discover_with_browser() -> dict[str, set[str]]:
                 if blocked:
                     logger.error("Google blocked the search! Waiting for user...")
                     logger.info("Please solve any CAPTCHA in the browser window, then press Enter to continue...")
-                    input()  # Wait for user to press Enter
+                    await asyncio.to_thread(input)  # Wait for user to press Enter
 
                     # Retry this query
                     urls, blocked = await browser.search_google(query)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ async def test_rejected_outputs_write_unmapped_candidates(tmp_path, monkeypatch)
 
     async def _fake_classify(self, title: str, description: str):
         del self, title, description
+        await asyncio.sleep(0)
         return None, "no_mappable_token", "vehicle_maintenance"
 
     monkeypatch.setattr(JobClassifier, "_classify_job_with_reason", _fake_classify)
@@ -40,6 +42,7 @@ async def test_rejected_outputs_without_tokens_write_jsonl_events(tmp_path, monk
 
     async def _fake_classify(self, title: str, description: str):
         del self, title, description
+        await asyncio.sleep(0)
         return None, "empty_response", ""
 
     monkeypatch.setattr(JobClassifier, "_classify_job_with_reason", _fake_classify)

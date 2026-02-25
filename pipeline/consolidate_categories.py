@@ -262,7 +262,7 @@ async def main() -> int:
 
         # Confirm before proceeding
         print("\nThis will make the changes shown above.")
-        response = input("Continue? [y/N]: ")
+        response = await asyncio.to_thread(input, "Continue? [y/N]: ")
         if response.lower() != "y":
             print("Aborted.")
             return 1

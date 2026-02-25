@@ -538,6 +538,7 @@ class JobClassifier:
 
 # Singleton instance
 _classifier_instance: JobClassifier | None = None
+_classifier_close_task: asyncio.Task[None] | None = None
 
 
 async def get_classifier() -> JobClassifier:
@@ -551,6 +552,7 @@ async def get_classifier() -> JobClassifier:
 def reset_classifier() -> None:
     """Reset the classifier singleton (useful for testing)."""
     global _classifier_instance
+    global _classifier_close_task
     if _classifier_instance:
-        asyncio.create_task(_classifier_instance.close())
+        _classifier_close_task = asyncio.create_task(_classifier_instance.close())
     _classifier_instance = None

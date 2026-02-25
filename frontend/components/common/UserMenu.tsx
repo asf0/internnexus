@@ -90,9 +90,11 @@ export default function UserMenu({
 
       {isOpen && (
         <>
-          <div
+          <button
+            type="button"
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
+            aria-label="Close user menu"
           />
           <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-md-surface-container border border-slate-200 dark:border-md-outline-variant ring-1 ring-black ring-opacity-5 z-60">
             {/* User Info Header */}

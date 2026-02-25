@@ -76,7 +76,7 @@ async def _process_retry_queue(
                 retry_queue = _collect_retry_items(failed, retry_queue, retry_attempt)
             except asyncio.CancelledError:
                 logger.warning(f"Retry batch {batch_num} cancelled")
-                return total_success, total_errors, total_skipped, retry_queue
+                raise
 
     return total_success, total_errors, total_skipped, retry_queue
 
@@ -89,7 +89,7 @@ def _collect_retry_items(
     """Collect failed jobs for retry or log as permanently failed."""
     for job, error in failed:
         if retry_attempt < MAX_RETRY_ATTEMPTS:
-            retry_queue.append((job.id, error, retry_attempt))
+            retry_queue.append((int(job.id), error, retry_attempt))
         else:
             error_type, _ = _classify_error(error)
             _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt)
@@ -118,7 +118,7 @@ async def _log_exhausted_retries(
 
     exhausted_job_ids = [item[0] for item in retry_queue]
     exhausted_jobs = await _fetch_jobs_by_ids(db, exhausted_job_ids)
-    job_id_to_job = {job.id: job for job in exhausted_jobs}
+    job_id_to_job = {int(job.id): job for job in exhausted_jobs}
 
     error_count = 0
     for job_id, error, attempts in retry_queue:
