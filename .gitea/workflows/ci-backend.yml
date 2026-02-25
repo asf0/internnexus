@@ -39,7 +39,7 @@ jobs:
       SIMPLIFY_JOBS_NEW_GRAD_URL: ${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
     steps:
       - name: Install Git
-        run: apt-get update && apt-get install -y git
+        run: apt-get update && apt-get install -y git libatomic1
 
       - name: Checkout
         run: |
