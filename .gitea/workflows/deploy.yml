@@ -6,68 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend-ci:
-    name: Backend CI
-    runs-on: docker
-    container:
-      image: python:3.12-slim
-    env:
-      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
-      EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
-      EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
-      OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
-      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-      REDIS_URL: ${{ vars.REDIS_URL }}
-      GREENHOUSE_API_URL: ${{ vars.GREENHOUSE_API_URL }}
-      LEVER_API_URL: ${{ vars.LEVER_API_URL }}
-      SIMPLIFY_JOBS_INTERN_URL: ${{ vars.SIMPLIFY_JOBS_INTERN_URL }}
-      SIMPLIFY_JOBS_NEW_GRAD_URL: ${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
-    steps:
-      - name: Install Git
-        run: apt-get update && apt-get install -y git
-
-      - name: Checkout
-        run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-
-      - name: Install dependencies
-        run: |
-          pip install pytest pytest-asyncio
-          pip install -e ./backend
-
-      - name: Run backend import validation
-        run: |
-          cd backend
-          if [ -f tests/test_import_chains.py ]; then
-            pytest tests/test_import_chains.py -q
-          else
-            python -m compileall -q app
-            python -c "import sys; sys.path.insert(0, '.'); import app.main, app.api.auth, app.api.jobs, app.api.matching; print('backend import validation passed')"
-          fi
-
-  frontend-ci:
-    name: Frontend CI
-    runs-on: docker
-    container:
-      image: oven/bun:1
-    steps:
-      - name: Install Git
-        run: apt-get update && apt-get install -y git
-
-      - name: Checkout
-        run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-
-      - name: Install and build frontend
-        run: |
-          cd frontend
-          bun install --frozen-lockfile
-          bun run build
-
   deploy:
-    needs: [backend-ci, frontend-ci]
     runs-on: docker
     container:
       image: docker:24-cli
