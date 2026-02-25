@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import extract, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1065,8 +1065,11 @@ async def update_user_notes(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Update notes
-    user.notes = data.notes
+    # Update notes directly in SQL since notes is not ORM-mapped in compatibility mode
+    await db.execute(
+        text("UPDATE users SET notes = :notes WHERE id = :user_id"),
+        {"notes": data.notes, "user_id": user_id},
+    )
     await db.commit()
 
     return {"message": "User notes updated"}
