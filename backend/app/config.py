@@ -78,4 +78,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # BaseSettings loads required fields from environment at runtime.
+    # Pyright treats these as required constructor args, so this suppression is intentional.
+    return Settings()  # pyright: ignore[reportCallIssue]

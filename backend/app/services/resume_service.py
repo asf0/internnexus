@@ -71,7 +71,8 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         from pdfminer.high_level import extract_text as pdfminer_extract
 
         file_obj.seek(0)
-        text = (pdfminer_extract(file_obj) or "").strip()
+        pdf_bytes = file_obj.read()
+        text = (pdfminer_extract(io.BytesIO(pdf_bytes)) or "").strip()
         if text:
             return text
     except ImportError:

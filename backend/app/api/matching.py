@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
@@ -130,8 +131,6 @@ def _skill_title_score(
 
 def _work_mode_score(work_mode: str | None, signals: ResumeSignals) -> float:
     raw_mode = work_mode
-    if raw_mode is not None and hasattr(raw_mode, "value"):
-        raw_mode = raw_mode.value
     mode = str(raw_mode or "").strip().lower()
     explicit_preference = signals.prefers_remote or signals.prefers_hybrid or signals.prefers_onsite
     if not explicit_preference:
@@ -211,19 +210,7 @@ async def _rank_matches(
 
     stmt = (
         select(
-            Job.id,
-            Job.title,
-            Job.company,
-            Job.location,
-            Job.apply_url,
-            Job.description_text,
-            Job.city,
-            Job.state,
-            Job.country,
-            Job.job_category,
-            Job.job_type,
-            Job.work_mode,
-            Job.posted_at,
+            Job,
             (1 - Job.description_embedding.cosine_distance(resume_embedding)).label(
                 "semantic_score"
             ),
@@ -236,7 +223,7 @@ async def _rank_matches(
 
     try:
         result = await db.execute(stmt)
-        results = result.all()
+        candidate_rows = result.tuples().all()
     except Exception as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)
@@ -253,12 +240,12 @@ async def _rank_matches(
             detail="Matching query failed. Please try again later.",
         ) from exc
 
-    ranked_rows: list[tuple[float, object, dict[str, float]]] = []
-    for row in results[:_RERANK_POOL]:
-        semantic_score = _clamp_01(row.semantic_score)
-        skill_title = _skill_title_score(signals.tokens, row.title, row.description_text)
-        work_mode = _work_mode_score(row.work_mode, signals)
-        recency = _recency_score(row.posted_at)
+    ranked_rows: list[tuple[float, Job, dict[str, float]]] = []
+    for job, semantic in candidate_rows[:_RERANK_POOL]:
+        semantic_score = _clamp_01(semantic)
+        skill_title = _skill_title_score(signals.tokens, job.title, job.description_text)
+        work_mode = _work_mode_score(job.work_mode.value if job.work_mode else None, signals)
+        recency = _recency_score(job.posted_at)
         final_score = _hybrid_match_score(
             semantic_score=semantic_score,
             skill_title_score=skill_title,
@@ -268,7 +255,7 @@ async def _rank_matches(
         ranked_rows.append(
             (
                 final_score,
-                row,
+                job,
                 _explain_match(
                     semantic_score=semantic_score,
                     skill_title_score=skill_title,
@@ -292,7 +279,7 @@ async def _rank_matches(
         median_score = ranked_rows[len(ranked_rows) // 2][0]
         logger.info(
             "Match scoring: candidates=%s reranked=%s threshold=%.3f passed=%s fallback=%s top=%.3f median=%.3f",
-            len(results),
+            len(candidate_rows),
             len(ranked_rows),
             min_score,
             len([item for item in ranked_rows if item[0] >= min_score]),
@@ -320,8 +307,8 @@ async def _rank_matches(
             state=row.state,
             country=row.country,
             job_category=row.job_category,
-            job_type=row.job_type,
-            work_mode=row.work_mode,
+            job_type=row.job_type.value if row.job_type else None,
+            work_mode=row.work_mode.value if row.work_mode else None,
             posted_at=row.posted_at,
             score_breakdown=explain,
         )
@@ -331,7 +318,7 @@ async def _rank_matches(
 
 async def _return_cached_first_page(
     cache_service: MatchCacheService,
-    user_id,
+    user_id: UUID,
     cache_hash: str,
     min_score: float,
     page_size: int,
@@ -369,7 +356,7 @@ async def _build_match_response(
     *,
     db: AsyncSession,
     cache_service: MatchCacheService,
-    user_id,
+    user_id: UUID,
     cache_hash: str,
     min_score: float,
     page_size: int,
@@ -554,6 +541,11 @@ async def match_profile_resume(
         user_resume.embedding_error = None
         await db.commit()
     else:
+        if user_resume.resume_embedding is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Stored resume has no embedding. Please upload your resume again.",
+            )
         resume_embedding = list(user_resume.resume_embedding)
         if user_resume.encrypted_resume_text:
             resume_text = decrypt_resume_text(user_resume.encrypted_resume_text)

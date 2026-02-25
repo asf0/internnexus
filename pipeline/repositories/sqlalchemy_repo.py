@@ -17,7 +17,10 @@ from backend.app.models import (
     AshbyJobMetadata,
     GreenhouseJobMetadata,
     Job,
+    JobSource,
     LeverJobMetadata,
+    PipelineRun,
+    PipelineRunStatus,
 )
 from pipeline.repositories import JobLocationData, LocationUpdate, MetadataBatch
 

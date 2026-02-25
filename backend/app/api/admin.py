@@ -57,6 +57,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+def _job_source_str(source: JobSource | str | None) -> str:
+    if source is None:
+        raise HTTPException(status_code=500, detail="Job source is missing")
+    return source.value if isinstance(source, JobSource) else source
 
 @router.get("/jobs", response_model=AdminListResponse[AdminJobResponse])
 @limiter.limit(RATE_LIMITS["admin"])
@@ -140,7 +144,7 @@ async def list_jobs(
         items.append(
             AdminJobResponse(
                 id=job.id,
-                source=job.source.value if job.source else None,
+                source=_job_source_str(job.source),
                 title=job.title,
                 company=job.company,
                 location=job.location,
@@ -193,7 +197,7 @@ async def get_job_stats(
 
     # Active jobs
     active_result = await db.execute(
-        select(func.count()).select_from(Job).where(Job.is_active is True)
+        select(func.count()).select_from(Job).where(Job.is_active.is_(True))
     )
     active_jobs = active_result.scalar() or 0
 
@@ -271,7 +275,7 @@ async def get_job(
 
     return AdminJobResponse(
         id=job.id,
-        source=job.source.value if job.source else None,
+        source=_job_source_str(job.source),
         title=job.title,
         company=job.company,
         location=job.location,
@@ -339,7 +343,7 @@ async def update_job(
 
     return AdminJobResponse(
         id=job.id,
-        source=job.source.value if job.source else None,
+        source=_job_source_str(job.source),
         title=job.title,
         company=job.company,
         location=job.location,

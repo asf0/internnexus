@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from collections.abc import Mapping
+from typing import Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,7 +23,7 @@ class BaseRepository(Generic[ModelType]):
 
     async def get_by_id(self, id: UUID) -> ModelType | None:
         """Get a record by ID."""
-        stmt = select(self.model).where(self.model.id == id)
+        stmt = select(self.model).where(getattr(self.model, "id") == id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -32,16 +33,17 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create(self, **kwargs: Any) -> ModelType:
+    async def create(self, **kwargs: object) -> ModelType:
         """Create a new record."""
         instance = self.model(**kwargs)
         self.session.add(instance)
         await self.session.flush()
         return instance
 
-    async def update(self, instance: ModelType, **kwargs: Any) -> ModelType:
+    async def update(self, instance: ModelType, **kwargs: object) -> ModelType:
         """Update a record."""
-        for key, value in kwargs.items():
+        updates: Mapping[str, object] = kwargs
+        for key, value in updates.items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
         await self.session.flush()
