@@ -124,10 +124,7 @@ except Exception as exc:
             [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
         )
 
-        assert result.returncode == 0, (
-            "Import failure detected: "
-            f"{result.stdout}{result.stderr}"
-        )
+        assert result.returncode == 0, f"Import failure detected: {result.stdout}{result.stderr}"
 
     def test_services_no_circular_imports(self):
         """Check services import cleanly in a subprocess."""
@@ -148,9 +145,7 @@ except Exception as exc:
             [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
         )
 
-        assert result.returncode == 0, (
-            f"Import failure in services: {result.stdout}{result.stderr}"
-        )
+        assert result.returncode == 0, f"Import failure in services: {result.stdout}{result.stderr}"
 
 
 class TestEntryPoints:
@@ -193,9 +188,9 @@ except Exception as e:
 
         # Should either succeed or show help/usage error
         # Import errors are the concern here
-        assert "ModuleNotFoundError" not in result.stderr, (
-            f"Module execution failed: {result.stderr}"
-        )
+        assert (
+            "ModuleNotFoundError" not in result.stderr
+        ), f"Module execution failed: {result.stderr}"
         assert "ImportError" not in result.stderr, f"Import error: {result.stderr}"
 
 
@@ -269,12 +264,8 @@ except ModuleNotFoundError as e:
 class TestPipelineImports:
     """Test import scenarios specific to the pipeline module."""
 
-    def test_pipeline_init_has_path_setup(self):
-        """
-        Verify pipeline/__init__.py sets up paths before importing.
-
-        This prevents the import chain breaking issue.
-        """
+    def test_pipeline_init_has_no_path_mutation(self):
+        """Verify pipeline/__init__.py does not mutate sys.path at import-time."""
         pipeline_init = PROJECT_ROOT / "pipeline" / "__init__.py"
 
         if not pipeline_init.exists():
@@ -282,10 +273,20 @@ class TestPipelineImports:
 
         content = pipeline_init.read_text()
 
-        # Should set up sys.path BEFORE any backend imports
-        assert "sys.path" in content, (
-            "pipeline/__init__.py must set up sys.path before importing from backend"
+        assert "sys.path.insert" not in content
+
+        code = """
+import sys
+before = list(sys.path)
+import pipeline
+after = list(sys.path)
+print("UNCHANGED" if before == after else "MUTATED")
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
         )
+        assert result.returncode == 0
+        assert "UNCHANGED" in result.stdout
 
     def test_pipeline_imports_cleanly(self):
         """Test that the pipeline module imports without errors."""
@@ -311,9 +312,9 @@ print("SUCCESS: pipeline module imports cleanly")
             cwd=PROJECT_ROOT,
         )
 
-        assert "usage:" in result.stdout or "ModuleNotFoundError" not in result.stderr, (
-            f"run_pipeline entry point failed: {result.stderr}"
-        )
+        assert (
+            "usage:" in result.stdout or "ModuleNotFoundError" not in result.stderr
+        ), f"run_pipeline entry point failed: {result.stderr}"
 
 
 # Utility functions for debugging import issues
@@ -330,7 +331,7 @@ def debug_import_chain(module_name: str) -> None:
     print(f"\n=== Debugging import chain for: {module_name} ===")
 
     # Show current sys.path
-    print(f"sys.path (first 5 entries):")
+    print("sys.path (first 5 entries):")
     for i, p in enumerate(sys.path[:5]):
         print(f"  [{i}] {p}")
 
@@ -338,7 +339,7 @@ def debug_import_chain(module_name: str) -> None:
     try:
         spec = importlib.util.find_spec(module_name)
         if spec:
-            print(f"\nModule spec found:")
+            print("\nModule spec found:")
             print(f"  Origin: {spec.origin}")
             print(f"  Loader: {spec.loader}")
             print(f"  Submodule search locations: {spec.submodule_search_locations}")
@@ -348,7 +349,7 @@ def debug_import_chain(module_name: str) -> None:
         print(f"\nError finding spec: {e}")
 
     # Try importing with verbose mode
-    print(f"\nImport attempt:")
+    print("\nImport attempt:")
     try:
         module = importlib.import_module(module_name)
         print(f"  SUCCESS: Imported {module_name} from {module.__file__}")

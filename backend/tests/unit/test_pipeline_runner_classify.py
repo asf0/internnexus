@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -108,11 +108,21 @@ class _FakeSession:
 @pytest.mark.asyncio
 async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     jobs = [
-        SimpleNamespace(title="A", description_text="d1", job_category=None, classification_attempts=0),
-        SimpleNamespace(title="B", description_text="d2", job_category=None, classification_attempts=0),
-        SimpleNamespace(title="C", description_text="d3", job_category=None, classification_attempts=0),
-        SimpleNamespace(title="D", description_text="d4", job_category=None, classification_attempts=0),
-        SimpleNamespace(title="E", description_text="d5", job_category=None, classification_attempts=0),
+        SimpleNamespace(
+            title="A", description_text="d1", job_category=None, classification_attempts=0
+        ),
+        SimpleNamespace(
+            title="B", description_text="d2", job_category=None, classification_attempts=0
+        ),
+        SimpleNamespace(
+            title="C", description_text="d3", job_category=None, classification_attempts=0
+        ),
+        SimpleNamespace(
+            title="D", description_text="d4", job_category=None, classification_attempts=0
+        ),
+        SimpleNamespace(
+            title="E", description_text="d5", job_category=None, classification_attempts=0
+        ),
     ]
     fake_session = _FakeSession(jobs)
 
@@ -125,7 +135,9 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
 
         async def classify_batch_with_reasons(self, inputs):
             categories = await self.classify_batch(inputs)
-            return [(category, "ok" if category else "no_mappable_token") for category in categories]
+            return [
+                (category, "ok" if category else "no_mappable_token") for category in categories
+            ]
 
     def fake_select(target):
         return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
@@ -140,6 +152,7 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     monkeypatch.setattr("sqlalchemy.select", fake_select)
     monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
     monkeypatch.setattr("sqlalchemy.or_", lambda *args: args[0] if args else None)
+
     async def _get_classifier():
         return _FakeClassifier()
 
@@ -152,20 +165,6 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     assert success == 4
     assert errors == 1
     assert fake_session.commit_calls == 3
-
-
-def test_classification_retry_backoff_schedule():
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
-
-    retry_1 = run_pipeline._get_classification_next_retry_at("http_or_timeout_error", 1, now)
-    retry_2 = run_pipeline._get_classification_next_retry_at("http_or_timeout_error", 2, now)
-    retry_3 = run_pipeline._get_classification_next_retry_at("http_or_timeout_error", 3, now)
-    retry_nomap_5 = run_pipeline._get_classification_next_retry_at("no_mappable_token", 5, now)
-
-    assert retry_1 == datetime(2026, 2, 24, 13, 0, tzinfo=timezone.utc)
-    assert retry_2 == datetime(2026, 2, 24, 18, 0, tzinfo=timezone.utc)
-    assert retry_3 == datetime(2026, 2, 25, 12, 0, tzinfo=timezone.utc)
-    assert retry_nomap_5 == datetime(2026, 3, 3, 12, 0, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -197,6 +196,7 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
 
     fake_state = _FakeState()
     monkeypatch.setattr(run_pipeline, "PipelineStateManager", lambda run_id=None: fake_state)
+
     async def _no_incomplete_run():
         return None
 
@@ -206,7 +206,7 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
         return 0
 
     async def _ingest(*_args, **_kwargs):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         return 0, datetime.now(timezone.utc)
 
@@ -276,7 +276,7 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
 
     async def _ingest(*_args, **_kwargs):
         executed_steps.append("ingest")
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         return 0, datetime.now(timezone.utc)
 

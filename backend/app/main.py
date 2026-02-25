@@ -21,6 +21,7 @@ from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.query_timing import setup_query_timing
 from app.middleware.security import SecurityHeadersMiddleware
 from app.rate_limiter import RATE_LIMITS, limiter
+from app.services.errors import APIError
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[logging.StreamHandler()])
 
@@ -49,6 +50,11 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         },
         headers={"Retry-After": str(getattr(exc, "retry_after", 60))},
     )
+
+
+@app.exception_handler(APIError)
+async def api_error_handler(request: Request, exc: APIError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.to_dict()})
 
 
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")

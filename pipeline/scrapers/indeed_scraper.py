@@ -112,16 +112,12 @@ class IndeedScraper:
             return jobs
 
         try:
-            await page.wait_for_selector(
-                ".job_seen_beacon, .jobsearch-ResultsList, [data-jk], .result", timeout=15000
-            )
+            await page.wait_for_selector(".job_seen_beacon, .jobsearch-ResultsList, [data-jk], .result", timeout=15000)
         except Exception:
             logger.debug("No job cards found on Indeed page")
             return jobs
 
-        job_cards = await page.query_selector_all(
-            ".job_seen_beacon, li[data-jk], .result, .jobCard"
-        )
+        job_cards = await page.query_selector_all(".job_seen_beacon, li[data-jk], .result, .jobCard")
         for card in job_cards:
             try:
                 job_data = await self._parse_job_card(card)
@@ -179,15 +175,11 @@ class IndeedScraper:
             await page.goto(job_url, wait_until="domcontentloaded")
             await self._browser.wait_human(1.5, 3.0)
             description = base_data.get("description", "")
-            desc_el = await page.query_selector(
-                "#jobDescriptionText, .jobsearch-jobDescriptionText"
-            )
+            desc_el = await page.query_selector("#jobDescriptionText, .jobsearch-jobDescriptionText")
             if desc_el:
                 description = await desc_el.inner_html()
             title = base_data.get("title", "")
-            title_el = await page.query_selector(
-                ".jobsearch-JobInfoHeader-title, h1.jobsearch-JobInfoHeader-title"
-            )
+            title_el = await page.query_selector(".jobsearch-JobInfoHeader-title, h1.jobsearch-JobInfoHeader-title")
             if title_el:
                 title = await title_el.inner_text()
             company = base_data.get("company", "")
@@ -206,9 +198,7 @@ class IndeedScraper:
                 location = _clean_location_text(raw_location)
             if not title or not company:
                 return None
-            job_type = _extract_job_type_from_location(raw_location) or detect_job_type_from_title(
-                title
-            )
+            job_type = _extract_job_type_from_location(raw_location) or detect_job_type_from_title(title)
             work_mode = detect_work_mode_from_text(title, location)
             return JobSchema(
                 source="indeed_scrape",
@@ -224,9 +214,9 @@ class IndeedScraper:
             logger.debug(f"Failed to fetch Indeed job {job_id}: {exc}")
             if base_data.get("title") and base_data.get("company"):
                 raw_location = base_data.get("location", "")
-                job_type = _extract_job_type_from_location(
-                    raw_location
-                ) or detect_job_type_from_title(base_data["title"])
+                job_type = _extract_job_type_from_location(raw_location) or detect_job_type_from_title(
+                    base_data["title"]
+                )
                 location = _clean_location_text(raw_location)
                 work_mode = detect_work_mode_from_text(base_data["title"], location)
                 return JobSchema(
@@ -259,9 +249,7 @@ class IndeedScraper:
                     logger.warning(f"Error fetching Indeed job {card_data.get('job_id')}: {exc}")
         return jobs
 
-    async def scrape(
-        self, queries: list[str] | None = None, locations: list[str] | None = None
-    ) -> list[JobSchema]:
+    async def scrape(self, queries: list[str] | None = None, locations: list[str] | None = None) -> list[JobSchema]:
         queries = queries or INDEED_SEARCH_QUERIES
         locations = locations or INDEED_LOCATIONS
         all_jobs: list[JobSchema] = []
@@ -277,8 +265,6 @@ class IndeedScraper:
         return all_jobs
 
 
-async def scrape_indeed(
-    queries: list[str] | None = None, locations: list[str] | None = None
-) -> list[JobSchema]:
+async def scrape_indeed(queries: list[str] | None = None, locations: list[str] | None = None) -> list[JobSchema]:
     scraper = IndeedScraper()
     return await scraper.scrape(queries, locations)

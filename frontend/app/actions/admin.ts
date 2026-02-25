@@ -135,7 +135,7 @@ export async function fetchJobs(params: JobsListParams = {}) {
     const searchParams = new URLSearchParams();
     searchParams.set("page", String(params.page || 1));
     searchParams.set("page_size", String(params.pageSize || 20));
-    
+
     if (params.search) searchParams.set("search", params.search);
     if (params.company) searchParams.set("company", params.company);
     if (params.category) searchParams.set("category", params.category);
@@ -334,7 +334,7 @@ export async function fetchUsers(params: UsersListParams = {}) {
     const searchParams = new URLSearchParams();
     searchParams.set("page", String(params.page || 1));
     searchParams.set("page_size", String(params.pageSize || 20));
-    
+
     if (params.search) searchParams.set("search", params.search);
     if (params.isAdmin !== undefined) searchParams.set("is_admin", String(params.isAdmin));
     if (params.sortBy) {

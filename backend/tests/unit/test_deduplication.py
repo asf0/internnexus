@@ -1,7 +1,5 @@
 """Unit tests for pipeline/utils/deduplication.py."""
 
-import pytest
-
 from pipeline.utils.deduplication import deduplicate_by_key
 
 

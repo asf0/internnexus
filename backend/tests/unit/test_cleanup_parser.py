@@ -1,5 +1,7 @@
 """Unit tests for pipeline/cleanup/parser.py."""
 
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -247,7 +249,8 @@ class TestParseLocationOnlyWithSampleData:
     @pytest.fixture
     def sample_locations(self):
         locations = []
-        with open("backend/tests/fixtures/locations_sample.txt", "r") as f:
+        fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "locations_sample.txt"
+        with fixture_path.open("r") as f:
             for line in f:
                 line = line.strip()
                 if line:

@@ -21,27 +21,33 @@ class PipelineStateManager:
         self.run_id = run_id
         self._session: AsyncSession | None = None
 
-    async def __aenter__(self):
+    def _require_session(self) -> AsyncSession:
+        if self._session is None:
+            raise RuntimeError("PipelineStateManager session not initialized")
+        return self._session
+
+    async def __aenter__(self) -> PipelineStateManager:
         self._session = AsyncSessionLocal()
         await self._session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         if self._session:
             await self._session.__aexit__(exc_type, exc_val, exc_tb)
             self._session = None
 
     async def start_run(self) -> UUID:
+        session = self._require_session()
         if self.run_id:
-            run = await self._session.get(PipelineRun, self.run_id)
+            run = await session.get(PipelineRun, self.run_id)
             if run:
                 return self.run_id
 
         run = PipelineRun(status=PipelineRunStatus.running)
-        self._session.add(run)
-        await self._session.flush()  # Flush to get the ID without committing
+        session.add(run)
+        await session.flush()  # Flush to get the ID without committing
         self.run_id = run.id
-        await self._session.commit()
+        await session.commit()
         logger.info(f"Started pipeline run: {self.run_id}")
         return self.run_id
 
@@ -49,17 +55,19 @@ class PipelineStateManager:
         if not self.run_id:
             return
 
-        await self._session.execute(
-            update(PipelineRun).where(PipelineRun.id == self.run_id).values(step_completed=step)
-        )
-        await self._session.commit()
+        session = self._require_session()
+
+        await session.execute(update(PipelineRun).where(PipelineRun.id == self.run_id).values(step_completed=step))
+        await session.commit()
         logger.debug(f"Marked step '{step}' complete for run {self.run_id}")
 
     async def mark_completed(self, results: dict[str, Any] | None = None) -> None:
         if not self.run_id:
             return
 
-        await self._session.execute(
+        session = self._require_session()
+
+        await session.execute(
             update(PipelineRun)
             .where(PipelineRun.id == self.run_id)
             .values(
@@ -68,14 +76,16 @@ class PipelineStateManager:
                 results=json.dumps(results) if results else None,
             )
         )
-        await self._session.commit()
+        await session.commit()
         logger.info(f"Pipeline run {self.run_id} completed successfully")
 
     async def mark_failed(self, error: Exception, step: str) -> None:
         if not self.run_id:
             return
 
-        await self._session.execute(
+        session = self._require_session()
+
+        await session.execute(
             update(PipelineRun)
             .where(PipelineRun.id == self.run_id)
             .values(
@@ -85,11 +95,12 @@ class PipelineStateManager:
                 completed_at=datetime.now(timezone.utc),
             )
         )
-        await self._session.commit()
+        await session.commit()
         logger.error(f"Pipeline run {self.run_id} failed at step '{step}': {error}")
 
     async def get_last_incomplete_run(self) -> PipelineRun | None:
-        result = await self._session.execute(
+        session = self._require_session()
+        result = await session.execute(
             select(PipelineRun)
             .where(PipelineRun.status == PipelineRunStatus.running)
             .order_by(PipelineRun.started_at.desc())

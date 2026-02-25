@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine

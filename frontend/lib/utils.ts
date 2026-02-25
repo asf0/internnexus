@@ -42,7 +42,7 @@ export function generateJobSlug(title: string, company: string, id: string): str
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50);
-  
+
   const companySlug = company
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
@@ -50,9 +50,9 @@ export function generateJobSlug(title: string, company: string, id: string): str
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 30);
-  
+
   const idSuffix = id.slice(0, 8);
-  
+
   return `${titleSlug}-at-${companySlug}-${idSuffix}`;
 }
 

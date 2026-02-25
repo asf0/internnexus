@@ -1,7 +1,6 @@
 """Integration tests for auth API endpoints."""
 
 import pytest
-from datetime import datetime, timezone
 
 
 class TestAuthAPI:
@@ -134,13 +133,25 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_set_password_too_short(self, client):
         """Test setting password that is too short."""
-        # Arrange
+        # Arrange - register first to get auth token
+        register_data = {
+            "email": "setpassword@example.com",
+            "password": "SecurePass123!",
+            "name": "Set Password User",
+        }
+        register_response = await client.post("/auth/register", json=register_data)
+        token = register_response.json()["access_token"]
+
         password_data = {
             "password": "short"  # Less than 8 characters
         }
 
         # Act
-        response = await client.post("/auth/set-password", json=password_data)
+        response = await client.post(
+            "/auth/set-password",
+            json=password_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
         # Assert
         assert response.status_code == 422

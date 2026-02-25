@@ -52,6 +52,10 @@ def compute_hash(value: str | bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _decode_text_bytes(file_content: bytes) -> str:
+    return file_content.decode("utf-8", errors="ignore").strip()
+
+
 def extract_text_from_pdf(file_obj: BinaryIO) -> str:
     errors: list[str] = []
 
@@ -71,7 +75,8 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         from pdfminer.high_level import extract_text as pdfminer_extract
 
         file_obj.seek(0)
-        text = (pdfminer_extract(file_obj) or "").strip()
+        pdf_bytes = file_obj.read()
+        text = (pdfminer_extract(io.BytesIO(pdf_bytes)) or "").strip()
         if text:
             return text
     except ImportError:
@@ -83,7 +88,7 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         file_obj.seek(0)
         content = file_obj.read()
         if isinstance(content, bytes):
-            decoded = content.decode("utf-8", errors="ignore")
+            decoded = _decode_text_bytes(content)
             printable = "".join(c for c in decoded if c.isprintable() or c in "\n\r\t ")
             if len(printable.strip()) > 100:
                 return printable.strip()
@@ -91,7 +96,9 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         errors.append(f"text fallback: {exc}")
 
     raise ResumeProcessingError(
-        "Could not extract text from PDF. " + "; ".join(errors) if errors else "Unknown parser error"
+        "Could not extract text from PDF. " + "; ".join(errors)
+        if errors
+        else "Unknown parser error"
     )
 
 
@@ -99,7 +106,7 @@ def extract_resume_text(file_name: str, file_content: bytes) -> str:
     lower = file_name.lower()
     if lower.endswith(".txt"):
         try:
-            text = file_content.decode("utf-8", errors="ignore").strip()
+            text = _decode_text_bytes(file_content)
         except Exception as exc:  # noqa: BLE001
             raise ResumeProcessingError(f"Failed to decode text file: {exc}") from exc
         if not text:

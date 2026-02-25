@@ -35,7 +35,13 @@ def _match(job_suffix: str) -> MatchResult:
         apply_url="https://example.com/apply",
         description_text="Python backend role",
         posted_at=datetime.now(timezone.utc),
-        score_breakdown={"semantic": 0.8, "skill_title": 0.8, "work_mode": 0.6, "recency": 0.9, "final": 0.8},
+        score_breakdown={
+            "semantic": 0.8,
+            "skill_title": 0.8,
+            "work_mode": 0.6,
+            "recency": 0.9,
+            "final": 0.8,
+        },
     )
 
 

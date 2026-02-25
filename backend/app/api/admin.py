@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import extract, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -36,11 +36,11 @@ from app.api.admin_schemas import (
     UserCreateRequest,
     UserNotesUpdateRequest,
 )
+from app.api.mappers import job_to_admin_response, user_to_admin_response
 from app.auth.dependencies import AdminDep, SuperAdminDep
 from app.auth.jwt import get_password_hash
 from app.db import get_db
 from app.models import (
-    Account,
     Admin,
     AdminRole,
     Job,
@@ -137,28 +137,8 @@ async def list_jobs(
     items = []
     for row in rows:
         job = row[0]
-        click_count = row[1]
-        items.append(
-            AdminJobResponse(
-                id=job.id,
-                source=job.source.value if job.source else None,
-                title=job.title,
-                company=job.company,
-                location=job.location,
-                city=job.city,
-                state=job.state,
-                country=job.country,
-                apply_url=job.apply_url,
-                description_text=job.description_text,
-                job_category=job.job_category,
-                job_type=job.job_type.value if job.job_type else None,
-                work_mode=job.work_mode.value if job.work_mode else None,
-                posted_at=job.posted_at,
-                is_active=job.is_active,
-                click_count=click_count,
-                created_at=job.last_seen,
-            )
-        )
+        click_count = int(row[1] or 0)
+        items.append(job_to_admin_response(job, click_count=click_count))
 
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
@@ -194,7 +174,7 @@ async def get_job_stats(
 
     # Active jobs
     active_result = await db.execute(
-        select(func.count()).select_from(Job).where(Job.is_active == True)
+        select(func.count()).select_from(Job).where(Job.is_active.is_(True))
     )
     active_jobs = active_result.scalar() or 0
 
@@ -270,25 +250,7 @@ async def get_job(
     job = row[0]
     click_count = row[1]
 
-    return AdminJobResponse(
-        id=job.id,
-        source=job.source.value if job.source else None,
-        title=job.title,
-        company=job.company,
-        location=job.location,
-        city=job.city,
-        state=job.state,
-        country=job.country,
-        apply_url=job.apply_url,
-        description_text=job.description_text,
-        job_category=job.job_category,
-        job_type=job.job_type.value if job.job_type else None,
-        work_mode=job.work_mode.value if job.work_mode else None,
-        posted_at=job.posted_at,
-        is_active=job.is_active,
-        click_count=click_count,
-        created_at=job.last_seen,
-    )
+    return job_to_admin_response(job, click_count=int(click_count or 0))
 
 
 @router.patch("/jobs/{job_id}", response_model=AdminJobResponse)
@@ -338,25 +300,7 @@ async def update_job(
     )
     click_count = click_result.scalar() or 0
 
-    return AdminJobResponse(
-        id=job.id,
-        source=job.source.value if job.source else None,
-        title=job.title,
-        company=job.company,
-        location=job.location,
-        city=job.city,
-        state=job.state,
-        country=job.country,
-        apply_url=job.apply_url,
-        description_text=job.description_text,
-        job_category=job.job_category,
-        job_type=job.job_type.value if job.job_type else None,
-        work_mode=job.work_mode.value if job.work_mode else None,
-        posted_at=job.posted_at,
-        is_active=job.is_active,
-        click_count=click_count,
-        created_at=job.last_seen,
-    )
+    return job_to_admin_response(job, click_count=int(click_count or 0))
 
 
 @router.delete("/jobs/{job_id}")
@@ -474,25 +418,7 @@ async def create_job(
     await db.commit()
     await db.refresh(new_job)
 
-    return AdminJobResponse(
-        id=new_job.id,
-        source=new_job.source.value,
-        title=new_job.title,
-        company=new_job.company,
-        location=new_job.location,
-        city=new_job.city,
-        state=new_job.state,
-        country=new_job.country,
-        apply_url=new_job.apply_url,
-        description_text=new_job.description_text,
-        job_category=new_job.job_category,
-        job_type=new_job.job_type.value if new_job.job_type else None,
-        work_mode=new_job.work_mode.value if new_job.work_mode else None,
-        posted_at=new_job.posted_at,
-        is_active=new_job.is_active,
-        click_count=0,
-        created_at=new_job.last_seen,
-    )
+    return job_to_admin_response(new_job, click_count=0)
 
 
 @router.delete("/jobs/{job_id}/hard")
@@ -668,28 +594,7 @@ async def list_users(
     users = result.scalars().all()
 
     # Build response items
-    items = []
-    for user in users:
-        admin_role = None
-        if user.admin:
-            admin_role = user.admin.role.value
-
-        provider = None
-        if user.accounts:
-            provider = user.accounts[0].provider
-
-        items.append(
-            AdminUserResponse(
-                id=user.id,
-                email=user.email,
-                name=user.name,
-                is_active=not user.is_deleted,
-                created_at=user.created_at,
-                has_password=user.hashed_password is not None,
-                admin_role=admin_role,
-                provider=provider,
-            )
-        )
+    items = [user_to_admin_response(user) for user in users]
 
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
@@ -739,24 +644,7 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    admin_role = None
-    if user.admin:
-        admin_role = user.admin.role.value
-
-    provider = None
-    if user.accounts:
-        provider = user.accounts[0].provider
-
-    return AdminUserResponse(
-        id=user.id,
-        email=user.email,
-        name=user.name,
-        is_active=not user.is_deleted,
-        created_at=user.created_at,
-        has_password=user.hashed_password is not None,
-        admin_role=admin_role,
-        provider=provider,
-    )
+    return user_to_admin_response(user)
 
 
 @router.post("/users/{user_id}/grant-admin")
@@ -985,16 +873,7 @@ async def create_user(
     await db.commit()
     await db.refresh(new_user)
 
-    return AdminUserResponse(
-        id=new_user.id,
-        email=new_user.email,
-        name=new_user.name,
-        is_active=not new_user.is_deleted,
-        created_at=new_user.created_at,
-        has_password=new_user.hashed_password is not None,
-        admin_role=None,
-        provider=None,
-    )
+    return user_to_admin_response(new_user)
 
 
 @router.delete("/users/{user_id}/hard")
@@ -1186,8 +1065,11 @@ async def update_user_notes(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Update notes
-    user.notes = data.notes
+    # Update notes directly in SQL since notes is not ORM-mapped in compatibility mode
+    await db.execute(
+        text("UPDATE users SET notes = :notes WHERE id = :user_id"),
+        {"notes": data.notes, "user_id": user_id},
+    )
     await db.commit()
 
     return {"message": "User notes updated"}

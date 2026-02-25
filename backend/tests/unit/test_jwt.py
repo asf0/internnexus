@@ -4,7 +4,6 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
-from jose import jwt as jose_jwt
 
 from app.auth.jwt import (
     verify_password,

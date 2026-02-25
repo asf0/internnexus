@@ -33,6 +33,7 @@ services:
       retries: 5
 
   backend:
+    image: internnexus-backend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -49,7 +50,6 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - AUTH_SECRET=${AUTH_SECRET}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - OLLAMA_CLASSIFICATION_URL=${OLLAMA_CLASSIFICATION_URL}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
@@ -74,6 +74,7 @@ services:
       start_period: 40s
 
   pipeline:
+    image: internnexus-pipeline:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: pipeline/Dockerfile
@@ -89,7 +90,6 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - AUTH_SECRET=${AUTH_SECRET}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - OLLAMA_CLASSIFICATION_URL=${OLLAMA_CLASSIFICATION_URL}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
@@ -97,6 +97,9 @@ services:
       - LEVER_API_URL=${LEVER_API_URL}
       - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
       - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -104,6 +107,7 @@ services:
         condition: service_healthy
 
   frontend:
+    image: internnexus-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -66,7 +66,5 @@ Examples:
         action="store_true",
         help="Test mode for cleanup: write results to CSV without DB changes",
     )
-    parser.add_argument(
-        "--limit", type=int, default=None, help="Limit number of jobs to process (for --test mode)"
-    )
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of jobs to process (for --test mode)")
     return parser

@@ -83,14 +83,14 @@ export default async function JobDetailPage({ params }: JobPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: toSafeJsonLd(jsonLd) }}
       />
-      
+
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase text-slate-500 dark:text-md-on-surface-variant">
           {job.company}
         </p>
         <h1 className="text-3xl font-semibold text-slate-900 dark:text-md-on-surface">{job.title}</h1>
         <p className="text-sm text-slate-600 dark:text-md-on-surface-variant">{job.location}</p>
-        
+
         <div className="flex flex-wrap gap-2 pt-2">
           {job.job_category && (
             <Badge variant="default">

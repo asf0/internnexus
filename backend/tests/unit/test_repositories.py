@@ -1,7 +1,5 @@
 """Unit tests for pipeline/repositories/__init__.py."""
 
-import pytest
-from datetime import datetime
 from uuid import uuid4
 
 from pipeline.repositories import (
@@ -207,6 +205,24 @@ class TestSQLAlchemyRepositoryImport:
         from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository
 
         assert SQLAlchemyJobRepository is not None
+
+    def test_sqlalchemy_repo_exports_boundary_symbols(self):
+        from pipeline.repositories.sqlalchemy_repo import __all__
+
+        expected_exports = {
+            "AsyncSessionLocal",
+            "Job",
+            "JobSource",
+            "PipelineRun",
+            "PipelineRunStatus",
+            "AshbyJobMetadata",
+            "GreenhouseJobMetadata",
+            "LeverJobMetadata",
+            "SQLAlchemyJobRepository",
+            "get_repository",
+        }
+
+        assert expected_exports.issubset(set(__all__))
 
     def test_sqlalchemy_repo_has_required_methods(self):
         from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository

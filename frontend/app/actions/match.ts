@@ -34,7 +34,7 @@ async function fetchWithTimeout(input: string, init: RequestInit): Promise<Respo
 export async function matchResume(formData: FormData): Promise<MatchResponse> {
 
   const backendToken = await getBackendToken();
-  
+
   if (!backendToken) {
     return emptyMatch("Authentication required. Please sign in.");
   }

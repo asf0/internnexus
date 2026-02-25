@@ -102,7 +102,7 @@ export default function JobDetailPanel({
          {job.description_text && (
            <div className="mt-6">
              <h3 className="font-semibold text-slate-900 dark:text-md-on-surface">Description</h3>
-             <div 
+             <div
                className="mt-2 prose prose-sm prose-slate max-w-none dark:prose-invert text-slate-600 dark:text-md-on-surface-variant"
                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(job.description_text) }}
              />

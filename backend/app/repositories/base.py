@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from collections.abc import Mapping
+from typing import Generic, Protocol, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from app.db import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
+ModelFactoryType = TypeVar("ModelFactoryType", bound=Base, covariant=True)
+
+
+class _ModelFactory(Protocol[ModelFactoryType]):
+    def __call__(self, **kwargs: object) -> ModelFactoryType: ...
 
 
 class BaseRepository(Generic[ModelType]):
@@ -20,9 +27,12 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.session = session
 
+    def _id_column(self) -> InstrumentedAttribute[UUID]:
+        return cast(InstrumentedAttribute[UUID], getattr(self.model, "id"))
+
     async def get_by_id(self, id: UUID) -> ModelType | None:
         """Get a record by ID."""
-        stmt = select(self.model).where(self.model.id == id)
+        stmt = select(self.model).where(self._id_column() == id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -32,16 +42,17 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create(self, **kwargs: Any) -> ModelType:
+    async def create(self, **kwargs: object) -> ModelType:
         """Create a new record."""
-        instance = self.model(**kwargs)
+        model_factory = cast(_ModelFactory[ModelType], self.model)
+        instance = model_factory(**kwargs)
         self.session.add(instance)
         await self.session.flush()
         return instance
 
-    async def update(self, instance: ModelType, **kwargs: Any) -> ModelType:
+    async def update(self, instance: ModelType, **kwargs: object) -> ModelType:
         """Update a record."""
-        for key, value in kwargs.items():
+        for key, value in cast(Mapping[str, object], kwargs).items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
         await self.session.flush()

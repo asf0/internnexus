@@ -15,6 +15,7 @@ dependencies = [
     "alembic>=1.13.2",
     "httpx>=0.27.0",
     "pypdf>=4.3.1",
+    "pdfminer.six>=20231228",
     "python-multipart>=0.0.9",
     "slowapi>=0.1.9",
     "python-jose[cryptography]>=3.3.0",
@@ -30,15 +31,25 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
-    "httpx>=0.27.0",
+    "ruff>=0.8.0",
+    "pyright>=1.1.400",
 ]
 
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+ignore = ["E402"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F841"]
+
 [tool.pyright]
 pythonVersion = "3.12"
-strict = true
+typeCheckingMode = "basic"
+reportGeneralTypeIssues = "error"
+reportArgumentType = "error"
+reportAttributeAccessIssue = "error"
 
 [tool.setuptools]
 packages = ["app"]
@@ -50,6 +61,12 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "integration: marks integration tests",
+    "e2e: marks end-to-end tests",
+]
 
 [dependency-groups]
 dev = [

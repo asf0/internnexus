@@ -1,7 +1,5 @@
 """Unit tests for pipeline/location/constants.py."""
 
-import pytest
-
 from pipeline.location.constants import (
     ABBR_TO_STATE,
     CANADIAN_PROVINCES,
@@ -16,7 +14,6 @@ from pipeline.location.constants import (
     INVALID_CITY_PATTERNS,
     INVALID_STATES,
     STATE_MAPPINGS,
-    STATES_AS_CITIES,
     UK_REGIONS,
     US_STATE_ABBREVIATIONS,
     US_STATE_TO_ABBR,

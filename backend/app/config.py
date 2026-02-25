@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Protocol, cast
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     postgres_db: str
@@ -20,7 +22,6 @@ class Settings(BaseSettings):
 
     # Classification configuration
     classification_model: str | None = None
-    ollama_classification_url: str | None = None  # Defaults to ollama_base_url if not set
     classification_timeout_seconds: float = 90.0
     classification_max_concurrent: int = 2
     classification_keep_alive: str = "30m"
@@ -68,11 +69,6 @@ class Settings(BaseSettings):
         )
 
     @property
-    def resolved_classification_url(self) -> str:
-        """Return classification URL, defaulting to ollama_base_url if not set."""
-        return self.ollama_classification_url or self.ollama_base_url
-
-    @property
     def resolved_classification_model(self) -> str:
         """Return configured classification model."""
         model = self.classification_model
@@ -83,4 +79,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    class _SettingsFactory(Protocol):
+        def __call__(self) -> Settings: ...
+
+    # BaseSettings resolves required fields from environment at runtime.
+    # Cast the class constructor to a zero-arg factory for static checking.
+    settings_factory = cast(_SettingsFactory, Settings)
+    return settings_factory()

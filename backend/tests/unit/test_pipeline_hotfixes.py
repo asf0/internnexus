@@ -68,6 +68,36 @@ def test_main_cleanup_step_passes_limit(monkeypatch):
     assert calls["limit"] == 7
 
 
+def test_main_continuous_uses_interval_and_runner(monkeypatch):
+    calls: dict[str, int | bool | None] = {
+        "interval": None,
+        "ran_continuous": False,
+    }
+
+    class _FakeRunner:
+        def __init__(self, **_kwargs):
+            return None
+
+    async def _fake_run_continuous(runner, interval):
+        assert isinstance(runner, _FakeRunner)
+        calls["ran_continuous"] = True
+        calls["interval"] = interval
+
+    async def _fake_get_incomplete_run():
+        return None
+
+    monkeypatch.setattr(run_pipeline, "get_config", _fake_config)
+    monkeypatch.setattr(run_pipeline, "PipelineRunner", _FakeRunner)
+    monkeypatch.setattr(run_pipeline, "run_continuous", _fake_run_continuous)
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _fake_get_incomplete_run)
+    monkeypatch.setattr(sys, "argv", ["run_pipeline.py", "--continuous", "--interval", "5"])
+
+    run_pipeline.main()
+
+    assert calls["ran_continuous"] is True
+    assert calls["interval"] == 5
+
+
 @pytest.mark.asyncio
 async def test_generate_embeddings_honors_injected_session(monkeypatch):
     fake_session = object()

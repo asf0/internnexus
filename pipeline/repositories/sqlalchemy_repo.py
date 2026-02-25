@@ -7,26 +7,55 @@ All other pipeline modules should use the repository protocol for database acces
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, text, update
-from sqlalchemy.dialects.postgresql import insert
 
 from backend.app.db import AsyncSessionLocal
 from backend.app.models import (
     AshbyJobMetadata,
     GreenhouseJobMetadata,
     Job,
-    PipelineRun,
-    PipelineRunStatus,
     JobSource,
     LeverJobMetadata,
+    PipelineRun,
+    PipelineRunStatus,
 )
-from pipeline.repositories import JobLocationData, LocationUpdate, MetadataBatch
+from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate, MetadataBatch
+
+__all__ = [
+    "AsyncSessionLocal",
+    "Job",
+    "JobSource",
+    "PipelineRun",
+    "PipelineRunStatus",
+    "AshbyJobMetadata",
+    "GreenhouseJobMetadata",
+    "LeverJobMetadata",
+    "SQLAlchemyJobRepository",
+    "get_repository",
+]
+
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _enum_str(value: Enum | str | None) -> str:
+    if isinstance(value, Enum):
+        return str(value.value)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _rowcount(result: object) -> int:
+    raw_rowcount = getattr(result, "rowcount", None)
+    if isinstance(raw_rowcount, int):
+        return raw_rowcount
+    return int(raw_rowcount or 0)
 
 
 class SQLAlchemyJobRepository:
@@ -110,7 +139,7 @@ class SQLAlchemyJobRepository:
         return [
             JobLocationData(
                 id=row.id,
-                source=row.source.value if hasattr(row.source, "value") else str(row.source),
+                source=_enum_str(row.source),
                 location=row.location,
                 city=row.city,
                 state=row.state,
@@ -166,7 +195,7 @@ class SQLAlchemyJobRepository:
         return [
             JobLocationData(
                 id=row.id,
-                source=row.source.value if hasattr(row.source, "value") else str(row.source),
+                source=_enum_str(row.source),
                 location=row.location,
                 city=row.city,
                 state=row.state,
@@ -245,7 +274,7 @@ class SQLAlchemyJobRepository:
         )
         result = await self._session.execute(refresh_stmt)
         await self._session.commit()
-        return result.rowcount if hasattr(result, "rowcount") else 0
+        return _rowcount(result)
 
     async def fetch_metadata_batch(
         self,
@@ -319,7 +348,7 @@ class SQLAlchemyJobRepository:
     async def get_jobs_without_embeddings(
         self,
         batch_size: int,
-    ) -> list[int]:
+    ) -> list[UUID]:
         """Get job IDs that need embeddings generated.
 
         Filters out jobs with empty/short description text (< 30 chars
@@ -329,7 +358,7 @@ class SQLAlchemyJobRepository:
             batch_size: Maximum number of job IDs to fetch
 
         Returns:
-            List of job IDs (integer primary keys)
+            List of job IDs (UUID primary keys)
         """
         # Clean HTML and entities from description_text
         cleaned_text = func.regexp_replace(
@@ -358,12 +387,12 @@ class SQLAlchemyJobRepository:
 
     async def get_jobs_by_ids(
         self,
-        job_ids: list[int],
-    ) -> list[dict]:
+        job_ids: list[UUID],
+    ) -> list[JobEmbeddingRecord]:
         """Fetch jobs by their integer IDs.
 
         Args:
-            job_ids: List of job integer IDs
+            job_ids: List of job UUIDs
 
         Returns:
             List of job data dictionaries with id, company, title, apply_url
@@ -397,13 +426,13 @@ class SQLAlchemyJobRepository:
 
     async def update_job_embedding(
         self,
-        job_id: int,
+        job_id: UUID,
         embedding: list[float],
     ) -> None:
         """Update a job's embedding vector.
 
         Args:
-            job_id: The job's integer ID
+            job_id: The job's UUID
             embedding: The embedding vector to store
         """
         stmt = update(Job).where(Job.id == job_id).values(description_embedding=embedding)
@@ -423,7 +452,7 @@ class SQLAlchemyJobRepository:
         stmt = update(Job).where(Job.is_active.is_(True)).values(is_active=False)
         result = await self._session.execute(stmt)
         await self._session.commit()
-        return getattr(result, "rowcount", 0) or 0
+        return _rowcount(result)
 
     async def delete_inactive_jobs(self) -> int:
         """Delete all jobs marked as inactive.
@@ -438,7 +467,7 @@ class SQLAlchemyJobRepository:
         stmt = delete(Job).where(Job.is_active.is_(False))
         result = await self._session.execute(stmt)
         await self._session.commit()
-        return getattr(result, "rowcount", 0) or 0
+        return _rowcount(result)
 
     async def get_total_count(
         self,

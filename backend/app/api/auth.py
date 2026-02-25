@@ -7,10 +7,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import validate_password_strength
 from app.auth.oauth import OAuthVerificationError, verify_oauth_token
+from app.db import get_db
 from app.models import User
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.services.auth_service import AuthService, get_auth_service
@@ -58,12 +60,16 @@ class AuthResponse(BaseModel):
     user: dict
 
 
+async def _get_auth_service_dependency(db: AsyncSession = Depends(get_db)) -> AuthService:
+    return await get_auth_service(db)
+
+
 @router.post("/register", response_model=AuthResponse)
 @limiter.limit(RATE_LIMITS["auth_register"])
 async def register(
     request: Request,
     data: RegisterRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(_get_auth_service_dependency),
 ) -> AuthResponse:
     user, access_token = await auth_service.register_user(
         email=data.email,
@@ -81,7 +87,7 @@ async def register(
 async def login(
     request: Request,
     data: LoginRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(_get_auth_service_dependency),
 ) -> AuthResponse:
     user, access_token = await auth_service.login_user(
         email=data.email,
@@ -98,7 +104,7 @@ async def login(
 async def oauth_callback(
     request: Request,
     data: OAuthCallbackRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(_get_auth_service_dependency),
 ) -> AuthResponse:
     try:
         verified_user = await verify_oauth_token(data.provider, data.access_token)
@@ -134,7 +140,7 @@ async def set_password(
     request: Request,
     data: SetPasswordRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(_get_auth_service_dependency),
 ) -> AuthResponse:
     user, access_token = await auth_service.set_password(current_user, data.password)
     return AuthResponse(

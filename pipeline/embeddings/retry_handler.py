@@ -6,7 +6,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from pipeline.backend_bridge import EmbeddingError
 
 from pipeline.embeddings.batch_processor import (
     _classify_error,
@@ -93,9 +92,7 @@ def _collect_retry_items(
             retry_queue.append((job.id, error, retry_attempt))
         else:
             error_type, _ = _classify_error(error)
-            _log_failed_job(
-                job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt
-            )
+            _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt)
     return retry_queue
 
 

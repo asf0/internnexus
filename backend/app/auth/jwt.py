@@ -11,8 +11,6 @@ from jose import JWTError, jwt
 from app.config import get_settings
 import re
 
-settings = get_settings()
-
 # Password hashing context using Argon2
 ph = PasswordHasher()
 
@@ -47,6 +45,7 @@ def create_access_token(
         The encoded JWT token string
     """
     to_encode = data.copy()
+    settings = get_settings()
 
     # Add unique JWT ID (jti) claim to ensure token uniqueness (RFC 7519)
     to_encode["jti"] = str(uuid4())
@@ -76,6 +75,7 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         The decoded token payload if valid, None otherwise
     """
     try:
+        settings = get_settings()
         payload = jwt.decode(token, settings.auth_secret, algorithms=[settings.jwt_algorithm])
         return payload
     except JWTError:

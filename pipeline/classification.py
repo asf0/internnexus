@@ -178,14 +178,14 @@ class JobClassifier:
 
         Args:
             model: Model name (defaults to settings.classification_model)
-            base_url: API URL (defaults to settings.resolved_classification_url)
+            base_url: API URL (defaults to settings.ollama_base_url)
             provider: "ollama" or "lmstudio" (defaults to settings.embedding_provider)
             timeout: Request timeout in seconds
             max_concurrent: Maximum concurrent requests for batch processing
         """
         settings = get_settings()
         self._model = model or settings.resolved_classification_model
-        self._base_url = (base_url or settings.resolved_classification_url).rstrip("/")
+        self._base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self._provider = provider or settings.embedding_provider
         configured_timeout = float(getattr(settings, "classification_timeout_seconds", DEFAULT_TIMEOUT))
         configured_concurrency = int(getattr(settings, "classification_max_concurrent", MAX_CONCURRENT_REQUESTS))
@@ -220,9 +220,7 @@ class JobClassifier:
         category, _reason, _raw_output = await self._classify_job_with_reason(title, description)
         return category
 
-    async def _classify_job_with_reason(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_job_with_reason(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify a single job and return category, reason, and raw output sample."""
         try:
             if self._provider == "lmstudio":
@@ -243,9 +241,7 @@ class JobClassifier:
         return await self._classify_ollama_impl(title, description)
 
     @_retry_decorator
-    async def _classify_ollama_impl(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_ollama_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using Ollama native API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -291,9 +287,7 @@ class JobClassifier:
         return await self._classify_lmstudio_impl(title, description)
 
     @_retry_decorator
-    async def _classify_lmstudio_impl(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_lmstudio_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using LM Studio OpenAI-compatible API (with retry)."""
         prompt = _build_classification_prompt(title, description)
         client = await self._get_client()
@@ -370,9 +364,7 @@ class JobClassifier:
                 retryable=False,
             ) from exc
 
-    async def classify_batch_with_reasons(
-        self, jobs: list[tuple[str, str]]
-    ) -> list[tuple[str | None, str]]:
+    async def classify_batch_with_reasons(self, jobs: list[tuple[str, str]]) -> list[tuple[str | None, str]]:
         """Classify multiple jobs concurrently with rate limiting.
 
         Args:
@@ -388,9 +380,7 @@ class JobClassifier:
         completed = 0
         lock = asyncio.Lock()
 
-        async def classify_with_semaphore(
-            idx: int, title: str, description: str
-        ) -> tuple[int, str | None, str, str]:
+        async def classify_with_semaphore(idx: int, title: str, description: str) -> tuple[int, str | None, str, str]:
             nonlocal completed
             async with semaphore:
                 try:
@@ -408,10 +398,7 @@ class JobClassifier:
 
                 return (idx, result, reason, raw_output)
 
-        tasks = [
-            classify_with_semaphore(i, title, description)
-            for i, (title, description) in enumerate(jobs)
-        ]
+        tasks = [classify_with_semaphore(i, title, description) for i, (title, description) in enumerate(jobs)]
 
         try:
             results_with_idx = await asyncio.gather(*tasks)

@@ -33,17 +33,17 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
 
   const handleAuthenticatedClick = useCallback(async () => {
     if (isLoading) return;
-    
+
     setIsLoading(true);
     try {
       const result = await trackJobClick(jobId);
-      
+
       if ("error" in result) {
         // Fallback to original URL on error
         openApplyUrl(applyUrl);
         return;
       }
-      
+
       openApplyUrl(result.apply_url);
     } finally {
       setIsLoading(false);
@@ -65,7 +65,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
   const handleAuthSuccess = useCallback(async (applyWindow?: Window | null) => {
     const urlToOpen = pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
     const storedJobId = sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-    
+
     if (!urlToOpen) {
       setIsAuthModalOpen(false);
       return;
@@ -119,14 +119,14 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
           // Fall through to use original URL
         }
       }
-      
+
       openApplyUrl(storedApplyUrl);
       sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
       sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
       setPendingApplyUrl(null);
       setIsAuthModalOpen(false);
     };
-    
+
     openAfterAuth();
   }, [isAuthenticated, openApplyUrl]);
 

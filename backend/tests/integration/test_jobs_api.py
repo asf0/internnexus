@@ -56,7 +56,7 @@ class TestJobsAPI:
         # Arrange
         with patch("app.api.jobs.get_job_search_service") as mock_get_service:
             mock_service = AsyncMock()
-            from app.api.schemas import JobListResponse, JobResponse
+            from app.api.schemas import JobListResponse
 
             mock_service.search.return_value = JobListResponse(
                 items=[], total=0, page=1, page_size=20
@@ -320,7 +320,7 @@ class TestJobsAPI:
             mock_get_cache.return_value = mock_cache
 
             mock_service = AsyncMock()
-            mock_service.get_location_hierarchy.return_value = [
+            mock_service.get_location_hierarchy_from_filtered_jobs.return_value = [
                 {"value": "USA", "label": "United States", "count": 100, "type": "country"}
             ]
             mock_service_class.return_value = mock_service

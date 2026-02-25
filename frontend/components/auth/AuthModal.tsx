@@ -108,7 +108,7 @@ export default function AuthModal({
     const continuationWindow = intent === "apply"
       ? window.open("", "_blank", "noopener,noreferrer")
       : null;
-    
+
     const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get("name") as string,
@@ -123,7 +123,7 @@ export default function AuthModal({
       setError(validationResult.error.issues[0].message);
       return;
     }
-    
+
     setIsLoading(true);
 
     try {

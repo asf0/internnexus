@@ -46,19 +46,13 @@ async def _fetch_jobs_chunk(
     return rows, metadata_batch.ashby, metadata_batch.greenhouse, metadata_batch.lever
 
 
-def _get_metadata_result(
-    row, ashby_map: dict, greenhouse_map: dict, lever_map: dict
-) -> tuple[dict | None, str]:
+def _get_metadata_result(row, ashby_map: dict, greenhouse_map: dict, lever_map: dict) -> tuple[dict | None, str]:
     job_id = row["id"]
     source = str(row["source"]).lower()
 
     if source == "ashby" and job_id in ashby_map:
         ashby = ashby_map[job_id]
-        if (
-            ashby.get("address_locality")
-            and ashby.get("address_region")
-            and ashby.get("address_country")
-        ):
+        if ashby.get("address_locality") and ashby.get("address_region") and ashby.get("address_country"):
             addr_country = ashby["address_country"]
             if addr_country.upper() == "USA":
                 addr_country = "United States"
@@ -147,9 +141,7 @@ def _merge_location_results(
     if parsed_result.get("city") or parsed_result.get("country"):
         from pipeline.cleanup.parser import _is_metadata_consistent
 
-        if metadata_result and _is_metadata_consistent(
-            location_str, parsed_result, metadata_result
-        ):
+        if metadata_result and _is_metadata_consistent(location_str, parsed_result, metadata_result):
             raw_state = parsed_result.get("state") or metadata_result.get("state")
             normalized_state = normalize_state_name(raw_state) if raw_state else None
             merged = {

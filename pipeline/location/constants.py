@@ -1235,8 +1235,6 @@ STATE_MAPPINGS: Final[dict[str, str | None]] = {
     "Krakow": "Krakow",
     "Ile de France": "Ile-de-France",
     "Ile-De-France": "Ile-de-France",
-    "Ile-de-France": "Ile-de-France",
-    "Ile-De-France": "Ile-de-France",
     "Hauts-De-France": "Hauts-de-France",
     "Pays De La Loire": "Pays de la Loire",
     "Bretagne": "Brittany",

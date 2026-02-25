@@ -44,7 +44,7 @@ import asyncio
 import logging
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 try:
     from pipeline.path_setup import ensure_project_paths
@@ -81,9 +81,6 @@ logger = logging.getLogger(__name__)
 
 STEPS = ["discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"]
 CLASSIFY_COMMIT_BATCH_SIZE = 200
-CLASSIFY_RETRY_BACKOFF_HOURS = (1, 6, 24)
-CLASSIFY_LONG_RETRY_HOURS = 24 * 7
-CLASSIFY_NO_MAPPABLE_CAP_ATTEMPTS = 5
 
 
 def _log_step_rate(step_name: str, duration_s: float, items: int | None) -> None:
@@ -105,24 +102,6 @@ def _get_resume_step_from_db_run(step_completed: str | None) -> str | None:
     if idx < len(STEPS) - 1:
         return STEPS[idx + 1]
     return None
-
-
-def _get_classification_next_retry_at(
-    reason: str,
-    attempts: int,
-    now: datetime,
-) -> datetime:
-    """Return retry timestamp for a failed classification attempt."""
-    if reason == "no_mappable_token" and attempts >= CLASSIFY_NO_MAPPABLE_CAP_ATTEMPTS:
-        return now + timedelta(hours=CLASSIFY_LONG_RETRY_HOURS)
-
-    if attempts <= 1:
-        hours = CLASSIFY_RETRY_BACKOFF_HOURS[0]
-    elif attempts == 2:
-        hours = CLASSIFY_RETRY_BACKOFF_HOURS[1]
-    else:
-        hours = CLASSIFY_RETRY_BACKOFF_HOURS[2]
-    return now + timedelta(hours=hours)
 
 
 class PipelineRunner:
@@ -287,9 +266,7 @@ class PipelineRunner:
 
         return success, errors
 
-    async def step_classify(
-        self, state: PipelineStateManager | None, limit: int | None = None
-    ) -> tuple[int, int]:
+    async def step_classify(self, state: PipelineStateManager | None, limit: int | None = None) -> tuple[int, int]:
         """Classify jobs without categories using LLM."""
         step_start = time.time()
         step_name = "classify"
@@ -299,24 +276,13 @@ class PipelineRunner:
             return 0, 0
 
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
-        from sqlalchemy import func, or_, select
+        from sqlalchemy import func, select
         from pipeline.classification import get_classifier, reset_classifier
 
         success, errors = 0, 0
 
         async with AsyncSessionLocal() as session:
-            now_utc = datetime.now(timezone.utc)
-            total_query = (
-                select(func.count())
-                .select_from(Job)
-                .where(Job.job_category.is_(None))
-                .where(
-                    or_(
-                        Job.classification_next_retry_at.is_(None),
-                        Job.classification_next_retry_at <= now_utc,
-                    )
-                )
-            )
+            total_query = select(func.count()).select_from(Job).where(Job.job_category.is_(None))
             total_result = await session.execute(total_query)
             total_available = int(total_result.scalar() or 0)
             total_jobs = min(limit, total_available) if limit else total_available
@@ -338,14 +304,7 @@ class PipelineRunner:
                     batch_query = (
                         select(Job)
                         .where(Job.job_category.is_(None))
-                        .where(
-                            or_(
-                                Job.classification_next_retry_at.is_(None),
-                                Job.classification_next_retry_at <= now_utc,
-                            )
-                        )
                         .order_by(
-                            Job.classification_attempts.asc(),
                             Job.posted_at.desc().nulls_last(),
                             Job.id.desc(),
                         )
@@ -367,24 +326,13 @@ class PipelineRunner:
                     batch_success = 0
                     batch_errors = 0
                     for job, (category, reason) in zip(chunk, categories_with_reason):
-                        attempt_now = datetime.now(timezone.utc)
-                        attempts = int((job.classification_attempts or 0) + 1)
-                        job.classification_attempts = attempts
-                        job.classification_last_attempt_at = attempt_now
-
                         if category:
                             job.job_category = category
-                            job.classification_next_retry_at = None
-                            job.classification_last_error = None
                             success += 1
                             batch_success += 1
                         else:
-                            job.classification_last_error = reason
-                            job.classification_next_retry_at = _get_classification_next_retry_at(
-                                reason=reason,
-                                attempts=attempts,
-                                now=attempt_now,
-                            )
+                            job_id = getattr(job, "id", None)
+                            logger.warning(f"Classification failed for job {job_id}: {reason}")
                             errors += 1
                             batch_errors += 1
 
@@ -483,8 +431,7 @@ class PipelineRunner:
                 )
             else:
                 logger.warning(
-                    "Incomplete run %s has no resumable next step (last completed: %s). "
-                    "Starting a fresh run.",
+                    "Incomplete run %s has no resumable next step (last completed: %s). Starting a fresh run.",
                     incomplete_run.id,
                     incomplete_run.step_completed,
                 )
@@ -516,15 +463,11 @@ class PipelineRunner:
                 elif state:
                     await state.mark_step_complete("discover")
 
-            if not start_from_step or STEPS.index("sync_inactive") >= STEPS.index(
-                start_from_step or "sync_inactive"
-            ):
+            if not start_from_step or STEPS.index("sync_inactive") >= STEPS.index(start_from_step or "sync_inactive"):
                 self.current_step = "sync_inactive"
                 self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
 
-            if not start_from_step or STEPS.index("ingest") >= STEPS.index(
-                start_from_step or "ingest"
-            ):
+            if not start_from_step or STEPS.index("ingest") >= STEPS.index(start_from_step or "ingest"):
                 self.current_step = "ingest"
                 jobs_count, batch_start_time = await self.step_ingest(state)
                 self.results["jobs_fetched"] = jobs_count
@@ -535,25 +478,19 @@ class PipelineRunner:
                 self.current_step = "delete_inactive"
                 self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
 
-            if not start_from_step or STEPS.index("cleanup") >= STEPS.index(
-                start_from_step or "cleanup"
-            ):
+            if not start_from_step or STEPS.index("cleanup") >= STEPS.index(start_from_step or "cleanup"):
                 self.current_step = "cleanup"
                 self.results["locations_cleaned"] = await self.step_cleanup(
                     state, test_mode=self.test_mode, limit=self.limit
                 )
 
-            if not start_from_step or STEPS.index("classify") >= STEPS.index(
-                start_from_step or "classify"
-            ):
+            if not start_from_step or STEPS.index("classify") >= STEPS.index(start_from_step or "classify"):
                 self.current_step = "classify"
                 success, errors = await self.step_classify(state, limit=self.limit)
                 self.results["jobs_classified"] = success
                 self.results["classification_errors"] = errors
 
-            if not start_from_step or STEPS.index("embed") >= STEPS.index(
-                start_from_step or "embed"
-            ):
+            if not start_from_step or STEPS.index("embed") >= STEPS.index(start_from_step or "embed"):
                 self.current_step = "embed"
                 success, errors = await self.step_embed(state)
                 self.results["embeddings_success"] = success

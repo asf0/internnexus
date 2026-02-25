@@ -12,11 +12,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse, JobResponse
 from app.auth.dependencies import get_optional_user
 from app.cache.redis_pool import RedisService, get_redis_service
 from app.db import get_db
-from app.models import Job, JobClick, SavedJob, User
+from app.models import JobClick, SavedJob, User
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.repositories.job import JobRepository
 from app.services.job_search import JobSearchParams, JobSearchService
@@ -48,11 +49,22 @@ async def get_job_search_service(
     return JobSearchService(db, cache)
 
 
+async def _get_cache_service_dependency() -> RedisService:
+    return await get_redis_service()
+
+
+async def _get_job_search_service_dependency(
+    db: AsyncSession = Depends(get_db),
+    cache: RedisService = Depends(_get_cache_service_dependency),
+) -> JobSearchService:
+    return await get_job_search_service(db, cache)
+
+
 @router.get("/jobs", response_model=JobListResponse)
 @limiter.limit(RATE_LIMITS["jobs_list"])
 async def list_jobs(
     request: Request,
-    service: JobSearchService = Depends(get_job_search_service),
+    service: JobSearchService = Depends(_get_job_search_service_dependency),
     user: User | None = Depends(get_optional_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -101,7 +113,7 @@ async def list_jobs(
 async def get_companies(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(get_redis_service),
+    cache: RedisService = Depends(_get_cache_service_dependency),
 ) -> list[str]:
     """Get all distinct company names (cached 5 min)."""
     cache_key = "filters:companies"
@@ -120,7 +132,7 @@ async def get_companies(
 async def get_locations(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(get_redis_service),
+    cache: RedisService = Depends(_get_cache_service_dependency),
     user: User | None = Depends(get_optional_user),
     search: str | None = Query(None),
     company: str | None = Query(None),
@@ -197,7 +209,7 @@ async def get_locations(
 async def get_categories(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(get_redis_service),
+    cache: RedisService = Depends(_get_cache_service_dependency),
 ) -> list[str]:
     """Get all distinct job categories (cached 5 min)."""
     cache_key = "filters:categories"
@@ -217,7 +229,7 @@ async def get_job(
     request: Request,
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(get_redis_service),
+    cache: RedisService = Depends(_get_cache_service_dependency),
 ) -> JobResponse:
     """Get a single job by ID (cached 5 min)."""
     from uuid import UUID
@@ -242,7 +254,7 @@ async def get_job(
     if job.is_active is not True:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    response = JobResponse.model_validate(job)
+    response = job_to_response(job)
 
     # Cache the response (as dict for JSON serialization)
     await cache.set(cache_key, response.model_dump(), ttl=300)

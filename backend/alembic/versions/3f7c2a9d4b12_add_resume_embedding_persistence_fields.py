@@ -23,11 +23,17 @@ def upgrade() -> None:
     op.add_column("user_resumes", sa.Column("content_hash", sa.String(length=64), nullable=True))
     op.add_column("user_resumes", sa.Column("encrypted_resume_text", sa.Text(), nullable=True))
     op.add_column("user_resumes", sa.Column("resume_embedding", Vector(dim=1024), nullable=True))
-    op.add_column("user_resumes", sa.Column("embedding_model", sa.String(length=120), nullable=True))
+    op.add_column(
+        "user_resumes", sa.Column("embedding_model", sa.String(length=120), nullable=True)
+    )
     op.add_column("user_resumes", sa.Column("embedding_dim", sa.Integer(), nullable=True))
-    op.add_column("user_resumes", sa.Column("last_embedded_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "user_resumes", sa.Column("last_embedded_at", sa.DateTime(timezone=True), nullable=True)
+    )
     op.add_column("user_resumes", sa.Column("embedding_error", sa.Text(), nullable=True))
-    op.create_index(op.f("ix_user_resumes_content_hash"), "user_resumes", ["content_hash"], unique=False)
+    op.create_index(
+        op.f("ix_user_resumes_content_hash"), "user_resumes", ["content_hash"], unique=False
+    )
 
 
 def downgrade() -> None:

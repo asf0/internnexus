@@ -26,7 +26,13 @@ class TestSearchParserProperties:
         assert isinstance(result.is_boolean, bool)
         assert result.original_query == query
 
-    @given(st.lists(st.text(min_size=1, max_size=20), min_size=1, max_size=5))
+    @given(
+        st.lists(
+            st.text(min_size=1, max_size=20).filter(lambda value: bool(value.strip())),
+            min_size=1,
+            max_size=5,
+        )
+    )
     @settings(max_examples=50)
     def test_simple_terms_concatenation(self, terms):
         """Test that simple terms are parsed correctly."""

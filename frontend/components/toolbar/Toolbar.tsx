@@ -24,18 +24,18 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  
+
   const [showFilters, setShowFilters] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
   const [isMatching, setIsMatching] = useState(false);
-  
+
   // Local state for search input with debouncing
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [debouncedSearch] = useDebounce(searchInput, 400);
   const isInitialMount = useRef(true);
-  
+
   // Update URL when debounced search value changes
   useEffect(() => {
     if (debouncedSearch !== currentSearch) {
@@ -119,7 +119,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
     { value: "week", label: "Past week" },
     { value: "month", label: "Past month" },
   ];
-  
+
 
 
   const applyMatchResponse = (response: MatchResponse) => {

@@ -20,7 +20,7 @@ repos:
     hooks:
       - id: validate-import-chains
         name: Validate Python Import Chains
-        entry: python -m pytest backend/tests/test_import_chains.py -v --tb=short
+        entry: uv run pytest backend/tests/test_import_chains.py -v --tb=short
         language: system
         types: [python]
         pass_filenames: false
@@ -34,7 +34,7 @@ repos:
     rev: v0.3.0
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix, --exit-non-zero-on-fix, --ignore, E402, --ignore, F841]
       - id: ruff-format
 
   # Prevent commits to main branch

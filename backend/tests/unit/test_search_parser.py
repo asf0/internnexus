@@ -1,10 +1,7 @@
 """Unit tests for search parser module."""
 
-import pytest
-
 from app.services.search_parser import (
     TokenType,
-    Token,
     SearchTerm,
     BooleanExpr,
     ParsedSearch,
@@ -85,7 +82,7 @@ class TestSearchLexer:
 
         # Assert
         assert lexer.tokens[0].type == TokenType.LPAREN
-        assert lexer.tokens[3].type == TokenType.RPAREN
+        assert lexer.tokens[-2].type == TokenType.RPAREN
 
     def test_tokenize_case_insensitive_operators(self):
         """Test that operators are case insensitive."""

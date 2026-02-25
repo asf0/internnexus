@@ -68,9 +68,7 @@ def detect_job_type_from_title(
     return None
 
 
-def detect_work_mode_from_text(
-    title: str, location: str
-) -> Literal["remote", "hybrid", "on_site"] | None:
+def detect_work_mode_from_text(title: str, location: str) -> Literal["remote", "hybrid", "on_site"] | None:
     combined = f"{title} {location}".lower()
     if "remote" in combined:
         return "remote"

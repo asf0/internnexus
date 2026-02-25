@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
@@ -14,6 +15,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
+from app.api.mappers import enum_to_str, job_to_match_result
 from app.config import get_settings
 from app.auth.dependencies import get_current_user
 from app.db import get_db
@@ -40,6 +42,7 @@ _RESUME_SCHEMA_ERROR_DETAIL = (
 def _is_resume_schema_error(exc: ProgrammingError) -> bool:
     message = str(getattr(exc, "orig", exc)).lower()
     return "user_resumes" in message and "content_hash" in message
+
 
 _TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+#\.\-]{1,}")
 _STOPWORDS = {
@@ -129,12 +132,8 @@ def _skill_title_score(
 
 def _work_mode_score(work_mode: str | None, signals: ResumeSignals) -> float:
     raw_mode = work_mode
-    if raw_mode is not None and hasattr(raw_mode, "value"):
-        raw_mode = raw_mode.value
     mode = str(raw_mode or "").strip().lower()
-    explicit_preference = (
-        signals.prefers_remote or signals.prefers_hybrid or signals.prefers_onsite
-    )
+    explicit_preference = signals.prefers_remote or signals.prefers_hybrid or signals.prefers_onsite
     if not explicit_preference:
         return 0.5
     if not mode:
@@ -164,7 +163,9 @@ def _recency_score(posted_at: datetime | None) -> float:
     if posted_at is None:
         return 0.4
     now = datetime.now(timezone.utc)
-    posted_utc = posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
+    posted_utc = (
+        posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
+    )
     age_days = max(0.0, (now - posted_utc).total_seconds() / 86400.0)
     # Linear decay to 0 at 120 days.
     return _clamp_01(1.0 - (age_days / 120.0))
@@ -202,6 +203,10 @@ def _explain_match(
     }
 
 
+def _match_results_from_cache(matches_data: list[dict[str, object]]) -> list[MatchResult]:
+    return [MatchResult.model_validate(item) for item in matches_data]
+
+
 async def _rank_matches(
     db: AsyncSession, resume_embedding: list[float], resume_text: str, min_score: float
 ) -> list[MatchResult]:
@@ -210,20 +215,10 @@ async def _rank_matches(
 
     stmt = (
         select(
-            Job.id,
-            Job.title,
-            Job.company,
-            Job.location,
-            Job.apply_url,
-            Job.description_text,
-            Job.city,
-            Job.state,
-            Job.country,
-            Job.job_category,
-            Job.job_type,
-            Job.work_mode,
-            Job.posted_at,
-            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("semantic_score"),
+            Job,
+            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label(
+                "semantic_score"
+            ),
         )
         .where(Job.description_embedding.isnot(None))
         .where(Job.is_active.is_(True))
@@ -233,7 +228,9 @@ async def _rank_matches(
 
     try:
         result = await db.execute(stmt)
-        results = result.all()
+        candidate_rows: list[tuple[Job, float | None]] = [
+            (job, semantic) for job, semantic in result.tuples().all()
+        ]
     except Exception as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)
@@ -250,12 +247,12 @@ async def _rank_matches(
             detail="Matching query failed. Please try again later.",
         ) from exc
 
-    ranked_rows: list[tuple[float, object, dict[str, float]]] = []
-    for row in results[:_RERANK_POOL]:
-        semantic_score = _clamp_01(row.semantic_score)
-        skill_title = _skill_title_score(signals.tokens, row.title, row.description_text)
-        work_mode = _work_mode_score(row.work_mode, signals)
-        recency = _recency_score(row.posted_at)
+    ranked_rows: list[tuple[float, Job, dict[str, float]]] = []
+    for job, semantic in candidate_rows[:_RERANK_POOL]:
+        semantic_score = _clamp_01(semantic)
+        skill_title = _skill_title_score(signals.tokens, job.title, job.description_text)
+        work_mode = _work_mode_score(enum_to_str(job.work_mode), signals)
+        recency = _recency_score(job.posted_at)
         final_score = _hybrid_match_score(
             semantic_score=semantic_score,
             skill_title_score=skill_title,
@@ -265,7 +262,7 @@ async def _rank_matches(
         ranked_rows.append(
             (
                 final_score,
-                row,
+                job,
                 _explain_match(
                     semantic_score=semantic_score,
                     skill_title_score=skill_title,
@@ -289,7 +286,7 @@ async def _rank_matches(
         median_score = ranked_rows[len(ranked_rows) // 2][0]
         logger.info(
             "Match scoring: candidates=%s reranked=%s threshold=%.3f passed=%s fallback=%s top=%.3f median=%.3f",
-            len(results),
+            len(candidate_rows),
             len(ranked_rows),
             min_score,
             len([item for item in ranked_rows if item[0] >= min_score]),
@@ -304,22 +301,9 @@ async def _rank_matches(
         )
 
     return [
-        MatchResult(
-            job_id=row.id,
-            score=float(score),
-            match_percentage=round(float(score) * 100, 1),
-            title=row.title,
-            company=row.company,
-            location=row.location,
-            apply_url=row.apply_url,
-            description_text=row.description_text,
-            city=row.city,
-            state=row.state,
-            country=row.country,
-            job_category=row.job_category,
-            job_type=row.job_type,
-            work_mode=row.work_mode,
-            posted_at=row.posted_at,
+        job_to_match_result(
+            row,
+            score=score,
             score_breakdown=explain,
         )
         for score, row, explain in filtered_rows
@@ -328,12 +312,14 @@ async def _rank_matches(
 
 async def _return_cached_first_page(
     cache_service: MatchCacheService,
-    user_id,
+    user_id: UUID,
     cache_hash: str,
     min_score: float,
     page_size: int,
 ) -> MatchResponse | None:
-    cached_session_id = await cache_service.get_cached_session_for_resume(user_id, cache_hash, min_score)
+    cached_session_id = await cache_service.get_cached_session_for_resume(
+        user_id, cache_hash, min_score
+    )
     if not cached_session_id:
         return None
     if not await cache_service.validate_match_session(user_id, cached_session_id):
@@ -350,7 +336,7 @@ async def _return_cached_first_page(
     matches_data, total_count = cached_page
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
     return MatchResponse(
-        matches=[MatchResult(**item) for item in matches_data],
+        matches=_match_results_from_cache(matches_data),
         total=total_count,
         session_id=cached_session_id,
         page=1,
@@ -364,7 +350,7 @@ async def _build_match_response(
     *,
     db: AsyncSession,
     cache_service: MatchCacheService,
-    user_id,
+    user_id: UUID,
     cache_hash: str,
     min_score: float,
     page_size: int,
@@ -475,17 +461,23 @@ async def match_profile_resume(
     page_size = max(1, min(page_size, 100))
 
     try:
-        resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+        resume_result = await db.execute(
+            select(UserResume).where(UserResume.user_id == current_user.id)
+        )
     except ProgrammingError as exc:
         if _is_resume_schema_error(exc):
             raise HTTPException(status_code=503, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
         raise
     user_resume = resume_result.scalar_one_or_none()
     if user_resume is None:
-        raise HTTPException(status_code=400, detail="No profile resume found. Upload one in your profile first.")
+        raise HTTPException(
+            status_code=400, detail="No profile resume found. Upload one in your profile first."
+        )
 
     if not user_resume.content_hash:
-        raise HTTPException(status_code=400, detail="Stored resume is incomplete. Please upload again.")
+        raise HTTPException(
+            status_code=400, detail="Stored resume is incomplete. Please upload again."
+        )
 
     cached_response = await _return_cached_first_page(
         cache_service=cache_service,
@@ -531,16 +523,23 @@ async def match_profile_resume(
             user_resume.status = "error"
             user_resume.embedding_error = str(exc)
             await db.commit()
-            raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {exc}") from exc
+            raise HTTPException(
+                status_code=503, detail=f"Embedding service unavailable: {exc}"
+            ) from exc
 
         user_resume.resume_embedding = resume_embedding
-        user_resume.embedding_model = embedder._model
+        user_resume.embedding_model = settings.embedding_model
         user_resume.embedding_dim = len(resume_embedding)
         user_resume.last_embedded_at = datetime.now(timezone.utc)
         user_resume.status = "ready"
         user_resume.embedding_error = None
         await db.commit()
     else:
+        if user_resume.resume_embedding is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Stored resume has no embedding. Please upload your resume again.",
+            )
         resume_embedding = list(user_resume.resume_embedding)
         if user_resume.encrypted_resume_text:
             resume_text = decrypt_resume_text(user_resume.encrypted_resume_text)
@@ -602,8 +601,7 @@ async def get_match_page(
     # Unpack result: matches_data, total_count
     matches_data, total_count = result
 
-    # Convert matches_data (list of dicts) back to MatchResult objects
-    matches = [MatchResult(**match_dict) for match_dict in matches_data]
+    matches = _match_results_from_cache(matches_data)
 
     # Calculate total_pages
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1

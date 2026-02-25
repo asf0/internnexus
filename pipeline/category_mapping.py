@@ -6,6 +6,10 @@ LLM-generated variations to consolidated categories.
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
+
 # Canonical categories (25 primary categories)
 CANONICAL_CATEGORIES = [
     "software_engineering",
@@ -97,7 +101,6 @@ CATEGORY_MAPPING = {
     "ui_engineering": "software_engineering",
     "ui_programming": "software_engineering",
     "analytics_engineering": "software_engineering",
-    "data_engineering_software": "software_engineering",
     "infrastructure_software_engineering": "software_engineering",
     "technical_engineering": "software_engineering",
     "service_engineering": "software_engineering",
@@ -124,7 +127,6 @@ CATEGORY_MAPPING = {
     "cloud_computing": "devops",
     "cloud_architecture": "devops",
     "cloud_networking": "devops",
-    "infrastructure_management": "devops",
     "system_administration": "devops",
     "deployment_strategist": "devops",
     # Hardware Engineering
@@ -195,7 +197,6 @@ CATEGORY_MAPPING = {
     "design_operations": "product_design",
     "animation": "product_design",
     # Sales variations
-    "sales_operations": "sales",
     "sales_management": "sales",
     "sales_marketing": "sales",
     "sales_and_service_management": "sales",
@@ -210,6 +211,7 @@ CATEGORY_MAPPING = {
     "freelance_sales": "sales",
     "inside_sales": "sales",
     "account_management": "sales",
+    "account_executive": "sales",
     "technical_account_management": "sales",
     "client_services": "sales",
     "client_success": "sales",
@@ -382,10 +384,14 @@ CATEGORY_MAPPING = {
     "technology_consulting": "consulting",
     "technical_consulting": "consulting",
     "professional_services": "consulting",
+    "environmental_consulting": "consulting",
     "shipping": "operations",
     "shipping_operations": "operations",
     # Project Management variations
     "project_manager": "project_management",
+    "program_manager": "project_management",
+    "technical_program_manager": "project_management",
+    "staff_technical_program_manager": "project_management",
     "remote_project_management": "project_management",
     "localization_project_management": "project_management",
     "construction_project_management": "construction",
@@ -515,7 +521,24 @@ def get_canonical_category(category: str | None) -> str | None:
         return category_lower
 
     # Try to find a match by removing common suffixes
-    for suffix in ["_engineering", "_management", "_operations", "_development", "_analysis"]:
+    for suffix in [
+        "_engineering",
+        "_management",
+        "_operations",
+        "_development",
+        "_analysis",
+        "_administrator",
+        "_manager",
+        "_executive",
+        "_consulting",
+        "_advisory",
+        "_specialist",
+        "_coordinator",
+        "_director",
+        "_lead",
+        "_officer",
+        "_assistant",
+    ]:
         if category_lower.endswith(suffix):
             base = category_lower[: -len(suffix)]
             if base in CATEGORY_MAPPING:
@@ -524,7 +547,24 @@ def get_canonical_category(category: str | None) -> str | None:
                 return base
 
     # Default to operations for unrecognized categories
+    _log_unmapped_category(category_lower)
     return "operations"
+
+
+def _log_unmapped_category(category: str):
+    """Log unmapped categories to JSON for manual review."""
+    log_path = Path(os.getenv("DATA_DIR", "data")) / "unmapped_categories.json"
+    unmapped = set()
+    if log_path.exists():
+        try:
+            unmapped = set(json.loads(log_path.read_text()))
+        except json.JSONDecodeError:
+            unmapped = set()
+
+    if category not in unmapped:
+        unmapped.add(category)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(json.dumps(sorted(unmapped), indent=2))
 
 
 def get_all_category_variations() -> dict[str, list[str]]:

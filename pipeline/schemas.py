@@ -6,7 +6,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-JobSource = Literal["greenhouse", "lever", "ashby"]
+JobSource = Literal[
+    "greenhouse",
+    "lever",
+    "ashby",
+    "linkedin_scrape",
+    "indeed_scrape",
+]
 JobType = Literal["internship", "full_time", "part_time"]
 WorkMode = Literal["remote", "hybrid", "on_site"]
 
@@ -108,9 +114,9 @@ class GreenhouseJobMetadataSchema(BaseModel):
     language: str = "en"
     first_published: datetime
     updated_at: datetime
-    departments: list[dict] = []
-    offices: list[dict] = []
-    data_compliance: list[dict] = []
+    departments: list[dict] = Field(default_factory=list)
+    offices: list[dict] = Field(default_factory=list)
+    data_compliance: list[dict] = Field(default_factory=list)
     hosted_url: str
 
 
@@ -119,7 +125,7 @@ class LeverJobMetadataSchema(BaseModel):
     commitment: str
     department: str
     team: str
-    all_locations: list[str] = []
+    all_locations: list[str] = Field(default_factory=list)
     workplace_type: str
     salary_min: float | None = None
     salary_max: float | None = None
@@ -128,7 +134,7 @@ class LeverJobMetadataSchema(BaseModel):
     salary_description: str | None = None
     description_html: str
     description_plain: str
-    requirements: list[dict] = []
+    requirements: list[dict] = Field(default_factory=list)
     requirements_html: str | None = None
     requirements_plain: str | None = None
     has_requirements: bool = False
@@ -149,6 +155,6 @@ class AshbyJobMetadataSchema(BaseModel):
     description_html: str
     description_plain: str
     job_url: str
-    compensation: dict = {}
+    compensation: dict = Field(default_factory=dict)
     is_listed: bool = True
     updated_at: datetime

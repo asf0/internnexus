@@ -266,14 +266,11 @@ def _accumulate_results(
     return total_success, total_errors, total_skipped
 
 
-async def _log_progress(
-    db: AsyncSession, total_success: int, total_errors: int, total_skipped: int
-) -> None:
+async def _log_progress(db: AsyncSession, total_success: int, total_errors: int, total_skipped: int) -> None:
     """Log current progress."""
     remaining = await _get_remaining_count(db)
     logger.info(
-        f"Progress: {total_success} embedded, {total_errors} errors, "
-        f"{total_skipped} skipped, {remaining} remaining"
+        f"Progress: {total_success} embedded, {total_errors} errors, {total_skipped} skipped, {remaining} remaining"
     )
 
 

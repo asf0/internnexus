@@ -12,11 +12,9 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.models import Admin, AdminRole, Job, JobClick, JobSource, User
 
 
@@ -73,7 +71,7 @@ class TestClickTrackingIntegration:
     async def test_click_is_saved_to_database(self, db_session: AsyncSession, setup_test_data):
         """Test that click is actually saved to the database."""
         # Arrange
-        test_data = await setup_test_data
+        test_data = setup_test_data
         job = test_data["job"]
         user = test_data["user"]
 
@@ -117,7 +115,7 @@ class TestClickTrackingIntegration:
     ):
         """Test that anonymous click (no user) is saved to database."""
         # Arrange
-        test_data = await setup_test_data
+        test_data = setup_test_data
         job = test_data["job"]
 
         # Create a JobClick without user (anonymous)
@@ -148,7 +146,7 @@ class TestClickTrackingIntegration:
     async def test_multiple_clicks_for_same_job(self, db_session: AsyncSession, setup_test_data):
         """Test that multiple clicks can be recorded for the same job."""
         # Arrange
-        test_data = await setup_test_data
+        test_data = setup_test_data
         job = test_data["job"]
         user = test_data["user"]
 
@@ -181,7 +179,7 @@ class TestClickTrackingIntegration:
     async def test_click_relationships_loaded(self, db_session: AsyncSession, setup_test_data):
         """Test that click relationships (job, user) can be loaded."""
         # Arrange
-        test_data = await setup_test_data
+        test_data = setup_test_data
         job = test_data["job"]
         user = test_data["user"]
 
@@ -278,7 +276,7 @@ class TestClickTrackingAdminRetrieval:
     ):
         """Test that clicks can be retrieved via admin/clicks endpoint."""
         # Arrange
-        test_data = await setup_admin_test_data
+        test_data = setup_admin_test_data
         job = test_data["job"]
         user = test_data["regular_user"]
 
@@ -330,7 +328,7 @@ class TestClickTrackingAdminRetrieval:
     ):
         """Test that clicks can be filtered by job_id in admin endpoint."""
         # Arrange
-        test_data = await setup_admin_test_data
+        test_data = setup_admin_test_data
         job1 = test_data["job"]
 
         # Create second job
@@ -377,7 +375,7 @@ class TestClickTrackingAdminRetrieval:
     async def test_click_stats_calculation(self, db_session: AsyncSession, setup_admin_test_data):
         """Test that click statistics can be calculated correctly."""
         # Arrange
-        test_data = await setup_admin_test_data
+        test_data = setup_admin_test_data
         job = test_data["job"]
 
         # Create clicks with different timestamps
@@ -394,7 +392,6 @@ class TestClickTrackingAdminRetrieval:
 
         # Act - Calculate stats
         from sqlalchemy import func
-        from datetime import timedelta
 
         # Total clicks
         total_result = await db_session.execute(select(func.count()).select_from(JobClick))

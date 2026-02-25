@@ -8,7 +8,6 @@ import logging
 import random
 import re
 from pathlib import Path
-from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
@@ -59,9 +58,7 @@ class DiscoveryBrowser:
         """Launch browser with random user agent."""
         self._user_agent_config = get_random_user_agent()
 
-        logger.info(
-            f"Launching browser with user agent: {self._user_agent_config['user_agent'][:50]}..."
-        )
+        logger.info(f"Launching browser with user agent: {self._user_agent_config['user_agent'][:50]}...")
 
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(
@@ -291,9 +288,7 @@ async def discover_with_browser() -> dict[str, set[str]]:
     remaining = get_remaining_queries(progress, all_queries)
     completed = len(all_queries) - len(remaining)
 
-    logger.info(
-        f"Starting discovery: {completed}/{total_queries} completed, {len(remaining)} remaining"
-    )
+    logger.info(f"Starting discovery: {completed}/{total_queries} completed, {len(remaining)} remaining")
 
     if not remaining:
         logger.info("All queries already completed!")
@@ -333,9 +328,7 @@ async def discover_with_browser() -> dict[str, set[str]]:
 
                 if blocked:
                     logger.error("Google blocked the search! Waiting for user...")
-                    logger.info(
-                        "Please solve any CAPTCHA in the browser window, then press Enter to continue..."
-                    )
+                    logger.info("Please solve any CAPTCHA in the browser window, then press Enter to continue...")
                     input()  # Wait for user to press Enter
 
                     # Retry this query
@@ -358,9 +351,7 @@ async def discover_with_browser() -> dict[str, set[str]]:
                 new_count = add_companies(progress, board, companies)
                 mark_query_complete(progress, country, board)
 
-                logger.info(
-                    f"Found {len(companies)} companies ({new_count} new) for {country} ({board})"
-                )
+                logger.info(f"Found {len(companies)} companies ({new_count} new) for {country} ({board})")
 
                 # Save progress after each query
                 save_progress(progress)
@@ -442,7 +433,6 @@ def save_discovered_companies(
 
 async def main():
     """CLI entry point for browser discovery."""
-    import json
 
     logging.basicConfig(
         level=logging.INFO,
