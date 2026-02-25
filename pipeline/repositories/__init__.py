@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING, TypedDict
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -40,6 +40,17 @@ class MetadataBatch:
     ashby: dict[UUID, dict]
     greenhouse: dict[UUID, dict]
     lever: dict[UUID, dict]
+
+
+class JobEmbeddingRecord(TypedDict):
+    """Projected job payload used by embedding/classification steps."""
+
+    id: UUID
+    company: str
+    title: str
+    apply_url: str
+    description_text: str
+    description_embedding: list[float] | None
 
 
 class JobRepository(Protocol):
@@ -141,7 +152,7 @@ class JobRepository(Protocol):
     async def get_jobs_by_ids(
         self,
         job_ids: list[UUID],
-    ) -> list[dict]:
+    ) -> list[JobEmbeddingRecord]:
         """Fetch jobs by their UUIDs.
 
         Args:
@@ -210,5 +221,6 @@ __all__ = [
     "JobLocationData",
     "LocationUpdate",
     "MetadataBatch",
+    "JobEmbeddingRecord",
     "JobRepository",
 ]

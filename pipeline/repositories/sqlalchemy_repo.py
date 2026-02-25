@@ -7,7 +7,8 @@ All other pipeline modules should use the repository protocol for database acces
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from enum import Enum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, text, update
@@ -22,7 +23,7 @@ from backend.app.models import (
     PipelineRun,
     PipelineRunStatus,
 )
-from pipeline.repositories import JobLocationData, LocationUpdate, MetadataBatch
+from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate, MetadataBatch
 
 __all__ = [
     "AsyncSessionLocal",
@@ -37,8 +38,24 @@ __all__ = [
     "get_repository",
 ]
 
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _enum_str(value: Enum | str | None) -> str:
+    if isinstance(value, Enum):
+        return str(value.value)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _rowcount(result: object) -> int:
+    raw_rowcount = getattr(result, "rowcount", None)
+    if isinstance(raw_rowcount, int):
+        return raw_rowcount
+    return int(raw_rowcount or 0)
 
 
 class SQLAlchemyJobRepository:
@@ -122,7 +139,7 @@ class SQLAlchemyJobRepository:
         return [
             JobLocationData(
                 id=row.id,
-                source=row.source.value if hasattr(row.source, "value") else str(row.source),
+                source=_enum_str(row.source),
                 location=row.location,
                 city=row.city,
                 state=row.state,
@@ -178,7 +195,7 @@ class SQLAlchemyJobRepository:
         return [
             JobLocationData(
                 id=row.id,
-                source=row.source.value if hasattr(row.source, "value") else str(row.source),
+                source=_enum_str(row.source),
                 location=row.location,
                 city=row.city,
                 state=row.state,
@@ -257,8 +274,7 @@ class SQLAlchemyJobRepository:
         )
         result = await self._session.execute(refresh_stmt)
         await self._session.commit()
-        rowcount = cast(Any, result).rowcount
-        return int(rowcount or 0)
+        return _rowcount(result)
 
     async def fetch_metadata_batch(
         self,
@@ -372,7 +388,7 @@ class SQLAlchemyJobRepository:
     async def get_jobs_by_ids(
         self,
         job_ids: list[UUID],
-    ) -> list[dict]:
+    ) -> list[JobEmbeddingRecord]:
         """Fetch jobs by their integer IDs.
 
         Args:
@@ -436,8 +452,7 @@ class SQLAlchemyJobRepository:
         stmt = update(Job).where(Job.is_active.is_(True)).values(is_active=False)
         result = await self._session.execute(stmt)
         await self._session.commit()
-        rowcount = cast(Any, result).rowcount
-        return int(rowcount or 0)
+        return _rowcount(result)
 
     async def delete_inactive_jobs(self) -> int:
         """Delete all jobs marked as inactive.
@@ -452,8 +467,7 @@ class SQLAlchemyJobRepository:
         stmt = delete(Job).where(Job.is_active.is_(False))
         result = await self._session.execute(stmt)
         await self._session.commit()
-        rowcount = cast(Any, result).rowcount
-        return int(rowcount or 0)
+        return _rowcount(result)
 
     async def get_total_count(
         self,

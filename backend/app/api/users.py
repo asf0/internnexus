@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Any
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -30,7 +29,7 @@ from app.services.resume_service import (
     extract_resume_text,
     normalize_resume_text,
 )
-from app.services.user_service import UserService, get_user_service
+from app.services.user_service import UpdateProfileData, UserService, get_user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -149,7 +148,8 @@ async def update_user_profile(
     current_user: Annotated[User, Depends(get_current_user)],
     user_service: UserService = Depends(get_user_service),
 ) -> UserProfileResponse:
-    user = await user_service.update_profile(current_user, data.model_dump())
+    profile_update = cast(UpdateProfileData, data.model_dump())
+    user = await user_service.update_profile(current_user, profile_update)
     return UserProfileResponse(**user_service.parse_user_profile(user))
 
 

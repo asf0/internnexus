@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import datetime, timezone
-from typing import Any
+from typing import TypedDict
 
 from fastapi import Depends
 from sqlalchemy import delete
@@ -17,6 +17,51 @@ from app.repositories.account import AccountRepository
 from app.repositories.user import UserRepository
 
 
+class UserProfileData(TypedDict):
+    id: str
+    email: str
+    name: str | None
+    image: str | None
+    created_at: datetime
+    bio: str | None
+    phone: str | None
+    location: str | None
+    job_title: str | None
+    company: str | None
+    industry: str | None
+    skills: list[str]
+    linkedin_url: str | None
+    portfolio_url: str | None
+    preferred_locations: list[str]
+    has_password: bool
+
+
+class UpdateProfileData(TypedDict, total=False):
+    name: str | None
+    bio: str | None
+    phone: str | None
+    location: str | None
+    job_title: str | None
+    company: str | None
+    industry: str | None
+    skills: list[str]
+    linkedin_url: str | None
+    portfolio_url: str | None
+    preferred_locations: list[str]
+
+
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(parsed, list):
+        return [str(item) for item in parsed]
+    return []
+
+
 class UserService:
     """Service for user profile management."""
 
@@ -26,12 +71,10 @@ class UserService:
         self.account_repo = AccountRepository(session)
 
     @staticmethod
-    def parse_user_profile(user: User) -> dict[str, Any]:
+    def parse_user_profile(user: User) -> UserProfileData:
         """Parse user model to profile dict with JSON fields decoded."""
-        skills = json.loads(user.skills) if user.skills else []
-        preferred_locations = (
-            json.loads(user.preferred_locations) if user.preferred_locations else []
-        )
+        skills = _json_list(user.skills)
+        preferred_locations = _json_list(user.preferred_locations)
         return {
             "id": str(user.id),
             "email": user.email,
@@ -51,26 +94,35 @@ class UserService:
             "has_password": user.hashed_password is not None,
         }
 
-    async def update_profile(self, user: User, data: dict[str, Any]) -> User:
+    async def update_profile(self, user: User, data: UpdateProfileData) -> User:
         """Update user profile fields."""
-        if data.get("name") is not None:
-            user.name = data["name"]
-        if data.get("bio") is not None:
-            user.bio = data["bio"]
-        if data.get("phone") is not None:
-            user.phone = data["phone"]
-        if data.get("location") is not None:
-            user.location = data["location"]
-        if data.get("job_title") is not None:
-            user.job_title = data["job_title"]
-        if data.get("company") is not None:
-            user.company = data["company"]
-        if data.get("industry") is not None:
-            user.industry = data["industry"]
-        if data.get("linkedin_url") is not None:
-            user.linkedin_url = data["linkedin_url"]
-        if data.get("portfolio_url") is not None:
-            user.portfolio_url = data["portfolio_url"]
+        name = data.get("name")
+        if name is not None:
+            user.name = name
+        bio = data.get("bio")
+        if bio is not None:
+            user.bio = bio
+        phone = data.get("phone")
+        if phone is not None:
+            user.phone = phone
+        location = data.get("location")
+        if location is not None:
+            user.location = location
+        job_title = data.get("job_title")
+        if job_title is not None:
+            user.job_title = job_title
+        company = data.get("company")
+        if company is not None:
+            user.company = company
+        industry = data.get("industry")
+        if industry is not None:
+            user.industry = industry
+        linkedin_url = data.get("linkedin_url")
+        if linkedin_url is not None:
+            user.linkedin_url = linkedin_url
+        portfolio_url = data.get("portfolio_url")
+        if portfolio_url is not None:
+            user.portfolio_url = portfolio_url
 
         skills = data.get("skills", [])
         preferred_locations = data.get("preferred_locations", [])

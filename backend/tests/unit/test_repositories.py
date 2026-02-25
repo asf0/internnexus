@@ -206,6 +206,24 @@ class TestSQLAlchemyRepositoryImport:
 
         assert SQLAlchemyJobRepository is not None
 
+    def test_sqlalchemy_repo_exports_boundary_symbols(self):
+        from pipeline.repositories.sqlalchemy_repo import __all__
+
+        expected_exports = {
+            "AsyncSessionLocal",
+            "Job",
+            "JobSource",
+            "PipelineRun",
+            "PipelineRunStatus",
+            "AshbyJobMetadata",
+            "GreenhouseJobMetadata",
+            "LeverJobMetadata",
+            "SQLAlchemyJobRepository",
+            "get_repository",
+        }
+
+        assert expected_exports.issubset(set(__all__))
+
     def test_sqlalchemy_repo_has_required_methods(self):
         from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository
 
