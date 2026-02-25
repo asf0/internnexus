@@ -14,6 +14,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.mappers import job_to_response
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import validate_password_strength
 from app.db import get_db
@@ -477,7 +478,7 @@ async def list_saved_jobs(
             id=row.SavedJob.id,
             job_id=row.SavedJob.job_id,
             created_at=row.SavedJob.created_at,
-            job=JobResponse.model_validate(row.Job),
+            job=job_to_response(row.Job),
         )
         for row in rows
     ]

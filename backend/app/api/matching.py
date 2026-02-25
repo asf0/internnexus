@@ -6,7 +6,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -15,6 +15,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
+from app.api.mappers import job_to_match_result
 from app.config import get_settings
 from app.auth.dependencies import get_current_user
 from app.db import get_db
@@ -223,7 +224,7 @@ async def _rank_matches(
 
     try:
         result = await db.execute(stmt)
-        candidate_rows = result.tuples().all()
+        candidate_rows = cast(list[tuple[Job, float | None]], result.tuples().all())
     except Exception as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)
@@ -294,22 +295,9 @@ async def _rank_matches(
         )
 
     return [
-        MatchResult(
-            job_id=row.id,
-            score=float(score),
-            match_percentage=round(float(score) * 100, 1),
-            title=row.title,
-            company=row.company,
-            location=row.location,
-            apply_url=row.apply_url,
-            description_text=row.description_text,
-            city=row.city,
-            state=row.state,
-            country=row.country,
-            job_category=row.job_category,
-            job_type=row.job_type.value if row.job_type else None,
-            work_mode=row.work_mode.value if row.work_mode else None,
-            posted_at=row.posted_at,
+        job_to_match_result(
+            row,
+            score=score,
             score_breakdown=explain,
         )
         for score, row, explain in filtered_rows
@@ -534,7 +522,7 @@ async def match_profile_resume(
             ) from exc
 
         user_resume.resume_embedding = resume_embedding
-        user_resume.embedding_model = embedder._model
+        user_resume.embedding_model = settings.embedding_model
         user_resume.embedding_dim = len(resume_embedding)
         user_resume.last_embedded_at = datetime.now(timezone.utc)
         user_resume.status = "ready"

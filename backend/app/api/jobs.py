@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse, JobResponse
 from app.auth.dependencies import get_optional_user
 from app.cache.redis_pool import RedisService, get_redis_service
@@ -242,7 +243,7 @@ async def get_job(
     if job.is_active is not True:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    response = JobResponse.model_validate(job)
+    response = job_to_response(job)
 
     # Cache the response (as dict for JSON serialization)
     await cache.set(cache_key, response.model_dump(), ttl=300)

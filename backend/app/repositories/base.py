@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from app.db import Base
 
@@ -21,9 +22,12 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.session = session
 
+    def _id_column(self) -> InstrumentedAttribute[UUID]:
+        return cast(InstrumentedAttribute[UUID], getattr(self.model, "id"))
+
     async def get_by_id(self, id: UUID) -> ModelType | None:
         """Get a record by ID."""
-        stmt = select(self.model).where(getattr(self.model, "id") == id)
+        stmt = select(self.model).where(self._id_column() == id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -33,16 +37,16 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create(self, **kwargs: object) -> ModelType:
+    async def create(self, **kwargs: Any) -> ModelType:
         """Create a new record."""
         instance = self.model(**kwargs)
         self.session.add(instance)
         await self.session.flush()
         return instance
 
-    async def update(self, instance: ModelType, **kwargs: object) -> ModelType:
+    async def update(self, instance: ModelType, **kwargs: Any) -> ModelType:
         """Update a record."""
-        updates: Mapping[str, object] = kwargs
+        updates: Mapping[str, Any] = kwargs
         for key, value in updates.items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
