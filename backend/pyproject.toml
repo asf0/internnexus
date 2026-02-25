@@ -48,6 +48,8 @@ ignore = ["E402"]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 reportGeneralTypeIssues = "error"
+reportArgumentType = "error"
+reportAttributeAccessIssue = "error"
 
 [tool.setuptools]
 packages = ["app"]
