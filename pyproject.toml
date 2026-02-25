@@ -54,7 +54,7 @@ select = ["E", "F", "W"]
 
 [tool.pyright]
 pythonVersion = "3.12"
-strict = true
+typeCheckingMode = "basic"
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]

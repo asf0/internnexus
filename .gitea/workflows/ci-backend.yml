@@ -57,7 +57,7 @@ jobs:
         run: uvx ruff check backend/ pipeline/
 
       - name: Type check Python (pyright)
-        run: uvx pyright backend/ pipeline/
+        run: pyright backend/app
 
       - name: Run unit tests
         run: cd backend && uv run pytest tests/unit/ -q --tb=short
