@@ -228,9 +228,7 @@ class LinkedInGuestScraper:
             logger.debug(f"Failed to fetch job {job_id}: {exc}")
             return None
 
-    async def _scrape_search_with_page(
-        self, page, query: str, location: str, max_jobs: int = 25
-    ) -> list[JobSchema]:
+    async def _scrape_search_with_page(self, page, query: str, location: str, max_jobs: int = 25) -> list[JobSchema]:
         """Scrape a single search using provided page."""
         jobs: list[JobSchema] = []
         search_url = self._build_search_url(query, location)
@@ -275,9 +273,7 @@ class LinkedInGuestScraper:
                             # Random delay between searches
                             await asyncio.sleep(random.uniform(2.0, 4.0))
                         except Exception as exc:
-                            logger.warning(
-                                f"Worker {worker_id} error for '{query}' in '{location}': {exc}"
-                            )
+                            logger.warning(f"Worker {worker_id} error for '{query}' in '{location}': {exc}")
 
                 logger.info(f"Worker {worker_id}: Completed with {len(jobs)} jobs")
                 return jobs
@@ -312,9 +308,7 @@ class LinkedInGuestScraper:
                 start = page_num * max_jobs_per_page
                 search_url = self._build_search_url(query, location, start=start)
 
-                logger.info(
-                    f"LinkedIn page {page_num + 1}/{max_pages}: {query} in {location} (start={start})"
-                )
+                logger.info(f"LinkedIn page {page_num + 1}/{max_pages}: {query} in {location} (start={start})")
 
                 job_ids = await self._extract_job_ids(page, search_url)
 
@@ -362,10 +356,8 @@ class LinkedInGuestScraper:
         locations = locations or LINKEDIN_LOCATIONS
 
         # Create all search combinations
-        search_combinations = [(q, l) for q in queries for l in locations]
-        logger.info(
-            f"LinkedIn scrape: {len(search_combinations)} searches using {max_workers} workers"
-        )
+        search_combinations = [(q, location) for q in queries for location in locations]
+        logger.info(f"LinkedIn scrape: {len(search_combinations)} searches using {max_workers} workers")
 
         # Split into chunks for workers
         chunks = _split_into_chunks(search_combinations, max_workers)
@@ -394,15 +386,12 @@ class LinkedInGuestScraper:
         # Log summary
         successful_workers = sum(1 for r in results if not isinstance(r, Exception))
         logger.info(
-            f"LinkedIn scrape complete: {len(all_jobs)} jobs from "
-            f"{successful_workers}/{len(tasks)} successful workers"
+            f"LinkedIn scrape complete: {len(all_jobs)} jobs from {successful_workers}/{len(tasks)} successful workers"
         )
 
         return all_jobs
 
 
-async def scrape_linkedin(
-    queries: list[str] | None = None, locations: list[str] | None = None
-) -> list[JobSchema]:
+async def scrape_linkedin(queries: list[str] | None = None, locations: list[str] | None = None) -> list[JobSchema]:
     scraper = LinkedInGuestScraper()
     return await scraper.scrape(queries, locations)

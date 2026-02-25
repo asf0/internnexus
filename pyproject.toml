@@ -39,7 +39,18 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
+
+[tool.ruff.lint]
+ignore = [
+    "E402",  # Module level import not at top - intentional for path setup
+    "E501",  # Line too long - many URLs in code
+    "F601",  # Repeated dict keys - intentional to override earlier values
+]
+select = ["E", "F", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F841"]
 
 [tool.pyright]
 pythonVersion = "3.12"

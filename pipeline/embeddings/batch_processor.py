@@ -214,9 +214,7 @@ async def _process_batch(
     if not jobs_in_db:
         return 0, 0, skipped, []
 
-    success, errors, failed = await _embed_and_save(
-        db, jobs_in_db, texts, embedder, batch_num, retry_attempt
-    )
+    success, errors, failed = await _embed_and_save(db, jobs_in_db, texts, embedder, batch_num, retry_attempt)
     return success, errors, skipped, failed
 
 
@@ -303,9 +301,7 @@ async def _embed_and_save(
             logger.warning(f"  Batch {batch_num} cancelled during embedding")
             raise
         except Exception as e:
-            batch_success, batch_errors, batch_failed = _handle_batch_error(
-                batch_jobs, e, batch_num, retry_attempt
-            )
+            batch_success, batch_errors, batch_failed = _handle_batch_error(batch_jobs, e, batch_num, retry_attempt)
             success += batch_success
             errors += batch_errors
             failed.extend(batch_failed)
@@ -347,9 +343,7 @@ async def _process_with_semaphore(
     async with semaphore:
         async with AsyncSessionLocal() as db:
             jobs = await _fetch_jobs_by_ids(db, job_ids)
-            result = await _process_batch(
-                db, jobs, embedder, batch_num, retry_attempt=retry_attempt
-            )
+            result = await _process_batch(db, jobs, embedder, batch_num, retry_attempt=retry_attempt)
             success, errors, skipped, failed = result
             logger.info(
                 f"  Batch {batch_num}: {success} success, {errors} errors, {skipped} skipped"

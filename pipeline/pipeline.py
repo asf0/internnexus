@@ -9,7 +9,7 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 import httpx
 from sqlalchemy import case, update
@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 API_FETCH_CONCURRENCY = 10
 NOT_FOUND_COOLDOWN_HOURS = 24
 SLUG_404_CACHE_PATH = Path(__file__).parent / "output" / "slug_404_cache.json"
+
+
+class SlugFetchError(TypedDict, total=False):
+    step: str
+    source: str
+    slug: str
+    run_id: str | None
+    error_type: str
+    status_code: int | None
+    message: str
+    cooldown_until: float
 
 
 def _load_slug_404_cache() -> dict[str, dict[str, float]]:
@@ -93,7 +104,12 @@ async def _fetch_all_apis_parallel(
     *,
     api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
     not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
-) -> tuple[list[JobSchema], list[JobSchema], list[JobSchema]]:
+    run_id: str | None = None,
+    include_errors: bool = False,
+) -> (
+    tuple[list[JobSchema], list[JobSchema], list[JobSchema]]
+    | tuple[list[JobSchema], list[JobSchema], list[JobSchema], list[SlugFetchError]]
+):
     """Fetch from all ATS APIs in parallel using thread pool."""
     greenhouse = GreenhouseClient()
     lever = LeverClient()
@@ -109,12 +125,13 @@ async def _fetch_all_apis_parallel(
 
         async def _fetch_source_jobs(
             source_name: str, slugs: list[str], fetch_func: Callable[[str], list[JobSchema]]
-        ) -> list[JobSchema]:
+        ) -> tuple[list[JobSchema], list[SlugFetchError]]:
             semaphore = asyncio.Semaphore(max(1, api_fetch_concurrency))
             now_ts = time.time()
             source_cache = slug_404_cache.setdefault(source_name.lower(), {})
             active_slugs: list[str] = []
             suppressed_count = 0
+            source_errors: list[SlugFetchError] = []
 
             for slug in slugs:
                 expires_at = source_cache.get(slug)
@@ -130,38 +147,59 @@ async def _fetch_all_apis_parallel(
                     suppressed_count,
                 )
 
-            async def _fetch_one(slug: str) -> list[JobSchema]:
+            async def _fetch_one(slug: str) -> tuple[list[JobSchema], SlugFetchError | None]:
                 async with semaphore:
                     try:
-                        return await asyncio.to_thread(fetch_func, slug)
+                        return await asyncio.to_thread(fetch_func, slug), None
                     except httpx.HTTPStatusError as exc:
                         status_code = exc.response.status_code if exc.response is not None else 0
                         if status_code == 404:
                             cooldown_until = time.time() + (max(1, not_found_cooldown_hours) * 3600)
                             async with cache_lock:
-                                slug_404_cache.setdefault(source_name.lower(), {})[slug] = (
-                                    cooldown_until
-                                )
+                                slug_404_cache.setdefault(source_name.lower(), {})[slug] = cooldown_until
                             logger.info(
                                 "%s slug '%s' returned 404; skipping for %dh",
                                 source_name,
                                 slug,
                                 max(1, not_found_cooldown_hours),
                             )
-                            return []
-                        logger.warning("%s failed for %s: %s", source_name, slug, exc)
-                        return []
+                            return [], {
+                                "step": "ingest",
+                                "source": source_name.lower(),
+                                "slug": slug,
+                                "run_id": run_id,
+                                "error_type": "http_404",
+                                "status_code": 404,
+                                "message": str(exc),
+                                "cooldown_until": cooldown_until,
+                            }
+                        return [], {
+                            "step": "ingest",
+                            "source": source_name.lower(),
+                            "slug": slug,
+                            "run_id": run_id,
+                            "error_type": "http_error",
+                            "status_code": status_code,
+                            "message": str(exc),
+                        }
                     except Exception as exc:
-                        logger.warning("%s failed for %s: %s", source_name, slug, exc)
-                        return []
+                        return [], {
+                            "step": "ingest",
+                            "source": source_name.lower(),
+                            "slug": slug,
+                            "run_id": run_id,
+                            "error_type": "exception",
+                            "status_code": None,
+                            "message": str(exc),
+                        }
 
-            results = await asyncio.gather(
-                *[_fetch_one(slug) for slug in active_slugs], return_exceptions=False
-            )
+            results = await asyncio.gather(*[_fetch_one(slug) for slug in active_slugs], return_exceptions=False)
             jobs: list[JobSchema] = []
-            for result in results:
-                jobs.extend(result)
-            return jobs
+            for source_jobs, error in results:
+                jobs.extend(source_jobs)
+                if error is not None:
+                    source_errors.append(error)
+            return jobs, source_errors
 
         results = await asyncio.gather(
             _fetch_source_jobs("Greenhouse", gh_slugs, greenhouse.fetch_jobs),
@@ -170,22 +208,66 @@ async def _fetch_all_apis_parallel(
             return_exceptions=True,
         )
 
-        greenhouse_jobs = cast(list[JobSchema], results[0]) if isinstance(results[0], list) else []
-        lever_jobs = cast(list[JobSchema], results[1]) if isinstance(results[1], list) else []
-        ashby_jobs = cast(list[JobSchema], results[2]) if isinstance(results[2], list) else []
+        greenhouse_jobs: list[JobSchema] = []
+        lever_jobs: list[JobSchema] = []
+        ashby_jobs: list[JobSchema] = []
+        fetch_errors: list[SlugFetchError] = []
+
+        for idx, source_name in enumerate(("greenhouse", "lever", "ashby")):
+            result = results[idx]
+            if isinstance(result, tuple):
+                source_jobs, source_errors = result
+                if source_name == "greenhouse":
+                    greenhouse_jobs = cast(list[JobSchema], source_jobs)
+                elif source_name == "lever":
+                    lever_jobs = cast(list[JobSchema], source_jobs)
+                else:
+                    ashby_jobs = cast(list[JobSchema], source_jobs)
+                fetch_errors.extend(source_errors)
 
         now_ts = time.time()
         for source in list(slug_404_cache.keys()):
             source_entries = slug_404_cache[source]
             slug_404_cache[source] = {
-                slug: expires_at
-                for slug, expires_at in source_entries.items()
-                if expires_at > now_ts
+                slug: expires_at for slug, expires_at in source_entries.items() if expires_at > now_ts
             }
             if not slug_404_cache[source]:
                 del slug_404_cache[source]
         _save_slug_404_cache(slug_404_cache)
 
+        for error in fetch_errors:
+            logger.warning(
+                "Slug fetch failed: source=%s slug=%s status=%s type=%s",
+                error["source"],
+                error["slug"],
+                error.get("status_code"),
+                error["error_type"],
+                extra={
+                    "step": error["step"],
+                    "source": error["source"],
+                    "slug": error["slug"],
+                    "run_id": error.get("run_id"),
+                },
+            )
+
+        if fetch_errors:
+            per_source: dict[str, int] = {}
+            for error in fetch_errors:
+                per_source[error["source"]] = per_source.get(error["source"], 0) + 1
+            logger.warning(
+                "API fetch error summary: total=%d per_source=%s",
+                len(fetch_errors),
+                per_source,
+                extra={
+                    "step": "ingest",
+                    "source": "all",
+                    "slug": "*",
+                    "run_id": run_id,
+                },
+            )
+
+        if include_errors:
+            return greenhouse_jobs, lever_jobs, ashby_jobs, fetch_errors
         return greenhouse_jobs, lever_jobs, ashby_jobs
     finally:
         _close_api_clients(greenhouse, lever, ashby)
@@ -206,6 +288,7 @@ async def fetch_api_jobs(
     *,
     api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
     not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    run_id: str | None = None,
 ) -> list[JobSchema]:
     """Fetch jobs from all 3 ATS platforms in parallel."""
     gh_slugs = get_greenhouse_slugs()
@@ -219,12 +302,11 @@ async def fetch_api_jobs(
     greenhouse_jobs, lever_jobs, ashby_jobs = await _fetch_all_apis_parallel(
         api_fetch_concurrency=api_fetch_concurrency,
         not_found_cooldown_hours=not_found_cooldown_hours,
+        run_id=run_id,
     )
 
     all_jobs = greenhouse_jobs + lever_jobs + ashby_jobs
-    logger.info(
-        f"Fetched {len(greenhouse_jobs)} Greenhouse, {len(lever_jobs)} Lever, {len(ashby_jobs)} Ashby jobs"
-    )
+    logger.info(f"Fetched {len(greenhouse_jobs)} Greenhouse, {len(lever_jobs)} Lever, {len(ashby_jobs)} Ashby jobs")
 
     return all_jobs
 
@@ -239,7 +321,7 @@ async def mark_all_jobs_inactive(session: AsyncSession) -> int:
     Returns:
         Number of jobs marked inactive
     """
-    result = await session.execute(update(Job).where(Job.is_active == True).values(is_active=False))
+    result = await session.execute(update(Job).where(Job.is_active is True).values(is_active=False))
     await session.commit()
     count = result.rowcount
     if count > 0:
@@ -353,9 +435,7 @@ async def upsert_greenhouse_metadata_batch(
     )
 
 
-async def upsert_lever_metadata_batch(
-    db: AsyncSession, fp_to_id: dict[str, uuid.UUID], jobs: list[JobSchema]
-) -> int:
+async def upsert_lever_metadata_batch(db: AsyncSession, fp_to_id: dict[str, uuid.UUID], jobs: list[JobSchema]) -> int:
     return await upsert_metadata_batch(
         db,
         fp_to_id,
@@ -366,9 +446,7 @@ async def upsert_lever_metadata_batch(
     )
 
 
-async def upsert_ashby_metadata_batch(
-    db: AsyncSession, fp_to_id: dict[str, uuid.UUID], jobs: list[JobSchema]
-) -> int:
+async def upsert_ashby_metadata_batch(db: AsyncSession, fp_to_id: dict[str, uuid.UUID], jobs: list[JobSchema]) -> int:
     return await upsert_metadata_batch(
         db,
         fp_to_id,
@@ -387,9 +465,7 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
     unique_jobs = deduplicate_jobs(jobs) if deduplicate else jobs
 
     if deduplicate and len(unique_jobs) < len(jobs):
-        logger.info(
-            f"Deduped {len(jobs) - len(unique_jobs)} jobs within batch ({len(unique_jobs)} unique)"
-        )
+        logger.info(f"Deduped {len(jobs) - len(unique_jobs)} jobs within batch ({len(unique_jobs)} unique)")
 
     BATCH_SIZE = 250
     total_upserted = 0

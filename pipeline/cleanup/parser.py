@@ -40,9 +40,7 @@ def _contains_normalized(haystack: str, needle: str) -> bool:
     return needle_norm in haystack_norm
 
 
-def _is_metadata_consistent(
-    location_str: str, parsed_from_location: dict, metadata_result: dict
-) -> bool:
+def _is_metadata_consistent(location_str: str, parsed_from_location: dict, metadata_result: dict) -> bool:
     if _is_plain_remote(location_str) and metadata_result.get("country"):
         return False
 

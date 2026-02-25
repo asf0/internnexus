@@ -4,9 +4,9 @@ import { BACKEND_URL } from "@/lib/config";
 import { parseApiError } from "@/lib/utils";
 import type { RegisterRequest } from "@/lib/types/auth";
 
-export async function registerUser(data: RegisterRequest): Promise<{ 
-  success: boolean; 
-  error?: string; 
+export async function registerUser(data: RegisterRequest): Promise<{
+  success: boolean;
+  error?: string;
   errorType?: string;
 }> {
   try {
@@ -20,8 +20,8 @@ export async function registerUser(data: RegisterRequest): Promise<{
 
     if (!response.ok) {
       const detail = responseData.detail || {};
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: detail.message || "Registration failed. Please try again.",
         errorType: detail.error,
       };

@@ -56,7 +56,7 @@ class TestJobsAPI:
         # Arrange
         with patch("app.api.jobs.get_job_search_service") as mock_get_service:
             mock_service = AsyncMock()
-            from app.api.schemas import JobListResponse, JobResponse
+            from app.api.schemas import JobListResponse
 
             mock_service.search.return_value = JobListResponse(
                 items=[], total=0, page=1, page_size=20

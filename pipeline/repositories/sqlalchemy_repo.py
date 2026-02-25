@@ -11,16 +11,12 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, text, update
-from sqlalchemy.dialects.postgresql import insert
 
 from backend.app.db import AsyncSessionLocal
 from backend.app.models import (
     AshbyJobMetadata,
     GreenhouseJobMetadata,
     Job,
-    PipelineRun,
-    PipelineRunStatus,
-    JobSource,
     LeverJobMetadata,
 )
 from pipeline.repositories import JobLocationData, LocationUpdate, MetadataBatch

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from pipeline.backend_bridge import EmbeddingService

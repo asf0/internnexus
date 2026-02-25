@@ -12,11 +12,9 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.models import Admin, AdminRole, Job, JobClick, JobSource, User
 
 
@@ -394,7 +392,6 @@ class TestClickTrackingAdminRetrieval:
 
         # Act - Calculate stats
         from sqlalchemy import func
-        from datetime import timedelta
 
         # Total clicks
         total_result = await db_session.execute(select(func.count()).select_from(JobClick))

@@ -22,6 +22,7 @@ async def fetch_and_ingest(
     *,
     api_fetch_concurrency: int = 10,
     not_found_cooldown_hours: int = 24,
+    run_id: str | None = None,
 ) -> tuple[int, datetime]:
     """Fetch jobs from all sources and upsert to database.
 
@@ -42,6 +43,7 @@ async def fetch_and_ingest(
     api_jobs = await fetch_api_jobs(
         api_fetch_concurrency=api_fetch_concurrency,
         not_found_cooldown_hours=not_found_cooldown_hours,
+        run_id=run_id,
     )
     logger.info(f"Fetched {len(api_jobs)} jobs from APIs")
 

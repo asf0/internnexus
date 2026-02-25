@@ -30,13 +30,14 @@ except ModuleNotFoundError:
 
 ensure_project_paths()
 
+import sys
+
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.category_mapping import (
     CANONICAL_CATEGORIES,
     get_canonical_category,
-    INVALID_CATEGORIES,
 )
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
 
@@ -119,24 +120,14 @@ async def apply_consolidation(session: AsyncSession, batch_size: int = 1000) -> 
 
         if canonical is None:
             # Set to NULL
-            stmt = (
-                update(Job)
-                .where(Job.job_category == original_cat)
-                .values(job_category=None)
-                .returning(Job.id)
-            )
+            stmt = update(Job).where(Job.job_category == original_cat).values(job_category=None).returning(Job.id)
             result = await session.execute(stmt)
             rows = list(result.fetchall())
             nullified += len(rows)
             logger.info(f"Set {len(rows)} jobs from '{original_cat}' to NULL")
         elif canonical != original_cat.lower():
             # Update to canonical
-            stmt = (
-                update(Job)
-                .where(Job.job_category == original_cat)
-                .values(job_category=canonical)
-                .returning(Job.id)
-            )
+            stmt = update(Job).where(Job.job_category == original_cat).values(job_category=canonical).returning(Job.id)
             result = await session.execute(stmt)
             rows = list(result.fetchall())
             updated_counts[canonical] += len(rows)

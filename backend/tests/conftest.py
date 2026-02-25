@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.main import app
 from app.db import get_db
@@ -59,7 +59,7 @@ def run_alembic_migrations(database_url: str):
         print(f"Alembic stderr: {result.stderr}")
         raise RuntimeError(f"Alembic migration failed: {result.stderr}")
 
-    print(f"✓ Alembic migrations completed")
+    print("✓ Alembic migrations completed")
 
 
 def reset_database(database_url: str):

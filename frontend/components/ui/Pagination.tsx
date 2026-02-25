@@ -20,9 +20,9 @@ interface PaginationProps {
  * - Optional item range summary
  * - Cleaner layout for large result sets
  */
-export default function Pagination({ 
-  currentPage, 
-  totalPages, 
+export default function Pagination({
+  currentPage,
+  totalPages,
   buildPageUrl,
   totalItems,
   pageSize = 20,
@@ -33,8 +33,8 @@ export default function Pagination({
   const endItem = totalItems ? Math.min(currentPage * pageSize, totalItems) : null;
 
   return (
-    <nav 
-      role="navigation" 
+    <nav
+      role="navigation"
       aria-label="Pagination"
       className="mt-8 flex flex-col items-center gap-3"
     >
@@ -51,7 +51,7 @@ export default function Pagination({
             </span>
           </Link>
         ) : (
-          <span 
+          <span
             aria-disabled="true"
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
           >
@@ -78,7 +78,7 @@ export default function Pagination({
             </span>
           </Link>
         ) : (
-          <span 
+          <span
             aria-disabled="true"
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
           >

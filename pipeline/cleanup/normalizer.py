@@ -54,8 +54,7 @@ async def _normalize_existing_states(session: AsyncSession) -> int:
 
     if state_mappings_with_values:
         case_clauses = " WHEN ".join(
-            f"state = '{state}' THEN '{new_state}'"
-            for state, new_state in state_mappings_with_values.items()
+            f"state = '{state}' THEN '{new_state}'" for state, new_state in state_mappings_with_values.items()
         )
         case_clauses = f"CASE WHEN {case_clauses} END"
         result = await session.execute(

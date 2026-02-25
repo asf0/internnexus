@@ -5,10 +5,9 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, case, false, func, or_, select
+from sqlalchemy import case, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import JobListResponse, JobResponse
@@ -74,8 +73,11 @@ class JobSearchService:
             f"posted:{params.posted_within or ''}",
             f"match:{params.match_ids or ''}",
             f"saved:{'1' if params.saved_only else '0'}",
-            "saved_ids:" + (
-                hashlib.md5("|".join(str(job_id) for job_id in (params.saved_job_ids or [])).encode()).hexdigest()
+            "saved_ids:"
+            + (
+                hashlib.md5(
+                    "|".join(str(job_id) for job_id in (params.saved_job_ids or [])).encode()
+                ).hexdigest()
                 if params.saved_job_ids
                 else ""
             ),
@@ -113,9 +115,7 @@ class JobSearchService:
             page_size=params.page_size,
         )
 
-    async def build_filtered_stmt(
-        self, params: JobSearchParams, include_location: bool = True
-    ):
+    async def build_filtered_stmt(self, params: JobSearchParams, include_location: bool = True):
         """Build the filtered base statement used by list and facet endpoints.
 
         Args:
@@ -202,7 +202,7 @@ class JobSearchService:
 
     def _build_boolean_tsquery(self, expr) -> str:
         """Convert boolean expression to PostgreSQL tsquery format."""
-        from app.services.search_parser import BooleanExpr, SearchTerm
+        from app.services.search_parser import SearchTerm
 
         def build_term(term: SearchTerm) -> str:
             value = term.value.lower().strip()

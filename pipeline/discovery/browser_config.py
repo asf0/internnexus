@@ -64,7 +64,5 @@ BLOCK_INDICATORS = [
 
 # Selectors for Google results
 RESULT_SELECTOR = "div[data-ved] h3 a, div.g h3 a, .yuRUbf a"
-NEXT_PAGE_SELECTOR = (
-    "a[aria-label='Next page'], a:has-text('Next'), td a:has-text('Next')"
-)
+NEXT_PAGE_SELECTOR = "a[aria-label='Next page'], a:has-text('Next'), td a:has-text('Next')"
 NO_RESULTS_SELECTOR = "div[role='heading']:has-text('did not match')"

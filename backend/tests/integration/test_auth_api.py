@@ -1,7 +1,6 @@
 """Integration tests for auth API endpoints."""
 
 import pytest
-from datetime import datetime, timezone
 
 
 class TestAuthAPI:

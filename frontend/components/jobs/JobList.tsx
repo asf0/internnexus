@@ -311,7 +311,7 @@ export default function JobList({
   const handleApplyAfterAuth = useCallback(async (applyWindow?: Window | null) => {
     const urlToOpen = pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
     const jobIdToTrack = pendingApplyJobId || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-    
+
     if (!urlToOpen) {
       setIsAuthModalOpen(false);
       return;
@@ -371,7 +371,7 @@ export default function JobList({
           // Fall through to use original URL
         }
       }
-      
+
       openApplyUrl(storedApplyUrl);
       sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
       sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
@@ -379,7 +379,7 @@ export default function JobList({
       setPendingApplyJobId(null);
       setIsAuthModalOpen(false);
     };
-    
+
     openAfterAuth();
   }, [isAuthenticated, openApplyUrl, promptAppliedConfirmation]);
 

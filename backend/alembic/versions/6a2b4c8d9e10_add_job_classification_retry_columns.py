@@ -23,8 +23,13 @@ def upgrade() -> None:
         "jobs",
         sa.Column("classification_attempts", sa.Integer(), server_default="0", nullable=False),
     )
-    op.add_column("jobs", sa.Column("classification_last_attempt_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("jobs", sa.Column("classification_next_retry_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "jobs",
+        sa.Column("classification_last_attempt_at", sa.DateTime(timezone=True), nullable=True),
+    )
+    op.add_column(
+        "jobs", sa.Column("classification_next_retry_at", sa.DateTime(timezone=True), nullable=True)
+    )
     op.add_column("jobs", sa.Column("classification_last_error", sa.Text(), nullable=True))
     op.create_index(
         op.f("ix_jobs_classification_next_retry_at"),

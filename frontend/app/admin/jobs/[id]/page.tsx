@@ -167,7 +167,7 @@ export default function AdminJobDetailPage() {
       >
         Back to Jobs
       </Button>
-      
+
       {!job.is_active && (
         <Alert
           message="This job is inactive and hidden from users."
@@ -176,7 +176,7 @@ export default function AdminJobDetailPage() {
           style={{ marginBottom: 16 }}
         />
       )}
-      
+
       <Title level={3} style={{ margin: 0 }}>
         {job?.title || "Job Details"}
       </Title>

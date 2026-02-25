@@ -8,9 +8,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-BROWSER_DISCOVERY_FILE = (
-    Path(__file__).parent.parent / "discovery" / "output" / "discovered_companies.json"
-)
+BROWSER_DISCOVERY_FILE = Path(__file__).parent.parent / "discovery" / "output" / "discovered_companies.json"
 COMMON_COMPANIES_FILE = Path(__file__).parent.parent / "data" / "companies.json"
 
 

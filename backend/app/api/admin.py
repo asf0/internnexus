@@ -40,7 +40,6 @@ from app.auth.dependencies import AdminDep, SuperAdminDep
 from app.auth.jwt import get_password_hash
 from app.db import get_db
 from app.models import (
-    Account,
     Admin,
     AdminRole,
     Job,
@@ -194,7 +193,7 @@ async def get_job_stats(
 
     # Active jobs
     active_result = await db.execute(
-        select(func.count()).select_from(Job).where(Job.is_active == True)
+        select(func.count()).select_from(Job).where(Job.is_active is True)
     )
     active_jobs = active_result.scalar() or 0
 

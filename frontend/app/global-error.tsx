@@ -10,7 +10,7 @@ interface GlobalErrorProps {
 
 /**
  * Global Error Handler
- * 
+ *
  * Next.js 15+ global-error.tsx catches errors in the root layout
  * This is the last line of defense for uncaught errors
  */

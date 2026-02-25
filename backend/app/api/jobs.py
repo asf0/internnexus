@@ -16,7 +16,7 @@ from app.api.schemas import JobListResponse, JobResponse
 from app.auth.dependencies import get_optional_user
 from app.cache.redis_pool import RedisService, get_redis_service
 from app.db import get_db
-from app.models import Job, JobClick, SavedJob, User
+from app.models import JobClick, SavedJob, User
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.repositories.job import JobRepository
 from app.services.job_search import JobSearchParams, JobSearchService

@@ -91,7 +91,9 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         errors.append(f"text fallback: {exc}")
 
     raise ResumeProcessingError(
-        "Could not extract text from PDF. " + "; ".join(errors) if errors else "Unknown parser error"
+        "Could not extract text from PDF. " + "; ".join(errors)
+        if errors
+        else "Unknown parser error"
     )
 
 

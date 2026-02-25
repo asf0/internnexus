@@ -13,7 +13,7 @@ import { fetchAppliedJobIds } from "@/app/actions/user";
 import { getBackendToken } from "@/lib/auth.server";
 
 interface HomePageProps {
-  searchParams: Promise<{ 
+  searchParams: Promise<{
     page?: string;
     search?: string;
     company?: string;
@@ -39,11 +39,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const unreadCount = session?.user ? await fetchUnreadNotificationCount() : 0;
   const initialSavedJobIds = session?.user ? await fetchSavedJobIds() : [];
   const initialAppliedJobIds = session?.user ? await fetchAppliedJobIds() : [];
-  
+
   const [data, companies, locations, categories] = await Promise.all([
-    isMatched 
+    isMatched
       ? Promise.resolve({ items: [], total: 0, page: 1, page_size: 20 })
-      : fetchJobs({ 
+      : fetchJobs({
           page: currentPage,
           search: params.search,
           company: params.company,
@@ -70,7 +70,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     ),
     fetchCategories(),
   ]);
-  
+
   const totalPages = Math.ceil(data.total / data.page_size);
 
   const jsonLd = {
@@ -114,14 +114,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </header>
 
-      <Toolbar 
-        companies={companies} 
-        locations={locations} 
+      <Toolbar
+        companies={companies}
+        locations={locations}
         categories={categories}
         isAuthenticated={!!session?.user}
       />
 
-      <JobList 
+      <JobList
         jobs={data.items}
         total={data.total}
         totalPages={totalPages}

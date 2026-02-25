@@ -94,11 +94,7 @@ async def _process_production_mode_chunked(
         batch_updates = []
 
         unknown_locations = sorted(
-            {
-                row["location"]
-                for row in rows
-                if row["location"] and row["location"] not in unique_locations
-            }
+            {row["location"] for row in rows if row["location"] and row["location"] not in unique_locations}
         )
         if unknown_locations:
             await _warm_location_cache(unknown_locations)
@@ -120,9 +116,7 @@ async def _process_production_mode_chunked(
             if parsed_result.get("state"):
                 parsed_result["state"] = normalize_state_name(parsed_result["state"])
 
-            metadata_result, metadata_source = _get_metadata_result(
-                row, ashby_map, greenhouse_map, lever_map
-            )
+            metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
 
             final_result, source_used = _merge_location_results(
                 location, parsed_result, metadata_result, metadata_source
@@ -150,9 +144,7 @@ async def _process_production_mode_chunked(
             total_updated += len(batch_updates)
 
         if total_processed % 5000 == 0:
-            logger.info(
-                f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs..."
-            )
+            logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
 
     logger.info(f"Normalized {len(unique_locations)} unique locations")
     logger.info(f"Processed {total_processed} jobs, updated {total_updated}")

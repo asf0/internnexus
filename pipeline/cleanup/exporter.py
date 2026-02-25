@@ -24,9 +24,7 @@ async def _get_total_count(repo: SQLAlchemyJobRepository, since, process_all) ->
     return await repo.get_total_count(since=since, process_all=process_all)
 
 
-async def _process_test_mode_chunked(
-    session: AsyncSession, since, process_all, limit: int | None
-) -> int:
+async def _process_test_mode_chunked(session: AsyncSession, since, process_all, limit: int | None) -> int:
     repo = SQLAlchemyJobRepository(session)
     output_dir = Path(__file__).parent.parent / "output"
     output_dir.mkdir(exist_ok=True)
@@ -91,9 +89,7 @@ async def _process_test_mode_chunked(
                 if parsed_result.get("state"):
                     parsed_result["state"] = normalize_state_name(parsed_result["state"])
 
-                metadata_result, metadata_source = _get_metadata_result(
-                    row, ashby_map, greenhouse_map, lever_map
-                )
+                metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
 
                 final_result, source_used = _merge_location_results(
                     location, parsed_result, metadata_result, metadata_source
@@ -115,12 +111,10 @@ async def _process_test_mode_chunked(
                 writer.writerows(batch_results)
 
             if total_processed % 5000 == 0:
-                logger.info(
-                    f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs..."
-                )
+                logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
 
     logger.info(f"Normalized {len(unique_locations)} unique locations")
     logger.info(f"Processed {total_processed} jobs")
     logger.info(f"Results saved to {csv_path}")
-    logger.info(f"Step 'cleanup' completed in test mode - no database changes")
+    logger.info("Step 'cleanup' completed in test mode - no database changes")
     return total_processed

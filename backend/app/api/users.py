@@ -190,7 +190,9 @@ async def get_resume_metadata(
         result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
     except ProgrammingError as exc:
         if _is_resume_schema_error(exc):
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL
+            ) from exc
         raise
     resume = result.scalar_one_or_none()
     if resume is None:
@@ -221,7 +223,9 @@ async def upload_resume_metadata(
 
     file_content = await file.read()
     if len(file_content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 10MB)")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 10MB)"
+        )
 
     file_hash = hashlib.sha256(file_content).hexdigest()
 
@@ -254,10 +258,14 @@ async def upload_resume_metadata(
         )
 
     try:
-        existing_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+        existing_result = await db.execute(
+            select(UserResume).where(UserResume.user_id == current_user.id)
+        )
     except ProgrammingError as exc:
         if _is_resume_schema_error(exc):
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL
+            ) from exc
         raise
     existing = existing_result.scalar_one_or_none()
 
@@ -321,7 +329,9 @@ async def upload_resume_metadata(
     except ProgrammingError as exc:
         await db.rollback()
         if _is_resume_schema_error(exc):
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL
+            ) from exc
         raise
     data = UserResumeResponse.model_validate(resume)
     data.has_embedding = resume.resume_embedding is not None
@@ -405,7 +415,9 @@ async def mark_all_notifications_read(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    result = await db.execute(select(UserNotification).where(UserNotification.user_id == current_user.id))
+    result = await db.execute(
+        select(UserNotification).where(UserNotification.user_id == current_user.id)
+    )
     rows = result.scalars().all()
     now = datetime.now(timezone.utc)
     for row in rows:

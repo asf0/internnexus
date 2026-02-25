@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.crypto import encrypt_token
 from app.auth.jwt import create_access_token, get_password_hash, verify_password
 from app.db import get_db
-from app.models import Account, User
+from app.models import User
 from app.repositories.account import AccountRepository, PasswordHistoryRepository
 from app.repositories.user import UserRepository
 from app.services.errors import AuthErrorMessages, ConflictError, create_auth_error

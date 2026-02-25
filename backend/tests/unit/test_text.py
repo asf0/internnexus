@@ -1,7 +1,5 @@
 """Unit tests for text utilities."""
 
-import pytest
-
 from app.utils.text import clean_text_for_embedding
 
 

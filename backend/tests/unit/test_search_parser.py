@@ -1,10 +1,7 @@
 """Unit tests for search parser module."""
 
-import pytest
-
 from app.services.search_parser import (
     TokenType,
-    Token,
     SearchTerm,
     BooleanExpr,
     ParsedSearch,

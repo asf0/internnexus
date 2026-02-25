@@ -41,6 +41,7 @@ def _is_resume_schema_error(exc: ProgrammingError) -> bool:
     message = str(getattr(exc, "orig", exc)).lower()
     return "user_resumes" in message and "content_hash" in message
 
+
 _TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+#\.\-]{1,}")
 _STOPWORDS = {
     "and",
@@ -132,9 +133,7 @@ def _work_mode_score(work_mode: str | None, signals: ResumeSignals) -> float:
     if raw_mode is not None and hasattr(raw_mode, "value"):
         raw_mode = raw_mode.value
     mode = str(raw_mode or "").strip().lower()
-    explicit_preference = (
-        signals.prefers_remote or signals.prefers_hybrid or signals.prefers_onsite
-    )
+    explicit_preference = signals.prefers_remote or signals.prefers_hybrid or signals.prefers_onsite
     if not explicit_preference:
         return 0.5
     if not mode:
@@ -164,7 +163,9 @@ def _recency_score(posted_at: datetime | None) -> float:
     if posted_at is None:
         return 0.4
     now = datetime.now(timezone.utc)
-    posted_utc = posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
+    posted_utc = (
+        posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
+    )
     age_days = max(0.0, (now - posted_utc).total_seconds() / 86400.0)
     # Linear decay to 0 at 120 days.
     return _clamp_01(1.0 - (age_days / 120.0))
@@ -223,7 +224,9 @@ async def _rank_matches(
             Job.job_type,
             Job.work_mode,
             Job.posted_at,
-            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("semantic_score"),
+            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label(
+                "semantic_score"
+            ),
         )
         .where(Job.description_embedding.isnot(None))
         .where(Job.is_active.is_(True))
@@ -333,7 +336,9 @@ async def _return_cached_first_page(
     min_score: float,
     page_size: int,
 ) -> MatchResponse | None:
-    cached_session_id = await cache_service.get_cached_session_for_resume(user_id, cache_hash, min_score)
+    cached_session_id = await cache_service.get_cached_session_for_resume(
+        user_id, cache_hash, min_score
+    )
     if not cached_session_id:
         return None
     if not await cache_service.validate_match_session(user_id, cached_session_id):
@@ -475,17 +480,23 @@ async def match_profile_resume(
     page_size = max(1, min(page_size, 100))
 
     try:
-        resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
+        resume_result = await db.execute(
+            select(UserResume).where(UserResume.user_id == current_user.id)
+        )
     except ProgrammingError as exc:
         if _is_resume_schema_error(exc):
             raise HTTPException(status_code=503, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
         raise
     user_resume = resume_result.scalar_one_or_none()
     if user_resume is None:
-        raise HTTPException(status_code=400, detail="No profile resume found. Upload one in your profile first.")
+        raise HTTPException(
+            status_code=400, detail="No profile resume found. Upload one in your profile first."
+        )
 
     if not user_resume.content_hash:
-        raise HTTPException(status_code=400, detail="Stored resume is incomplete. Please upload again.")
+        raise HTTPException(
+            status_code=400, detail="Stored resume is incomplete. Please upload again."
+        )
 
     cached_response = await _return_cached_first_page(
         cache_service=cache_service,
@@ -531,7 +542,9 @@ async def match_profile_resume(
             user_resume.status = "error"
             user_resume.embedding_error = str(exc)
             await db.commit()
-            raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {exc}") from exc
+            raise HTTPException(
+                status_code=503, detail=f"Embedding service unavailable: {exc}"
+            ) from exc
 
         user_resume.resume_embedding = resume_embedding
         user_resume.embedding_model = embedder._model

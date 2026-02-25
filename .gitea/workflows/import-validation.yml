@@ -31,10 +31,10 @@ jobs:
     steps:
       - name: Install Git
         run: apt-get update && apt-get install -y git
-      
+
       - name: Checkout code
         run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-      
+
       - name: Install dependencies
         run: |
           pip install pytest pytest-asyncio

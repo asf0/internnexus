@@ -86,7 +86,9 @@ class Job(Base):
     )
     clicks = relationship("JobClick", back_populates="job", cascade="all, delete-orphan")
     saved_by_users = relationship("SavedJob", back_populates="job", cascade="all, delete-orphan")
-    applied_by_users = relationship("AppliedJob", back_populates="job", cascade="all, delete-orphan")
+    applied_by_users = relationship(
+        "AppliedJob", back_populates="job", cascade="all, delete-orphan"
+    )
 
 
 class GreenhouseJobMetadata(Base):
@@ -213,7 +215,9 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    notifications = relationship("UserNotification", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship(
+        "UserNotification", back_populates="user", cascade="all, delete-orphan"
+    )
     saved_jobs = relationship("SavedJob", back_populates="user", cascade="all, delete-orphan")
     applied_jobs = relationship("AppliedJob", back_populates="user", cascade="all, delete-orphan")
 
@@ -229,9 +233,7 @@ class SavedJob(Base):
     user = relationship("User", back_populates="saved_jobs")
     job = relationship("Job", back_populates="saved_by_users")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "job_id", name="uix_saved_jobs_user_job"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "job_id", name="uix_saved_jobs_user_job"),)
 
 
 class UserResume(Base):
@@ -270,9 +272,7 @@ class AppliedJob(Base):
     user = relationship("User", back_populates="applied_jobs")
     job = relationship("Job", back_populates="applied_by_users")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "job_id", name="uix_applied_jobs_user_job"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "job_id", name="uix_applied_jobs_user_job"),)
 
 
 class UserNotification(Base):

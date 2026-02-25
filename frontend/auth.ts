@@ -26,7 +26,7 @@ declare module "next-auth" {
     backendToken?: string
   }
 }
- 
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   providers: [
@@ -47,25 +47,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Call backend login endpoint
         const email = credentials?.email as string | undefined
         const password = credentials?.password as string | undefined
-        
+
         if (!email || !password) {
           return null
         }
-        
+
         try {
           const response = await fetch(`${backendBaseUrl}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
           })
-          
+
           if (!response.ok) {
             const error = await response.json()
             throw new Error(error.detail?.message || "Login failed")
           }
-          
+
           const data = await response.json()
-          
+
           return {
             id: data.user.id,
             email: data.user.email,
@@ -101,24 +101,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             image: profile.image || null,
             access_token: account.access_token,
             refresh_token: account.refresh_token || null,
-            expires_at: account.expires_at 
-              ? new Date(account.expires_at * 1000) 
+            expires_at: account.expires_at
+              ? new Date(account.expires_at * 1000)
               : null,
           }
-          
+
           const response = await fetch(`${backendBaseUrl}/auth/oauth/callback`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(oauthData),
           })
-          
+
           if (!response.ok) {
             if (process.env.NODE_ENV !== "production") {
               console.error("OAuth callback failed:", await response.text())
             }
             throw new Error("Failed to exchange OAuth token")
           }
-          
+
           const data = await response.json()
           token.backendToken = data.access_token
           token.id = data.user.id
@@ -128,13 +128,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
       }
-      
+
       // Handle credentials sign-in
       if (user?.backendToken) {
         token.backendToken = user.backendToken
         token.id = user.id
       }
-      
+
       return token
     },
     async session({ session, token }) {

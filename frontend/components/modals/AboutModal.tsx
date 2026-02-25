@@ -20,7 +20,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             Smart Job Matching Platform
           </p>
         </div>
-        
+
         <Card>
           <CardContent>
             <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
@@ -28,7 +28,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent>
             <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-md-on-surface-variant">
@@ -43,7 +43,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent>
             <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-md-on-surface-variant">

@@ -7,7 +7,6 @@ Create Date: 2026-02-17 14:49:22.955744
 """
 
 from alembic import op
-import sqlalchemy as sa
 
 
 revision = "fa470ef03d54"
@@ -18,10 +17,10 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("""
-        CREATE OR REPLACE FUNCTION get_country_search_terms(country_name TEXT) 
+        CREATE OR REPLACE FUNCTION get_country_search_terms(country_name TEXT)
         RETURNS TEXT AS $$
         BEGIN
-            RETURN CASE 
+            RETURN CASE
                 WHEN country_name = 'United States' THEN 'USA US United States America'
                 WHEN country_name = 'United Kingdom' THEN 'UK United Kingdom Britain England'
                 WHEN country_name = 'South Korea' THEN 'Korea South Korea KR'
@@ -68,11 +67,11 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-        CREATE OR REPLACE FUNCTION get_region_from_country(country_name TEXT) 
+        CREATE OR REPLACE FUNCTION get_region_from_country(country_name TEXT)
         RETURNS TEXT AS $$
         BEGIN
-            RETURN CASE 
-                WHEN country_name IN ('Japan', 'South Korea', 'China', 'Singapore', 
+            RETURN CASE
+                WHEN country_name IN ('Japan', 'South Korea', 'China', 'Singapore',
                     'Hong Kong', 'Taiwan', 'India', 'Malaysia', 'Thailand', 'Vietnam',
                     'Philippines', 'Indonesia', 'Australia', 'New Zealand')
                 THEN 'APAC Asia-Pacific AsiaPacific'
@@ -96,7 +95,7 @@ def upgrade() -> None:
         CREATE OR REPLACE FUNCTION update_job_search_vector()
         RETURNS TRIGGER AS $$
         BEGIN
-            NEW.search_vector := 
+            NEW.search_vector :=
                 setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
                 setweight(to_tsvector('english', COALESCE(NEW.company, '')), 'B') ||
                 setweight(to_tsvector('english', COALESCE(NEW.location, '')), 'C') ||
@@ -116,7 +115,7 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-        UPDATE jobs SET search_vector = 
+        UPDATE jobs SET search_vector =
             setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
             setweight(to_tsvector('english', COALESCE(company, '')), 'B') ||
             setweight(to_tsvector('english', COALESCE(location, '')), 'C') ||

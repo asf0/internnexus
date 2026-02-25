@@ -106,8 +106,8 @@ export default function AdminJobsListPage() {
       search: params.search ?? search,
       company: params.company ?? company,
       category: params.category ?? category,
-      isActive: activeValue && activeValue !== "all" 
-        ? activeValue === "true" 
+      isActive: activeValue && activeValue !== "all"
+        ? activeValue === "true"
         : undefined,
       sortBy: "posted_at",
       sortOrder: "desc",

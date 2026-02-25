@@ -329,7 +329,6 @@ class TestUserProfileWorkflow:
         """Test changing password."""
         # Arrange
         from uuid import uuid4
-        from datetime import datetime, timezone
 
         password_data = {"current_password": "OldPass123!", "new_password": "NewSecurePass123!"}
 

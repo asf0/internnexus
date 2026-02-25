@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     postgres_db: str
     postgres_user: str
@@ -20,7 +21,6 @@ class Settings(BaseSettings):
 
     # Classification configuration
     classification_model: str | None = None
-    ollama_classification_url: str | None = None  # Defaults to ollama_base_url if not set
     classification_timeout_seconds: float = 90.0
     classification_max_concurrent: int = 2
     classification_keep_alive: str = "30m"
@@ -66,11 +66,6 @@ class Settings(BaseSettings):
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
-
-    @property
-    def resolved_classification_url(self) -> str:
-        """Return classification URL, defaulting to ollama_base_url if not set."""
-        return self.ollama_classification_url or self.ollama_base_url
 
     @property
     def resolved_classification_model(self) -> str:

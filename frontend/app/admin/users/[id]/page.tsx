@@ -106,7 +106,7 @@ export default function AdminUserDetailPage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      
+
       // Fetch user data
       const userResult = await fetchUser(userId);
       if (userResult.data) {
