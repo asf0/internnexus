@@ -213,6 +213,40 @@ class SQLAlchemyJobRepository:
 
         return len(updates)
 
+    async def refresh_search_vectors_for_job_ids(self, job_ids: list[UUID]) -> int:
+        """Recompute search vectors for given job IDs.
+
+        Args:
+            job_ids: List of job UUIDs to refresh
+
+        Returns:
+            Number of rows updated
+        """
+        if not job_ids:
+            return 0
+
+        job_id_strs = [f"('{str(uuid)}')" for uuid in job_ids]
+        values_clause = ", ".join(job_id_strs)
+        refresh_stmt = text(
+            f"""
+            UPDATE jobs AS j
+            SET search_vector =
+                setweight(to_tsvector('english', COALESCE(j.title, '')), 'A') ||
+                setweight(to_tsvector('english', COALESCE(j.company, '')), 'B') ||
+                setweight(to_tsvector('english', COALESCE(j.location, '')), 'C') ||
+                setweight(to_tsvector('english', COALESCE(j.city, '')), 'C') ||
+                setweight(to_tsvector('english', COALESCE(j.state, '')), 'C') ||
+                setweight(to_tsvector('english', get_country_search_terms(j.country)), 'C') ||
+                setweight(to_tsvector('english', get_region_from_country(j.country)), 'C') ||
+                setweight(to_tsvector('english', COALESCE(j.description_text, '')), 'D')
+            FROM (VALUES {values_clause}) AS t(job_id)
+            WHERE j.id = t.job_id::uuid
+            """
+        )
+        result = await self._session.execute(refresh_stmt)
+        await self._session.commit()
+        return result.rowcount if hasattr(result, "rowcount") else 0
+
     async def fetch_metadata_batch(
         self,
         job_ids: list[UUID],

@@ -40,9 +40,7 @@ Examples:
 
 from __future__ import annotations
 
-import argparse
 import asyncio
-import json
 import logging
 import sys
 import time
@@ -66,6 +64,12 @@ from pipeline.pipeline_state import (
     PipelineStateManager,
     get_incomplete_run,
     clear_incomplete_runs,
+)
+from pipeline.cli_args import build_parser
+from pipeline.run_pipeline_services import (
+    resolve_resume_run_id,
+    run_continuous_loop,
+    run_selected_step,
 )
 
 logging.basicConfig(
@@ -220,6 +224,7 @@ class PipelineRunner:
         jobs_count, batch_start = await fetch_and_ingest(
             api_fetch_concurrency=self.config.api.fetch_concurrency,
             not_found_cooldown_hours=self.config.api.slug_404_cooldown_hours,
+            run_id=str(state.run_id) if state is not None and state.run_id is not None else None,
         )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'ingest' completed in {self.step_times[step_name]:.1f}s")
@@ -426,7 +431,9 @@ class PipelineRunner:
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
         async with AsyncSessionLocal() as session:
+            logger.info("Starting sync_inactive mass update...")
             count = await mark_all_jobs_inactive(session)
+            logger.info(f"sync_inactive mass update marked {count} jobs")
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'sync_inactive' completed in {self.step_times[step_name]:.1f}s")
@@ -592,100 +599,17 @@ class PipelineRunner:
 
 
 async def run_continuous(runner: PipelineRunner, interval: int):
-    backoff = 1
-
-    while True:
-        try:
-            await runner.run()
-            backoff = 1
-            runner.resume_run_id = None
-        except KeyboardInterrupt:
-            logger.info("Interrupted, exiting...")
-            break
-        except Exception as e:
-            logger.error(f"Pipeline error: {e}")
-            backoff_multiplier = min(backoff, runner.config.pipeline.max_backoff_multiplier)
-            sleep_time = interval * backoff_multiplier
-            logger.warning(f"Backing off for {sleep_time}s (multiplier: {backoff_multiplier}x)")
-            await asyncio.sleep(sleep_time)
-            backoff += 1
-            incomplete = await get_incomplete_run()
-            if incomplete:
-                runner.resume_run_id = incomplete.id
-            continue
-
-        logger.info(f"Sleeping for {interval}s...")
-        await asyncio.sleep(interval)
+    await run_continuous_loop(
+        runner=runner,
+        interval=interval,
+        get_incomplete_run=get_incomplete_run,
+        logger=logger,
+    )
 
 
 def main():
     config = get_config()
-
-    parser = argparse.ArgumentParser(
-        description="Run job ingestion pipeline",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python run_pipeline.py                      # Run full pipeline once
-  python run_pipeline.py -c                   # Run continuously (every hour by default)
-  python run_pipeline.py -c --interval 3600   # Run continuously every hour
-  python run_pipeline.py --step ingest        # Only fetch new jobs  
-  python run_pipeline.py --step ingest --delete-inactive  # Fetch + delete inactive
-  python run_pipeline.py --step sync_inactive # Mark all jobs inactive
-  python run_pipeline.py --step delete_inactive # Delete inactive jobs
-  python run_pipeline.py --step embed         # Only generate embeddings
-  python run_pipeline.py --dry-run            # Preview without changes
-  python run_pipeline.py --resume             # Resume failed run
-  python run_pipeline.py --check              # Health checks only
-  python run_pipeline.py --step cleanup --all # Re-process ALL locations
-  python run_pipeline.py --step cleanup --test # Test mode: CSV output only
-        """,
-    )
-    parser.add_argument("--continuous", "-c", action="store_true", help="Run continuously")
-    parser.add_argument(
-        "--interval",
-        "-i",
-        type=int,
-        default=None,
-        help=f"Interval in seconds (default: {config.pipeline.continuous_interval})",
-    )
-    parser.add_argument(
-        "--step",
-        choices=[
-            "discover",
-            "sync_inactive",
-            "ingest",
-            "delete_inactive",
-            "cleanup",
-            "classify",
-            "embed",
-        ],
-        help="Run only a specific step",
-    )
-    parser.add_argument(
-        "--delete-inactive",
-        action="store_true",
-        help="With --step ingest, also delete inactive jobs after ingestion",
-    )
-    parser.add_argument("--skip-discover", action="store_true", help="Skip company discovery")
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="With --step cleanup, re-process ALL jobs",
-    )
-    parser.add_argument("--dry-run", action="store_true", help="Preview without making changes")
-    parser.add_argument("--check", action="store_true", help="Run health checks only")
-    parser.add_argument("--skip-check", action="store_true", help="Skip health checks")
-    parser.add_argument("--resume", action="store_true", help="Resume from last failed run")
-    parser.add_argument("--fresh", action="store_true", help="Start fresh (clear incomplete runs)")
-    parser.add_argument(
-        "--test",
-        action="store_true",
-        help="Test mode for cleanup: write results to CSV without DB changes",
-    )
-    parser.add_argument(
-        "--limit", type=int, default=None, help="Limit number of jobs to process (for --test mode)"
-    )
+    parser = build_parser(config)
 
     args = parser.parse_args()
 
@@ -699,14 +623,11 @@ Examples:
                 sys.exit(1)
             return
 
-        resume_run_id = None
-        if args.resume:
-            incomplete = await get_incomplete_run()
-            if incomplete:
-                resume_run_id = incomplete.id
-                logger.info(f"Resuming run: {resume_run_id}")
-            else:
-                logger.info("No incomplete run found, starting new run")
+        resume_run_id = await resolve_resume_run_id(
+            resume_requested=args.resume,
+            get_incomplete_run=get_incomplete_run,
+            logger=logger,
+        )
 
         runner = PipelineRunner(
             skip_discover=args.skip_discover,
@@ -723,22 +644,7 @@ Examples:
                 sys.exit(1)
 
         if args.step:
-            if args.step == "discover":
-                await runner.step_discover(None)
-            elif args.step == "sync_inactive":
-                await runner.step_sync_inactive(None)
-            elif args.step == "ingest":
-                await runner.step_ingest(None)
-                if args.delete_inactive:
-                    await runner.step_delete_inactive(None)
-            elif args.step == "delete_inactive":
-                await runner.step_delete_inactive(None)
-            elif args.step == "cleanup":
-                await runner.step_cleanup(None, test_mode=args.test, limit=args.limit)
-            elif args.step == "classify":
-                await runner.step_classify(None, limit=args.limit)
-            elif args.step == "embed":
-                await runner.step_embed(None)
+            await run_selected_step(runner, args)
         else:
             if args.fresh:
                 cleared = await clear_incomplete_runs()
