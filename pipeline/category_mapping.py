@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 
-# Canonical categories (25 primary categories)
+# Canonical categories
 CANONICAL_CATEGORIES = [
     "software_engineering",
     "data_science",
@@ -37,6 +37,12 @@ CANONICAL_CATEGORIES = [
     "translation",
     "education",
     "construction",
+    "accounting",
+    "compliance",
+    "risk_management",
+    "recruiting",
+    "customer_support",
+    "logistics_supply_chain",
 ]
 
 # Mapping from LLM-generated variations to canonical categories
@@ -263,8 +269,8 @@ CATEGORY_MAPPING = {
     "business_management": "operations",
     "finance_management": "finance",
     "security_management": "security",
-    "risk_management": "operations",
-    "supply_chain_management": "operations",
+    "risk_management": "risk_management",
+    "supply_chain_management": "logistics_supply_chain",
     "construction_management": "construction",
     "event_management": "operations",
     "infrastructure_management": "devops",
@@ -297,16 +303,65 @@ CATEGORY_MAPPING = {
     "gtm_operations": "operations",
     "rev_ops": "operations",
     # Finance variations
-    "accounting": "finance",
+    "accounting": "accounting",
     "accounting_operations": "finance",
     "finance_and_strategy": "finance",
     "finance_business_development": "finance",
     "finance_events_volunteer": "finance",
     "procurement": "operations",
+    # Accounting variations
+    "accountant": "accounting",
+    "account_associate": "accounting",
+    "accounting_consultant": "accounting",
+    "accounting_controller": "accounting",
+    "accounting_supervision": "accounting",
+    "accounting_supervisor": "accounting",
+    "accounting_and_tax_specialist": "accounting",
+    "accounting_and_consolidation_specialist": "accounting",
+    "technical_accounting": "accounting",
+    # Compliance variations
+    "compliance": "compliance",
+    "compliance_analyst": "compliance",
+    "compliance_consulting": "compliance",
+    "compliance_inspection": "compliance",
+    "compliance_investigation": "compliance",
+    "compliance_management": "compliance",
+    "governance_and_compliance": "compliance",
+    "regulatory_compliance": "compliance",
+    "payroll_compliance": "compliance",
+    # Risk variations
+    "risk_analysis": "risk_management",
+    "risk_operations": "risk_management",
+    "risk_specialist": "risk_management",
+    "risk_administration": "risk_management",
+    "risk_adjustment": "risk_management",
+    "remote_risk_specialist": "risk_management",
+    "security_risk_management": "risk_management",
+    # Recruiting variations
+    "junior_recruiter": "recruiting",
+    "healthcare_recruiter": "recruiting",
+    "talent_sourcing": "recruiting",
+    "senior_talent_partner": "recruiting",
+    # Customer support variations
+    "customer_support": "customer_support",
+    "client_support": "customer_support",
+    "application_support": "customer_support",
+    "desktop_support_analyst": "customer_support",
+    "development_support": "customer_support",
+    "operations_support": "customer_support",
+    "operations_support_specialist": "customer_support",
+    "social_media_support": "customer_support",
+    "support_specialist": "customer_support",
+    # Logistics and supply chain variations
+    "logistics": "logistics_supply_chain",
+    "logistics_analysis": "logistics_supply_chain",
+    "global_logistics_specialist": "logistics_supply_chain",
+    "supply_chain_operations": "logistics_supply_chain",
+    "supply_chain_specialist": "logistics_supply_chain",
     # HR variations
     "human_resources": "hr",
     "talent_acquisition": "hr",
-    "recruiting": "hr",
+    "recruiting": "recruiting",
     "recruitment": "hr",
     "recruitment_management": "hr",
     "recruitment_coordinator": "hr",
@@ -322,7 +377,7 @@ CATEGORY_MAPPING = {
     "learning_and_development": "hr",
     # Customer Success variations
     "customer_service": "customer_success",
-    "customer_support": "customer_success",
+    "customer_support_management": "customer_success",
     "customer_success_management": "customer_success",
     "customer_experience": "customer_success",
     "customer_enablement_architect": "customer_success",
@@ -436,6 +491,12 @@ CATEGORY_MAPPING = {
     "space_x": None,  # Company name
     "space_x_operations": None,  # Company name
     "space_programming": None,  # Invalid
+    "category": None,
+    "test": None,
+    "tester": None,
+    "the": None,
+    "m": None,
+    "totally_unknown_category_slug": None,
     "gis_mapper": "operations",  # Ambiguous - map to operations
     "gis_mapping": "operations",
     "studio_recording_project": "content_writing",  # Media/content
@@ -546,9 +607,9 @@ def get_canonical_category(category: str | None) -> str | None:
             if base in CANONICAL_CATEGORIES:
                 return base
 
-    # Default to operations for unrecognized categories
+    # Unknown categories are kept NULL and logged for curation.
     _log_unmapped_category(category_lower)
-    return "operations"
+    return None
 
 
 def _log_unmapped_category(category: str):
