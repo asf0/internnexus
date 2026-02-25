@@ -61,16 +61,9 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
 
   return (
     <div ref={ref} className="relative">
-      <div
-        role="combobox"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setIsOpen(!isOpen);
-          }
-        }}
         className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -105,7 +98,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
           size={16}
           className={`ml-auto text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
-      </div>
+      </button>
 
       {isOpen && (
         <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
