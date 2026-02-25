@@ -5,18 +5,22 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import case, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
-from app.api.schemas import JobListResponse, JobResponse
+from app.api.mappers import job_to_response
+from app.api.schemas import JobListResponse
 from app.cache.redis_pool import RedisService
 from app.models import Job
 from app.repositories.job import JobRepository
 from app.services.search_parser import ParsedSearch, parse_search_query
 
 MAX_SEARCH_LENGTH = 100
+JobSelect = Select[tuple[Job]]
 
 
 class JobSearchParams:
@@ -109,20 +113,22 @@ class JobSearchService:
         items = await self._paginate(stmt, params.page, params.page_size)
 
         return JobListResponse(
-            items=[JobResponse.model_validate(job) for job in items],
+            items=[job_to_response(job) for job in items],
             total=total,
             page=params.page,
             page_size=params.page_size,
         )
 
-    async def build_filtered_stmt(self, params: JobSearchParams, include_location: bool = True):
+    async def build_filtered_stmt(
+        self, params: JobSearchParams, include_location: bool = True
+    ) -> tuple[JobSelect, list[UUID], list[UUID]]:
         """Build the filtered base statement used by list and facet endpoints.
 
         Args:
             params: Search parameters
             include_location: Whether to apply the location filter (False for location facets)
         """
-        base_stmt = select(Job)
+        base_stmt: JobSelect = select(Job)
 
         valid_ids = self._parse_match_ids(params.match_ids)
         saved_job_ids = params.saved_job_ids or []
@@ -167,7 +173,9 @@ class JobSearchService:
                     continue
         return valid_ids
 
-    async def _keyword_search(self, search: str, parsed: ParsedSearch, base_stmt) -> set[UUID]:
+    async def _keyword_search(
+        self, search: str, parsed: ParsedSearch, base_stmt: JobSelect
+    ) -> set[UUID]:
         """Execute full-text keyword search."""
         tsquery = self._build_tsquery(search, parsed)
 
@@ -200,7 +208,7 @@ class JobSearchService:
             return ""
         return " & ".join(f"{term}:*" for term in terms[:10])
 
-    def _build_boolean_tsquery(self, expr) -> str:
+    def _build_boolean_tsquery(self, expr: Any) -> str:
         """Convert boolean expression to PostgreSQL tsquery format."""
         from app.services.search_parser import SearchTerm
 
@@ -235,12 +243,12 @@ class JobSearchService:
 
     def _apply_filters(
         self,
-        stmt,
+        stmt: JobSelect,
         params: JobSearchParams,
         valid_ids: list[UUID],
         result_order: list[UUID],
         include_location: bool = True,
-    ):
+    ) -> JobSelect:
         """Apply filters to the query."""
         if valid_ids:
             stmt = stmt.where(Job.id.in_(valid_ids))
@@ -269,7 +277,7 @@ class JobSearchService:
 
         return stmt
 
-    def _apply_location_filter(self, stmt, location: str):
+    def _apply_location_filter(self, stmt: JobSelect, location: str) -> JobSelect:
         """Apply location filter."""
         locations = [loc.strip() for loc in location.split("|") if loc.strip()]
         if not locations:
@@ -288,7 +296,7 @@ class JobSearchService:
 
         return stmt.where(or_(*conditions)) if conditions else stmt
 
-    def _apply_job_type_filter(self, stmt, job_type: str):
+    def _apply_job_type_filter(self, stmt: JobSelect, job_type: str) -> JobSelect:
         """Apply job type filter."""
         job_types = [jt.strip() for jt in job_type.split("|")]
         conditions = []
@@ -301,7 +309,7 @@ class JobSearchService:
                 conditions.append(or_(Job.job_type == "part_time", Job.title.ilike("%part%time%")))
         return stmt.where(or_(*conditions)) if conditions else stmt
 
-    def _apply_work_mode_filter(self, stmt, work_mode: str):
+    def _apply_work_mode_filter(self, stmt: JobSelect, work_mode: str) -> JobSelect:
         """Apply work mode filter."""
         modes = [wm.strip() for wm in work_mode.split("|")]
         conditions = []
@@ -332,7 +340,7 @@ class JobSearchService:
                 )
         return stmt.where(or_(*conditions)) if conditions else stmt
 
-    def _apply_posted_within_filter(self, stmt, posted_within: str):
+    def _apply_posted_within_filter(self, stmt: JobSelect, posted_within: str) -> JobSelect:
         """Apply posted within filter."""
         now = datetime.now(timezone.utc)
         cutoff = None
@@ -345,8 +353,12 @@ class JobSearchService:
         return stmt.where(Job.posted_at >= cutoff) if cutoff else stmt
 
     def _apply_ordering(
-        self, stmt, params: JobSearchParams, valid_ids: list[UUID], result_order: list[UUID]
-    ):
+        self,
+        stmt: JobSelect,
+        params: JobSearchParams,
+        valid_ids: list[UUID],
+        result_order: list[UUID],
+    ) -> JobSelect:
         """Apply ordering to the query."""
         if valid_ids and len(valid_ids) > 0:
             ordering = case(
@@ -364,13 +376,13 @@ class JobSearchService:
             stmt = stmt.order_by(ordering)
         return stmt
 
-    async def _count_results(self, stmt) -> int:
+    async def _count_results(self, stmt: JobSelect) -> int:
         """Count total results."""
         count_stmt = select(func.count()).select_from(stmt.subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar() or 0
 
-    async def _paginate(self, stmt, page: int, page_size: int) -> list[Job]:
+    async def _paginate(self, stmt: JobSelect, page: int, page_size: int) -> list[Job]:
         """Paginate results."""
         stmt = stmt.offset((page - 1) * page_size).limit(page_size)
         result = await self.session.execute(stmt)

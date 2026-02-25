@@ -15,7 +15,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult
-from app.api.mappers import job_to_match_result
+from app.api.mappers import enum_to_str, job_to_match_result
 from app.config import get_settings
 from app.auth.dependencies import get_current_user
 from app.db import get_db
@@ -247,7 +247,7 @@ async def _rank_matches(
     for job, semantic in candidate_rows[:_RERANK_POOL]:
         semantic_score = _clamp_01(semantic)
         skill_title = _skill_title_score(signals.tokens, job.title, job.description_text)
-        work_mode = _work_mode_score(job.work_mode.value if job.work_mode else None, signals)
+        work_mode = _work_mode_score(enum_to_str(job.work_mode), signals)
         recency = _recency_score(job.posted_at)
         final_score = _hybrid_match_score(
             semantic_score=semantic_score,
