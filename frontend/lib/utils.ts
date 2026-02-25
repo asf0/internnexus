@@ -40,7 +40,7 @@ export function generateJobSlug(title: string, company: string, id: string): str
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replace(/(^-)|(-$)/g, '')
     .slice(0, 50);
 
   const companySlug = company
@@ -48,7 +48,7 @@ export function generateJobSlug(title: string, company: string, id: string): str
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replace(/(^-)|(-$)/g, '')
     .slice(0, 30);
 
   const idSuffix = id.slice(0, 8);

@@ -62,8 +62,18 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
   return (
     <div ref={ref} className="relative">
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
         className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
       >
         {selected.length === 0 ? (
           <span className="text-slate-400 dark:text-md-on-surface">{placeholder}</span>
@@ -114,7 +124,8 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
               <div className="px-3 py-2 text-sm text-slate-400">No results found</div>
             ) : (
               filteredOptions.map((option) => (
-                <div
+                <button
+                  type="button"
                   key={option}
                   onClick={() => toggleOption(option)}
                   className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
@@ -123,7 +134,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                   {selected.includes(option) && (
                     <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
                   )}
-                </div>
+                </button>
               ))
             )}
           </div>

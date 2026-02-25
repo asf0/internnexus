@@ -106,8 +106,18 @@ export default function LocationSelect({
   return (
     <div ref={ref} className="relative">
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
         className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
       >
         {selected.length === 0 ? (
           <span className="text-slate-400 dark:text-md-on-surface">
@@ -192,10 +202,11 @@ export default function LocationSelect({
                 return (
                   <div
                     key={item.value}
-                    className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+                    className="flex items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
                   >
-                    <div
-                      className="flex items-center gap-2 flex-1"
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center gap-2 text-left"
                       onClick={() => {
                         if (hasChildren) {
                           drillDown(item);
@@ -214,8 +225,9 @@ export default function LocationSelect({
                       <span className="text-slate-400 dark:text-md-on-surface-variant text-xs">
                         ({item.count})
                       </span>
-                    </div>
+                    </button>
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleSelect(item.value);
