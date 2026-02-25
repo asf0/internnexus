@@ -42,7 +42,10 @@ jobs:
         run: apt-get update && apt-get install -y git
 
       - name: Checkout
-        run: git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+        run: |
+          git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+          git fetch --depth 1 origin ${{ gitea.sha }}
+          git checkout --detach FETCH_HEAD
 
       - name: Install uv
         run: pip install uv

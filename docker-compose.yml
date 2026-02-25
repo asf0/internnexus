@@ -33,6 +33,7 @@ services:
       retries: 5
 
   backend:
+    image: internnexus-backend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -73,6 +74,7 @@ services:
       start_period: 40s
 
   pipeline:
+    image: internnexus-pipeline:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: pipeline/Dockerfile
@@ -105,6 +107,7 @@ services:
         condition: service_healthy
 
   frontend:
+    image: internnexus-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
