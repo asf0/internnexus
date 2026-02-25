@@ -254,7 +254,7 @@ class AuthService:
                     detail={"message": "Current password is incorrect"},
                 )
 
-        if user.hashed_password and verify_password(new_password, user.hashed_password):
+        if current_password and new_password == current_password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"message": "New password cannot be the same as the current password"},

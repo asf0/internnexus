@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Generic, TypeVar, cast
+from typing import Generic, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -37,16 +37,16 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create(self, **kwargs: Any) -> ModelType:
+    async def create(self, **kwargs: object) -> ModelType:
         """Create a new record."""
         instance = self.model(**kwargs)
         self.session.add(instance)
         await self.session.flush()
         return instance
 
-    async def update(self, instance: ModelType, **kwargs: Any) -> ModelType:
+    async def update(self, instance: ModelType, **kwargs: object) -> ModelType:
         """Update a record."""
-        updates: Mapping[str, Any] = kwargs
+        updates: Mapping[str, object] = kwargs
         for key, value in updates.items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
