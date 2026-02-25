@@ -60,7 +60,7 @@ jobs:
           # Build and start app services, including pipeline.
           docker compose up -d --build backend frontend pipeline
           docker compose up -d cloudflared
-          docker images internnexus-backend internnexus-frontend internnexus-pipeline
+          docker compose images
 
       - name: Health Check
         run: |
