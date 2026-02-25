@@ -28,3 +28,17 @@ def test_payroll_associate_maps_to_finance():
 def test_none_stays_invalid():
     assert get_canonical_category("none") is None
     assert get_canonical_category("None") is None
+
+
+def test_new_canonical_categories_map_correctly():
+    assert get_canonical_category("accountant") == "accounting"
+    assert get_canonical_category("compliance_analyst") == "compliance"
+    assert get_canonical_category("risk_analysis") == "risk_management"
+    assert get_canonical_category("talent_sourcing") == "recruiting"
+    assert get_canonical_category("application_support") == "customer_support"
+    assert get_canonical_category("supply_chain_specialist") == "logistics_supply_chain"
+
+
+def test_unmapped_values_now_resolve_to_null(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    assert get_canonical_category("totally_new_category_we_have_never_seen") is None
