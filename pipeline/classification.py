@@ -21,7 +21,6 @@ from pipeline.category_mapping import (
     CANONICAL_CATEGORIES,
     CATEGORY_MAPPING,
     INVALID_CATEGORIES,
-    get_canonical_category,
 )
 
 logger = logging.getLogger(__name__)
