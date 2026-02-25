@@ -10,6 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from app.config import get_settings
 
 
 AES_KEY_SIZE = 32
@@ -225,8 +226,6 @@ def get_encryptor() -> TokenEncryptor:
     global _encryptor_instance
 
     if _encryptor_instance is None:
-        from app.config import get_settings
-
         settings = get_settings()
 
         if not settings.oauth_encryption_public_key_b64:

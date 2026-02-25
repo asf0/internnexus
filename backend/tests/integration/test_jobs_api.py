@@ -320,7 +320,7 @@ class TestJobsAPI:
             mock_get_cache.return_value = mock_cache
 
             mock_service = AsyncMock()
-            mock_service.get_location_hierarchy.return_value = [
+            mock_service.get_location_hierarchy_from_filtered_jobs.return_value = [
                 {"value": "USA", "label": "United States", "count": 100, "type": "country"}
             ]
             mock_service_class.return_value = mock_service

@@ -82,7 +82,7 @@ class TestSearchLexer:
 
         # Assert
         assert lexer.tokens[0].type == TokenType.LPAREN
-        assert lexer.tokens[3].type == TokenType.RPAREN
+        assert lexer.tokens[-2].type == TokenType.RPAREN
 
     def test_tokenize_case_insensitive_operators(self):
         """Test that operators are case insensitive."""

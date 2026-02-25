@@ -65,7 +65,7 @@ class SearchLexer:
         (r"(\()", TokenType.LPAREN),
         (r"(\))", TokenType.RPAREN),
         (r'(\w+):(\w+|\([^)]+\)|"[^"]*")', TokenType.FIELD),
-        (r"(\S+)", TokenType.WORD),
+        (r"([^\s()]+)", TokenType.WORD),
     ]
 
     def __init__(self, query: str):
@@ -196,6 +196,7 @@ def parse_search_query(query: str) -> ParsedSearch:
     if not query or not query.strip():
         return ParsedSearch(is_boolean=False, original_query=query)
 
+    original_query = query
     query = query.strip()
 
     has_boolean = bool(
@@ -204,23 +205,29 @@ def parse_search_query(query: str) -> ParsedSearch:
         or re.search(r"\bNOT\b", query, re.IGNORECASE)
         or ":" in query
         or '"' in query
+        or "(" in query
+        or ")" in query
     )
 
     if not has_boolean:
         simple_terms = query.split()
-        return ParsedSearch(is_boolean=False, original_query=query, simple_terms=simple_terms)
+        return ParsedSearch(
+            is_boolean=False, original_query=original_query, simple_terms=simple_terms
+        )
 
     try:
         lexer = SearchLexer(query)
         parser = SearchParser(lexer.tokens)
         expr = parser.parse()
-        return ParsedSearch(is_boolean=True, original_query=query, expression=expr)
+        return ParsedSearch(is_boolean=True, original_query=original_query, expression=expr)
     except Exception as e:
         import logging
 
         logging.getLogger(__name__).warning(f"Failed to parse boolean query '{query}': {e}")
         simple_terms = re.findall(r"\b\w+\b", query)
-        return ParsedSearch(is_boolean=False, original_query=query, simple_terms=simple_terms)
+        return ParsedSearch(
+            is_boolean=False, original_query=original_query, simple_terms=simple_terms
+        )
 
 
 def extract_search_terms(parsed: ParsedSearch) -> list[str]:

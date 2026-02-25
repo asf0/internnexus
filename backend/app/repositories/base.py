@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Generic, TypeVar, cast
+from typing import Generic, Protocol, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,6 +13,11 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from app.db import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
+ModelFactoryType = TypeVar("ModelFactoryType", bound=Base, covariant=True)
+
+
+class _ModelFactory(Protocol[ModelFactoryType]):
+    def __call__(self, **kwargs: object) -> ModelFactoryType: ...
 
 
 class BaseRepository(Generic[ModelType]):
@@ -39,15 +44,15 @@ class BaseRepository(Generic[ModelType]):
 
     async def create(self, **kwargs: object) -> ModelType:
         """Create a new record."""
-        instance = self.model(**kwargs)
+        model_factory = cast(_ModelFactory[ModelType], self.model)
+        instance = model_factory(**kwargs)
         self.session.add(instance)
         await self.session.flush()
         return instance
 
     async def update(self, instance: ModelType, **kwargs: object) -> ModelType:
         """Update a record."""
-        updates: Mapping[str, object] = kwargs
-        for key, value in updates.items():
+        for key, value in cast(Mapping[str, object], kwargs).items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
         await self.session.flush()

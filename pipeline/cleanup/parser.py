@@ -17,6 +17,16 @@ PLAIN_REMOTE_PATTERNS = [
     r"^anywhere$",
 ]
 
+LOCATION_OVERRIDES = {
+    "mountain view": {"city": "Mountain View", "state": None, "country": "United States"},
+    "singapore": {"city": "Singapore", "state": None, "country": "Singapore"},
+    "belgrade": {"city": "Belgrade", "state": None, "country": "Serbia"},
+    "mexico city": {"city": "Mexico City", "state": None, "country": "Mexico"},
+    "vancouver": {"city": "Vancouver", "state": None, "country": "Canada"},
+    "nyc": {"city": "New York", "state": "New York", "country": "United States"},
+    "sf": {"city": "San Francisco", "state": "California", "country": "United States"},
+}
+
 
 def _is_plain_remote(location: str) -> bool:
     loc_lower = location.lower().strip()
@@ -29,14 +39,19 @@ def _is_plain_remote(location: str) -> bool:
 def _normalize_for_comparison(value: str | None) -> str:
     if not value:
         return ""
-    normalized = re.sub(r"[^\w\s]", "", value.lower())
+    normalized = value.lower().encode("ascii", "ignore").decode("ascii")
+    normalized = re.sub(r"[^a-z0-9\s]", "", normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized
 
 
-def _contains_normalized(haystack: str, needle: str) -> bool:
+def _contains_normalized(haystack: str | None, needle: str | None) -> bool:
+    if not haystack or not needle:
+        return False
     haystack_norm = _normalize_for_comparison(haystack)
     needle_norm = _normalize_for_comparison(needle)
+    if not haystack_norm or not needle_norm:
+        return False
     return needle_norm in haystack_norm
 
 
@@ -87,6 +102,20 @@ async def _parse_location_only(location: str) -> dict:
             "state": cached.state,
             "country": cached.country,
         }
+
+    location_key = location.strip().lower()
+    override = LOCATION_OVERRIDES.get(location_key)
+    if override is not None:
+        await cache.set(
+            location,
+            ParsedLocation(
+                city=override["city"],
+                state=override["state"],
+                country=override["country"],
+                is_remote=False,
+            ),
+        )
+        return override
 
     result = normalize_location(location)
     parsed = {

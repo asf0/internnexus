@@ -135,7 +135,7 @@ def _extract_canonical_category(raw_output: str) -> tuple[str | None, str]:
         normalized = _normalize_slug_token(raw_token)
         if not normalized:
             continue
-        canonical = get_canonical_category(normalized)
+        canonical = _map_category_strict(normalized)
         if canonical:
             return canonical, "ok"
 

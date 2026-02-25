@@ -203,6 +203,10 @@ def _explain_match(
     }
 
 
+def _match_results_from_cache(matches_data: list[dict[str, object]]) -> list[MatchResult]:
+    return [MatchResult.model_validate(item) for item in matches_data]
+
+
 async def _rank_matches(
     db: AsyncSession, resume_embedding: list[float], resume_text: str, min_score: float
 ) -> list[MatchResult]:
@@ -332,7 +336,7 @@ async def _return_cached_first_page(
     matches_data, total_count = cached_page
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
     return MatchResponse(
-        matches=[MatchResult(**item) for item in matches_data],
+        matches=_match_results_from_cache(matches_data),
         total=total_count,
         session_id=cached_session_id,
         page=1,
@@ -597,8 +601,7 @@ async def get_match_page(
     # Unpack result: matches_data, total_count
     matches_data, total_count = result
 
-    # Convert matches_data (list of dicts) back to MatchResult objects
-    matches = [MatchResult(**match_dict) for match_dict in matches_data]
+    matches = _match_results_from_cache(matches_data)
 
     # Calculate total_pages
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1

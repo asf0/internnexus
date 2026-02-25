@@ -31,6 +31,9 @@ def clean_text_for_embedding(
     text = re.sub(r"<[^>]+>", " ", text)
     # Remove HTML entities
     text = re.sub(r"&[a-zA-Z]+;", " ", text)
+    # Remove markdown code fence markers while keeping code content
+    text = re.sub(r"```[a-zA-Z0-9_+-]*", " ", text)
+    text = text.replace("```", " ")
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
 

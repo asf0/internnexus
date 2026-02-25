@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import logging
 import os
 
@@ -32,10 +33,12 @@ class LocationCache:
         if self._redis is None:
             try:
                 self._redis = redis.from_url(self._redis_url, decode_responses=True)
-                await self._redis.ping()
+                ping_result = self._redis.ping()
+                if inspect.isawaitable(ping_result):
+                    await ping_result
                 self._connected = True
                 logger.debug("LocationCache connected to Redis")
-            except redis.RedisError as e:
+            except Exception as e:
                 logger.warning(f"LocationCache failed to connect to Redis: {e}")
                 self._redis = None
                 self._connected = False
@@ -44,7 +47,7 @@ class LocationCache:
         if self._redis:
             try:
                 await self._redis.close()
-            except redis.RedisError:
+            except Exception:
                 pass
             self._redis = None
             self._connected = False
@@ -61,7 +64,7 @@ class LocationCache:
             data = await self._redis.get(key)
             if data:
                 return ParsedLocation.model_validate_json(data)
-        except redis.RedisError as e:
+        except Exception as e:
             logger.debug(f"LocationCache get error: {e}")
         return None
 
@@ -71,7 +74,7 @@ class LocationCache:
         try:
             key = self._key(location)
             await self._redis.setex(key, self.TTL_SECONDS, result.model_dump_json())
-        except redis.RedisError as e:
+        except Exception as e:
             logger.debug(f"LocationCache set error: {e}")
 
 

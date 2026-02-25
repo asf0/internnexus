@@ -1,7 +1,7 @@
 """E2E tests for user workflows."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 
@@ -295,24 +295,26 @@ class TestUserProfileWorkflow:
 
             mock_service = AsyncMock()
             mock_service.update_profile.return_value = mock_user
-            mock_service.parse_user_profile.return_value = {
-                "id": str(mock_user.id),
-                "email": mock_user.email,
-                "name": mock_user.name,
-                "image": mock_user.image,
-                "created_at": mock_user.created_at,
-                "bio": mock_user.bio,
-                "phone": mock_user.phone,
-                "location": mock_user.location,
-                "job_title": mock_user.job_title,
-                "company": mock_user.company,
-                "industry": mock_user.industry,
-                "skills": ["Python", "JavaScript"],
-                "linkedin_url": mock_user.linkedin_url,
-                "portfolio_url": mock_user.portfolio_url,
-                "preferred_locations": [],
-                "has_password": False,
-            }
+            mock_service.parse_user_profile = Mock(
+                return_value={
+                    "id": str(mock_user.id),
+                    "email": mock_user.email,
+                    "name": mock_user.name,
+                    "image": mock_user.image,
+                    "created_at": mock_user.created_at,
+                    "bio": mock_user.bio,
+                    "phone": mock_user.phone,
+                    "location": mock_user.location,
+                    "job_title": mock_user.job_title,
+                    "company": mock_user.company,
+                    "industry": mock_user.industry,
+                    "skills": ["Python", "JavaScript"],
+                    "linkedin_url": mock_user.linkedin_url,
+                    "portfolio_url": mock_user.portfolio_url,
+                    "preferred_locations": [],
+                    "has_password": False,
+                }
+            )
             mock_get_service.return_value = mock_service
 
             response = await client.put("/users/me", json=update_data)

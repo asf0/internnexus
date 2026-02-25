@@ -8,13 +8,14 @@ from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mappers import job_to_response
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, security
 from app.auth.jwt import validate_password_strength
 from app.db import get_db
 from app.api.schemas import JobResponse
@@ -130,12 +131,27 @@ class SavedJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+async def _get_current_user_dependency(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await get_current_user(credentials, db)
+
+
+async def _get_user_service_dependency(db: AsyncSession = Depends(get_db)) -> UserService:
+    return await get_user_service(db)
+
+
+async def _get_auth_service_dependency(db: AsyncSession = Depends(get_db)) -> AuthService:
+    return await get_auth_service(db)
+
+
 @router.get("/me", response_model=UserProfileResponse)
 @limiter.limit(RATE_LIMITS["user_me"])
 def get_current_user_profile(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-    user_service: UserService = Depends(get_user_service),
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
+    user_service: UserService = Depends(_get_user_service_dependency),
 ) -> UserProfileResponse:
     return UserProfileResponse(**user_service.parse_user_profile(current_user))
 
@@ -145,8 +161,8 @@ def get_current_user_profile(
 async def update_user_profile(
     request: Request,
     data: UpdateUserRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-    user_service: UserService = Depends(get_user_service),
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
+    user_service: UserService = Depends(_get_user_service_dependency),
 ) -> UserProfileResponse:
     profile_update = cast(UpdateProfileData, data.model_dump())
     user = await user_service.update_profile(current_user, profile_update)
@@ -158,8 +174,8 @@ async def update_user_profile(
 async def change_password(
     request: Request,
     data: ChangePasswordRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-    auth_service: AuthService = Depends(get_auth_service),
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
+    auth_service: AuthService = Depends(_get_auth_service_dependency),
 ) -> dict:
     await auth_service.change_password(
         user=current_user,
@@ -173,8 +189,8 @@ async def change_password(
 @limiter.limit(RATE_LIMITS["user_delete"])
 async def delete_account(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-    user_service: UserService = Depends(get_user_service),
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
+    user_service: UserService = Depends(_get_user_service_dependency),
 ) -> dict:
     await user_service.delete_account(current_user)
     return {"message": "Account deleted successfully"}
@@ -184,7 +200,7 @@ async def delete_account(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def get_resume_metadata(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> UserResumeResponse | None:
     try:
@@ -207,7 +223,7 @@ async def get_resume_metadata(
 @limiter.limit(RATE_LIMITS["user_update"])
 async def upload_resume_metadata(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
 ) -> UserResumeResponse:
@@ -343,7 +359,7 @@ async def upload_resume_metadata(
 @limiter.limit(RATE_LIMITS["user_update"])
 async def delete_resume_metadata(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     await db.execute(delete(UserResume).where(UserResume.user_id == current_user.id))
@@ -355,7 +371,7 @@ async def delete_resume_metadata(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def list_notifications(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
     limit: int = 50,
 ) -> list[NotificationResponse]:
@@ -374,7 +390,7 @@ async def list_notifications(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def get_unread_notifications_count(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, int]:
     result = await db.execute(
@@ -391,7 +407,7 @@ async def get_unread_notifications_count(
 async def mark_notification_read(
     request: Request,
     notification_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     result = await db.execute(
@@ -413,7 +429,7 @@ async def mark_notification_read(
 @limiter.limit(RATE_LIMITS["user_update"])
 async def mark_all_notifications_read(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     result = await db.execute(
@@ -433,7 +449,7 @@ async def mark_all_notifications_read(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def list_saved_job_ids(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> list[UUID]:
     result = await db.execute(
@@ -448,7 +464,7 @@ async def list_saved_job_ids(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def list_applied_job_ids(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> list[UUID]:
     result = await db.execute(
@@ -463,7 +479,7 @@ async def list_applied_job_ids(
 @limiter.limit(RATE_LIMITS["user_me"])
 async def list_saved_jobs(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> list[SavedJobResponse]:
     result = await db.execute(
@@ -489,7 +505,7 @@ async def list_saved_jobs(
 async def save_job(
     request: Request,
     job_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     job_result = await db.execute(select(Job).where(Job.id == job_id, Job.is_active.is_(True)))
@@ -514,7 +530,7 @@ async def save_job(
 async def unsave_job(
     request: Request,
     job_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     result = await db.execute(
@@ -533,7 +549,7 @@ async def unsave_job(
 async def mark_job_applied(
     request: Request,
     job_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     job_result = await db.execute(select(Job).where(Job.id == job_id, Job.is_active.is_(True)))
@@ -558,7 +574,7 @@ async def mark_job_applied(
 async def unmark_job_applied(
     request: Request,
     job_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(_get_current_user_dependency)],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     result = await db.execute(
