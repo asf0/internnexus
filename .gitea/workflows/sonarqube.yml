@@ -12,7 +12,7 @@ jobs:
     name: SonarQube Scan
     runs-on: docker
     container:
-      image: sonarsource/sonar-scanner-cli:8.0.1.6346
+      image: sonarsource/sonar-scanner-cli:latest
     env:
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
