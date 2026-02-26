@@ -153,7 +153,7 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
     monkeypatch.setattr("sqlalchemy.or_", lambda *args: args[0] if args else None)
 
-    async def _get_classifier():
+    def _get_classifier():
         return _FakeClassifier()
 
     monkeypatch.setattr("pipeline.classification.get_classifier", _get_classifier)
