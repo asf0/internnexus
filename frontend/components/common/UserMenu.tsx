@@ -8,10 +8,10 @@ import { AuthModal } from "@/components/auth"
 import { useRouter } from "next/navigation"
 
 interface UserMenuProps {
-  user?: { name?: string | null; email?: string | null; image?: string | null } | null
-  autoOpenAuthModal?: boolean
-  postAuthRedirectPath?: string
-  unreadCount?: number
+  readonly user?: { readonly name?: string | null; readonly email?: string | null; readonly image?: string | null } | null;
+  readonly autoOpenAuthModal?: boolean;
+  readonly postAuthRedirectPath?: string;
+  readonly unreadCount?: number;
 }
 
 function isSafeInternalPath(path: string | undefined): path is string {

@@ -2,9 +2,9 @@ import { X } from "lucide-react";
 import { Alert } from "./Alert";
 
 interface ToastProps {
-  message: string;
-  onClose: () => void;
-  type?: "success" | "error" | "warning" | "info";
+  readonly message: string;
+  readonly onClose: () => void;
+  readonly type?: "success" | "error" | "warning" | "info";
 }
 
 export function Toast({ message, onClose, type = "warning" }: ToastProps) {

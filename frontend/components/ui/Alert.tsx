@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 import { CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
 interface AlertProps {
-  type: "success" | "error" | "warning" | "info";
-  children: ReactNode;
-  className?: string;
+  readonly type: "success" | "error" | "warning" | "info";
+  readonly children: ReactNode;
+  readonly className?: string;
 }
 
 const alertStyles = {

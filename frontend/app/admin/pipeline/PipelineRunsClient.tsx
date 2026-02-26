@@ -14,31 +14,31 @@ import type { LucideIcon } from "lucide-react";
 const { Title } = Typography;
 
 interface PipelineStats {
-  total_runs: number;
-  completed: number;
-  failed: number;
-  running: number;
-  last_success: string | null;
-  last_failure: string | null;
+  readonly total_runs: number;
+  readonly completed: number;
+  readonly failed: number;
+  readonly running: number;
+  readonly last_success: string | null;
+  readonly last_failure: string | null;
 }
 
 interface PipelineRun {
-  id: string;
-  status: string;
-  step_completed: string | null;
-  error_message: string | null;
-  error_step: string | null;
-  started_at: string;
-  completed_at: string | null;
-  results: string | null;
+  readonly id: string;
+  readonly status: string;
+  readonly step_completed: string | null;
+  readonly error_message: string | null;
+  readonly error_step: string | null;
+  readonly started_at: string;
+  readonly completed_at: string | null;
+  readonly results: string | null;
 }
 
 interface PipelineRunsListResponse {
-  items: PipelineRun[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
+  readonly items: Array<PipelineRun>;
+  readonly total: number;
+  readonly page: number;
+  readonly page_size: number;
+  readonly total_pages: number;
 }
 
 interface PipelineRunsClientProps {

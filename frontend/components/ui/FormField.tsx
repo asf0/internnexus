@@ -3,16 +3,16 @@ import { Input } from "./Input";
 import { LucideIcon } from "lucide-react";
 
 interface FormFieldProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  icon?: LucideIcon;
-  placeholder?: string;
-  type?: "text" | "password" | "email" | "number" | "url";
-  helperText?: string;
-  error?: string;
-  required?: boolean;
-  disabled?: boolean;
+  readonly label: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly icon?: LucideIcon;
+  readonly placeholder?: string;
+  readonly type?: "text" | "password" | "email" | "number" | "url";
+  readonly helperText?: string;
+  readonly error?: string;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
 }
 
 export function FormField({

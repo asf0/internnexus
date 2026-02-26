@@ -1,6 +1,6 @@
 interface LoadingSpinnerProps {
-  className?: string;
-  size?: "sm" | "md" | "lg";
+  readonly className?: string;
+  readonly size?: "sm" | "md" | "lg";
 }
 
 export function LoadingSpinner({ className = "", size = "md" }: LoadingSpinnerProps) {

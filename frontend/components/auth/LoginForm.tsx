@@ -4,10 +4,10 @@ import { Mail, Loader2 } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 
 interface LoginFormProps {
-  isLoading: boolean;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  submitLabel?: string;
-  autoFocusFirstField?: boolean;
+  readonly isLoading: boolean;
+  readonly onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  readonly submitLabel?: string;
+  readonly autoFocusFirstField?: boolean;
 }
 
 export function LoginForm({

@@ -8,14 +8,14 @@ import { formatCategoryLabel } from "@/lib/utils";
 import type { Job } from "@/lib/types";
 
 interface JobDetailPanelProps {
-  job: Job | null;
-  isLoading: boolean;
-  onClose: () => void;
-  isAuthenticated: boolean;
-  onRequireAuthForApply: (applyUrl: string, jobId: string) => void;
-  isApplied?: boolean;
-  onToggleApplied?: (shouldApply: boolean) => void;
-  onApply?: (jobId: string, applyUrl: string) => Promise<void>;
+  readonly job: Job | null;
+  readonly isLoading: boolean;
+  readonly onClose: () => void;
+  readonly isAuthenticated: boolean;
+  readonly onRequireAuthForApply: (applyUrl: string, jobId: string) => void;
+  readonly isApplied?: boolean;
+  readonly onToggleApplied?: (shouldApply: boolean) => void;
+  readonly onApply?: (jobId: string, applyUrl: string) => Promise<void>;
 }
 
 export default function JobDetailPanel({

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PaginationProps {
-  currentPage: number;
-  totalPages: number;
-  buildPageUrl: (page: number) => string;
-  totalItems?: number;
-  pageSize?: number;
+  readonly currentPage: number;
+  readonly totalPages: number;
+  readonly buildPageUrl: (page: number) => string;
+  readonly totalItems?: number;
+  readonly pageSize?: number;
 }
 
 /**

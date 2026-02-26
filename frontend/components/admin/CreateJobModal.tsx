@@ -13,14 +13,14 @@ interface CreateJobModalProps {
 }
 
 interface JobFormData {
-  title: string;
-  company: string;
-  location: string;
-  apply_url: string;
-  description_text: string;
-  job_category: string;
-  job_type: string;
-  work_mode: string;
+  readonly title: string;
+  readonly company: string;
+  readonly location: string;
+  readonly apply_url: string;
+  readonly description_text: string;
+  readonly job_category: string;
+  readonly job_type: string;
+  readonly work_mode: string;
 }
 
 const initialFormData: JobFormData = {

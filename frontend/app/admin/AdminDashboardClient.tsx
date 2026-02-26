@@ -16,50 +16,50 @@ import type { LucideIcon } from "lucide-react";
 const { Title } = Typography;
 
 interface JobStats {
-  total_jobs: number;
-  active_jobs: number;
-  total_companies: number;
-  jobs_by_category: Record<string, number>;
+  readonly total_jobs: number;
+  readonly active_jobs: number;
+  readonly total_companies: number;
+  readonly jobs_by_category: Record<string, number>;
 }
 
 interface ClickStats {
-  total_clicks: number;
-  clicks_today: number;
-  clicks_this_week: number;
-  clicks_this_month: number;
-  top_jobs: Array<{
-    job_id: string;
-    title: string;
-    company: string;
-    click_count: number;
+  readonly total_clicks: number;
+  readonly clicks_today: number;
+  readonly clicks_this_week: number;
+  readonly clicks_this_month: number;
+  readonly top_jobs: ReadonlyArray<{
+    readonly job_id: string;
+    readonly title: string;
+    readonly company: string;
+    readonly click_count: number;
   }>;
 }
 
 interface PipelineStats {
-  total_runs: number;
-  completed: number;
-  failed: number;
-  running: number;
-  last_success: string | null;
-  last_failure: string | null;
+  readonly total_runs: number;
+  readonly completed: number;
+  readonly failed: number;
+  readonly running: number;
+  readonly last_success: string | null;
+  readonly last_failure: string | null;
 }
 
 interface PipelineRun {
-  id: string;
-  status: string;
-  step_completed: string | null;
-  error_message: string | null;
-  error_step: string | null;
-  started_at: string;
-  completed_at: string | null;
-  results: string | null;
+  readonly id: string;
+  readonly status: string;
+  readonly step_completed: string | null;
+  readonly error_message: string | null;
+  readonly error_step: string | null;
+  readonly started_at: string;
+  readonly completed_at: string | null;
+  readonly results: string | null;
 }
 
 interface AdminDashboardClientProps {
-  jobStats: JobStats;
-  clickStats: ClickStats;
-  pipelineStats: PipelineStats;
-  latestRun: PipelineRun | null;
+  readonly jobStats: JobStats;
+  readonly clickStats: ClickStats;
+  readonly pipelineStats: PipelineStats;
+  readonly latestRun: PipelineRun | null;
 }
 
 function StatisticIcon({ icon: Icon }: { icon: LucideIcon }) {

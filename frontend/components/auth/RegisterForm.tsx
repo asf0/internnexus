@@ -5,14 +5,14 @@ import { Button, Input } from "@/components/ui";
 import { PasswordInput, calculateStrength } from "@/components/common";
 
 interface RegisterFormProps {
-  isLoading: boolean;
-  password: string;
-  confirmPassword: string;
-  onPasswordChange: (password: string) => void;
-  onConfirmPasswordChange: (password: string) => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  submitLabel?: string;
-  autoFocusFirstField?: boolean;
+  readonly isLoading: boolean;
+  readonly password: string;
+  readonly confirmPassword: string;
+  readonly onPasswordChange: (password: string) => void;
+  readonly onConfirmPasswordChange: (password: string) => void;
+  readonly onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  readonly submitLabel?: string;
+  readonly autoFocusFirstField?: boolean;
 }
 
 export function RegisterForm({

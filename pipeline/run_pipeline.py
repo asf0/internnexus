@@ -296,7 +296,7 @@ class PipelineRunner:
 
             logger.info("Classifying %d jobs without categories...", total_jobs)
 
-            classifier = await get_classifier()
+            classifier = get_classifier()
             processed = 0
             try:
                 while processed < total_jobs:

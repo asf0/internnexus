@@ -8,9 +8,9 @@ import { SESSION_STORAGE_KEYS } from "@/lib/constants";
 import { trackJobClick } from "@/app/actions/jobs";
 
 interface ApplyNowAuthButtonProps {
-  jobId: string;
-  applyUrl: string;
-  isAuthenticated: boolean;
+  readonly jobId: string;
+  readonly applyUrl: string;
+  readonly isAuthenticated: boolean;
 }
 
 export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }: ApplyNowAuthButtonProps) {

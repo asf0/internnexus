@@ -2,9 +2,9 @@ import { ReactNode, InputHTMLAttributes } from "react";
 import { LucideIcon } from "lucide-react";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  icon?: LucideIcon;
-  iconPosition?: "left" | "right";
-  error?: string;
+  readonly icon?: LucideIcon;
+  readonly iconPosition?: "left" | "right";
+  readonly error?: string;
 }
 
 export function Input({

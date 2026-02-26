@@ -541,7 +541,7 @@ _classifier_instance: JobClassifier | None = None
 _classifier_close_task: asyncio.Task[None] | None = None
 
 
-async def get_classifier() -> JobClassifier:
+def get_classifier() -> JobClassifier:
     """Get or create the job classifier instance."""
     global _classifier_instance
     if _classifier_instance is None:

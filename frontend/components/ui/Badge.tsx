@@ -2,10 +2,10 @@ import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 
 interface BadgeProps {
-  children: ReactNode;
-  variant?: "default" | "primary" | "secondary" | "outline" | "info" | "success" | "danger" | "purple";
-  icon?: LucideIcon;
-  className?: string;
+  readonly children: ReactNode;
+  readonly variant?: "default" | "primary" | "secondary" | "outline" | "info" | "success" | "danger" | "purple";
+  readonly icon?: LucideIcon;
+  readonly className?: string;
 }
 
 export function Badge({
