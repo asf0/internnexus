@@ -17,6 +17,20 @@ from pipeline.location.constants import (
     AUSTRALIAN_STATES,
     GERMAN_STATES,
     UK_REGIONS,
+    COUNTRY_UNITED_STATES,
+    COUNTRY_UNITED_KINGDOM,
+    COUNTRY_SOUTH_KOREA,
+    COUNTRY_TURKEY,
+    COUNTRY_CZECHIA,
+    COUNTRY_INDIA,
+    COUNTRY_GERMANY,
+    COUNTRY_FRANCE,
+    COUNTRY_CHINA,
+    COUNTRY_JAPAN,
+    COUNTRY_CANADA,
+    COUNTRY_AUSTRALIA,
+    COUNTRY_NETHERLANDS,
+    COUNTRY_UAE,
 )
 
 # =============================================================================
@@ -77,17 +91,17 @@ _STATE_NAME_MAPPINGS = STATE_MAPPINGS
 
 # Country patterns with word boundaries
 _COUNTRY_PATTERNS = [
-    (re.compile(r"\bunited states\b", re.IGNORECASE), "United States"),
-    (re.compile(r"\bunited kingdom\b", re.IGNORECASE), "United Kingdom"),
-    (re.compile(r"\bcanada\b", re.IGNORECASE), "Canada"),
-    (re.compile(r"\bgermany\b", re.IGNORECASE), "Germany"),
-    (re.compile(r"\bfrance\b", re.IGNORECASE), "France"),
-    (re.compile(r"\bindia\b", re.IGNORECASE), "India"),
-    (re.compile(r"\baustralia\b", re.IGNORECASE), "Australia"),
-    (re.compile(r"\bjapan\b", re.IGNORECASE), "Japan"),
-    (re.compile(r"\bchina\b", re.IGNORECASE), "China"),
+    (re.compile(r"\bunited states\b", re.IGNORECASE), COUNTRY_UNITED_STATES),
+    (re.compile(r"\bunited kingdom\b", re.IGNORECASE), COUNTRY_UNITED_KINGDOM),
+    (re.compile(r"\bcanada\b", re.IGNORECASE), COUNTRY_CANADA),
+    (re.compile(r"\bgermany\b", re.IGNORECASE), COUNTRY_GERMANY),
+    (re.compile(r"\bfrance\b", re.IGNORECASE), COUNTRY_FRANCE),
+    (re.compile(r"\bindia\b", re.IGNORECASE), COUNTRY_INDIA),
+    (re.compile(r"\baustralia\b", re.IGNORECASE), COUNTRY_AUSTRALIA),
+    (re.compile(r"\bjapan\b", re.IGNORECASE), COUNTRY_JAPAN),
+    (re.compile(r"\bchina\b", re.IGNORECASE), COUNTRY_CHINA),
     (re.compile(r"\bsingapore\b", re.IGNORECASE), "Singapore"),
-    (re.compile(r"\bnetherlands\b", re.IGNORECASE), "Netherlands"),
+    (re.compile(r"\bnetherlands\b", re.IGNORECASE), COUNTRY_NETHERLANDS),
     (re.compile(r"\bspain\b", re.IGNORECASE), "Spain"),
     (re.compile(r"\bitaly\b", re.IGNORECASE), "Italy"),
     (re.compile(r"\bbrazil\b", re.IGNORECASE), "Brazil"),
@@ -103,13 +117,13 @@ _COUNTRY_PATTERNS = [
     (re.compile(r"\bpoland\b", re.IGNORECASE), "Poland"),
     (re.compile(r"\bukraine\b", re.IGNORECASE), "Ukraine"),
     (re.compile(r"\bromania\b", re.IGNORECASE), "Romania"),
-    (re.compile(r"\bczechia\b", re.IGNORECASE), "Czechia"),
-    (re.compile(r"\bczech republic\b", re.IGNORECASE), "Czechia"),
+    (re.compile(r"\bczechia\b", re.IGNORECASE), COUNTRY_CZECHIA),
+    (re.compile(r"\bczech republic\b", re.IGNORECASE), COUNTRY_CZECHIA),
     (re.compile(r"\bhungary\b", re.IGNORECASE), "Hungary"),
     (re.compile(r"\bportugal\b", re.IGNORECASE), "Portugal"),
     (re.compile(r"\bgreece\b", re.IGNORECASE), "Greece"),
     (re.compile(r"\bisrael\b", re.IGNORECASE), "Israel"),
-    (re.compile(r"\bsouth korea\b", re.IGNORECASE), "South Korea"),
+    (re.compile(r"\bsouth korea\b", re.IGNORECASE), COUNTRY_SOUTH_KOREA),
     (re.compile(r"\btaiwan\b", re.IGNORECASE), "Taiwan"),
     (re.compile(r"\bhong kong\b", re.IGNORECASE), "Hong Kong"),
     (re.compile(r"\bnew zealand\b", re.IGNORECASE), "New Zealand"),
@@ -119,7 +133,7 @@ _COUNTRY_PATTERNS = [
     (re.compile(r"\bthailand\b", re.IGNORECASE), "Thailand"),
     (re.compile(r"\bvietnam\b", re.IGNORECASE), "Vietnam"),
     (re.compile(r"\bindonesia\b", re.IGNORECASE), "Indonesia"),
-    (re.compile(r"\bturkey\b", re.IGNORECASE), "Turkey"),
+    (re.compile(r"\bturkey\b", re.IGNORECASE), COUNTRY_TURKEY),
     (re.compile(r"\brussia\b", re.IGNORECASE), "Russia"),
     (re.compile(r"\bkazakhstan\b", re.IGNORECASE), "Kazakhstan"),
     (re.compile(r"\buzbekistan\b", re.IGNORECASE), "Uzbekistan"),
@@ -139,8 +153,8 @@ _COUNTRY_PATTERNS = [
     (re.compile(r"\bnicaragua\b", re.IGNORECASE), "Nicaragua"),
     (re.compile(r"\bpanama\b", re.IGNORECASE), "Panama"),
     (re.compile(r"\bpuerto rico\b", re.IGNORECASE), "Puerto Rico"),
-    (re.compile(r"\buae\b", re.IGNORECASE), "United Arab Emirates"),
-    (re.compile(r"\bunited arab emirates\b", re.IGNORECASE), "United Arab Emirates"),
+    (re.compile(r"\buae\b", re.IGNORECASE), COUNTRY_UAE),
+    (re.compile(r"\bunited arab emirates\b", re.IGNORECASE), COUNTRY_UAE),
     (re.compile(r"\begypt\b", re.IGNORECASE), "Egypt"),
     (re.compile(r"\bnigeria\b", re.IGNORECASE), "Nigeria"),
     (re.compile(r"\bkenya\b", re.IGNORECASE), "Kenya"),
@@ -156,15 +170,15 @@ _COUNTRY_PATTERNS = [
 
 # Country abbreviations
 _COUNTRY_ABBR_PATTERNS = [
-    (re.compile(r"\busa?\b", re.IGNORECASE), "United States"),
-    (re.compile(r"\buk\b", re.IGNORECASE), "United Kingdom"),
-    (re.compile(r"\bde\b", re.IGNORECASE), "Germany"),
-    (re.compile(r"\bfr\b", re.IGNORECASE), "France"),
-    (re.compile(r"\bau\b", re.IGNORECASE), "Australia"),
-    (re.compile(r"\bjp\b", re.IGNORECASE), "Japan"),
-    (re.compile(r"\bcn\b", re.IGNORECASE), "China"),
+    (re.compile(r"\busa?\b", re.IGNORECASE), COUNTRY_UNITED_STATES),
+    (re.compile(r"\buk\b", re.IGNORECASE), COUNTRY_UNITED_KINGDOM),
+    (re.compile(r"\bde\b", re.IGNORECASE), COUNTRY_GERMANY),
+    (re.compile(r"\bfr\b", re.IGNORECASE), COUNTRY_FRANCE),
+    (re.compile(r"\bau\b", re.IGNORECASE), COUNTRY_AUSTRALIA),
+    (re.compile(r"\bjp\b", re.IGNORECASE), COUNTRY_JAPAN),
+    (re.compile(r"\bcn\b", re.IGNORECASE), COUNTRY_CHINA),
     (re.compile(r"\bsg\b", re.IGNORECASE), "Singapore"),
-    (re.compile(r"\bnl\b", re.IGNORECASE), "Netherlands"),
+    (re.compile(r"\bnl\b", re.IGNORECASE), COUNTRY_NETHERLANDS),
     (re.compile(r"\bes\b", re.IGNORECASE), "Spain"),
     (re.compile(r"\bit\b", re.IGNORECASE), "Italy"),
     (re.compile(r"\bbr\b", re.IGNORECASE), "Brazil"),
@@ -180,23 +194,23 @@ _COUNTRY_ABBR_PATTERNS = [
     (re.compile(r"\bpl\b", re.IGNORECASE), "Poland"),
     (re.compile(r"\bua\b", re.IGNORECASE), "Ukraine"),
     (re.compile(r"\bro\b", re.IGNORECASE), "Romania"),
-    (re.compile(r"\bcz\b", re.IGNORECASE), "Czechia"),
+    (re.compile(r"\bcz\b", re.IGNORECASE), COUNTRY_CZECHIA),
     (re.compile(r"\bhu\b", re.IGNORECASE), "Hungary"),
     (re.compile(r"\bpt\b", re.IGNORECASE), "Portugal"),
     (re.compile(r"\bgr\b", re.IGNORECASE), "Greece"),
     (re.compile(r"\bil\b", re.IGNORECASE), "Israel"),
-    (re.compile(r"\bkr\b", re.IGNORECASE), "South Korea"),
+    (re.compile(r"\bkr\b", re.IGNORECASE), COUNTRY_SOUTH_KOREA),
     (re.compile(r"\btw\b", re.IGNORECASE), "Taiwan"),
     (re.compile(r"\bhk\b", re.IGNORECASE), "Hong Kong"),
     (re.compile(r"\bnz\b", re.IGNORECASE), "New Zealand"),
     (re.compile(r"\bza\b", re.IGNORECASE), "South Africa"),
-    (re.compile(r"\bae\b", re.IGNORECASE), "United Arab Emirates"),
+    (re.compile(r"\bae\b", re.IGNORECASE), COUNTRY_UAE),
     (re.compile(r"\bph\b", re.IGNORECASE), "Philippines"),
     (re.compile(r"\bmy\b", re.IGNORECASE), "Malaysia"),
     (re.compile(r"\bth\b", re.IGNORECASE), "Thailand"),
     (re.compile(r"\bvn\b", re.IGNORECASE), "Vietnam"),
     (re.compile(r"\bid\b", re.IGNORECASE), "Indonesia"),
-    (re.compile(r"\btr\b", re.IGNORECASE), "Turkey"),
+    (re.compile(r"\btr\b", re.IGNORECASE), COUNTRY_TURKEY),
     (re.compile(r"\bru\b", re.IGNORECASE), "Russia"),
     (re.compile(r"\bkz\b", re.IGNORECASE), "Kazakhstan"),
     (re.compile(r"\buz\b", re.IGNORECASE), "Uzbekistan"),
@@ -235,35 +249,35 @@ _REGION_CODE_PATTERN = re.compile(r",?\s*(EMEA|AMER|APAC|LATAM)\s*$", re.IGNOREC
 
 # Country name aliases for normalization
 _COUNTRY_ALIASES = {
-    "türkiye": "Turkey",
-    "turkiye": "Turkey",
-    "korea, republic of": "South Korea",
-    "republic of korea": "South Korea",
-    "the netherlands": "Netherlands",
+    "türkiye": COUNTRY_TURKEY,
+    "turkiye": COUNTRY_TURKEY,
+    "korea, republic of": COUNTRY_SOUTH_KOREA,
+    "republic of korea": COUNTRY_SOUTH_KOREA,
+    "the netherlands": COUNTRY_NETHERLANDS,
     "russian federation": "Russia",
-    "czech republic": "Czechia",
-    "uae": "United Arab Emirates",
-    "united arab emirates": "United Arab Emirates",
+    "czech republic": COUNTRY_CZECHIA,
+    "uae": COUNTRY_UAE,
+    "united arab emirates": COUNTRY_UAE,
 }
 
 # Abbreviations that should only match as full country strings
 _COUNTRY_ABBREV_FULL_MATCH = {
-    "us": "United States",
-    "u.s": "United States",
-    "u.s.": "United States",
-    "gb": "United Kingdom",
-    "in": "India",
-    "ca": "Canada",
-    "tr": "Turkey",
+    "us": COUNTRY_UNITED_STATES,
+    "u.s": COUNTRY_UNITED_STATES,
+    "u.s.": COUNTRY_UNITED_STATES,
+    "gb": COUNTRY_UNITED_KINGDOM,
+    "in": COUNTRY_INDIA,
+    "ca": COUNTRY_CANADA,
+    "tr": COUNTRY_TURKEY,
     "rs": "Serbia",
     "es": "Spain",
-    "de": "Germany",
-    "fr": "France",
-    "jp": "Japan",
+    "de": COUNTRY_GERMANY,
+    "fr": COUNTRY_FRANCE,
+    "jp": COUNTRY_JAPAN,
     "br": "Brazil",
     "mx": "Mexico",
-    "au": "Australia",
-    "nl": "Netherlands",
+    "au": COUNTRY_AUSTRALIA,
+    "nl": COUNTRY_NETHERLANDS,
     "it": "Italy",
     "ie": "Ireland",
     "ch": "Switzerland",
@@ -276,17 +290,17 @@ _COUNTRY_ABBREV_FULL_MATCH = {
     "pl": "Poland",
     "ua": "Ukraine",
     "ro": "Romania",
-    "cz": "Czechia",
+    "cz": COUNTRY_CZECHIA,
     "hu": "Hungary",
     "pt": "Portugal",
     "gr": "Greece",
     "il": "Israel",
-    "kr": "South Korea",
+    "kr": COUNTRY_SOUTH_KOREA,
     "tw": "Taiwan",
     "hk": "Hong Kong",
     "nz": "New Zealand",
     "za": "South Africa",
-    "ae": "United Arab Emirates",
+    "ae": COUNTRY_UAE,
     "ph": "Philippines",
     "my": "Malaysia",
     "th": "Thailand",
@@ -430,7 +444,7 @@ def extract_country_from_text(text: str) -> str | None:
 
     # Handle special case: "U.S" or "U.S." within text (e.g., "Palo Alto, CA, U.S")
     if re.search(r"\bu\.s\.?\b", text_lower):
-        return "United States"
+        return COUNTRY_UNITED_STATES
 
     # Check full country names using pre-compiled patterns
     for pattern, country in _COUNTRY_PATTERNS:
@@ -451,7 +465,7 @@ def expand_state_abbreviation(state_abbr: str, country_hint: str | None = None) 
     Args:
         state_abbr: Two-letter state abbreviation (e.g., "TN", "KA")
         country_hint: Optional country name to resolve ambiguous abbreviations.
-                     If "India", uses Indian state abbreviations.
+                     If India, uses Indian state abbreviations.
                      If None or other countries, uses US/Canadian abbreviations.
 
     Returns:
@@ -459,7 +473,7 @@ def expand_state_abbreviation(state_abbr: str, country_hint: str | None = None) 
     """
     abbr_upper = state_abbr.upper()
 
-    if country_hint == "India":
+    if country_hint == COUNTRY_INDIA:
         return INDIAN_STATE_ABBR.get(abbr_upper)
 
     return ABBR_TO_STATE.get(abbr_upper)
@@ -553,26 +567,26 @@ def extract_state(text: str, country_hint: str | None = None) -> str | None:
         mapped = _STATE_NAME_MAPPINGS[text_clean]
         # Don't return country names as states
         if mapped is None or mapped in [
-            "Australia",
-            "China",
-            "Germany",
-            "France",
-            "India",
+            COUNTRY_AUSTRALIA,
+            COUNTRY_CHINA,
+            COUNTRY_GERMANY,
+            COUNTRY_FRANCE,
+            COUNTRY_INDIA,
             "Indonesia",
             "Ireland",
             "Israel",
-            "Japan",
+            COUNTRY_JAPAN,
             "Korea",
-            "South Korea",
-            "Netherlands",
+            COUNTRY_SOUTH_KOREA,
+            COUNTRY_NETHERLANDS,
             "Portugal",
             "Saudi Arabia",
             "Singapore",
             "Switzerland",
             "Taiwan",
-            "United Arab Emirates",
-            "United Kingdom",
-            "United States",
+            COUNTRY_UAE,
+            COUNTRY_UNITED_KINGDOM,
+            COUNTRY_UNITED_STATES,
             "Vietnam",
             "Argentina",
             "Bolivia",
@@ -825,7 +839,7 @@ def infer_country_from_state(state: str | None) -> str | None:
     state_lower = state.lower()
 
     if state_lower in CANADIAN_PROVINCES:
-        return "Canada"
+        return COUNTRY_CANADA
 
     us_states = [
         "alabama",
@@ -881,16 +895,16 @@ def infer_country_from_state(state: str | None) -> str | None:
         "district of columbia",
     ]
     if state_lower in us_states:
-        return "United States"
+        return COUNTRY_UNITED_STATES
 
     if state_lower in INDIAN_STATES:
-        return "India"
+        return COUNTRY_INDIA
 
     if state_lower in AUSTRALIAN_STATES:
-        return "Australia"
+        return COUNTRY_AUSTRALIA
 
     if state_lower in GERMAN_STATES:
-        return "Germany"
+        return COUNTRY_GERMANY
 
     return None
 
@@ -1156,76 +1170,76 @@ def infer_country_from_city(city: str | None) -> str | None:
     }
 
     if city_lower in us_cities:
-        return "United States"
+        return COUNTRY_UNITED_STATES
 
     # International cities
     international_cities = {
         # UK
-        "london": "United Kingdom",
-        "manchester": "United Kingdom",
-        "birmingham": "United Kingdom",
-        "liverpool": "United Kingdom",
-        "glasgow": "United Kingdom",
-        "leeds": "United Kingdom",
-        "sheffield": "United Kingdom",
-        "edinburgh": "United Kingdom",
-        "bristol": "United Kingdom",
-        "cardiff": "United Kingdom",
-        "belfast": "United Kingdom",
-        "nottingham": "United Kingdom",
+        "london": COUNTRY_UNITED_KINGDOM,
+        "manchester": COUNTRY_UNITED_KINGDOM,
+        "birmingham": COUNTRY_UNITED_KINGDOM,
+        "liverpool": COUNTRY_UNITED_KINGDOM,
+        "glasgow": COUNTRY_UNITED_KINGDOM,
+        "leeds": COUNTRY_UNITED_KINGDOM,
+        "sheffield": COUNTRY_UNITED_KINGDOM,
+        "edinburgh": COUNTRY_UNITED_KINGDOM,
+        "bristol": COUNTRY_UNITED_KINGDOM,
+        "cardiff": COUNTRY_UNITED_KINGDOM,
+        "belfast": COUNTRY_UNITED_KINGDOM,
+        "nottingham": COUNTRY_UNITED_KINGDOM,
         # France
-        "paris": "France",
-        "lyon": "France",
-        "marseille": "France",
-        "toulouse": "France",
-        "nice": "France",
-        "nantes": "France",
-        "strasbourg": "France",
-        "montpellier": "France",
-        "bordeaux": "France",
-        "lille": "France",
+        "paris": COUNTRY_FRANCE,
+        "lyon": COUNTRY_FRANCE,
+        "marseille": COUNTRY_FRANCE,
+        "toulouse": COUNTRY_FRANCE,
+        "nice": COUNTRY_FRANCE,
+        "nantes": COUNTRY_FRANCE,
+        "strasbourg": COUNTRY_FRANCE,
+        "montpellier": COUNTRY_FRANCE,
+        "bordeaux": COUNTRY_FRANCE,
+        "lille": COUNTRY_FRANCE,
         # Germany
-        "berlin": "Germany",
-        "munich": "Germany",
-        "hamburg": "Germany",
-        "cologne": "Germany",
-        "frankfurt": "Germany",
-        "stuttgart": "Germany",
-        "dusseldorf": "Germany",
-        "dortmund": "Germany",
-        "essen": "Germany",
-        "leipzig": "Germany",
-        "bremen": "Germany",
-        "dresden": "Germany",
+        "berlin": COUNTRY_GERMANY,
+        "munich": COUNTRY_GERMANY,
+        "hamburg": COUNTRY_GERMANY,
+        "cologne": COUNTRY_GERMANY,
+        "frankfurt": COUNTRY_GERMANY,
+        "stuttgart": COUNTRY_GERMANY,
+        "dusseldorf": COUNTRY_GERMANY,
+        "dortmund": COUNTRY_GERMANY,
+        "essen": COUNTRY_GERMANY,
+        "leipzig": COUNTRY_GERMANY,
+        "bremen": COUNTRY_GERMANY,
+        "dresden": COUNTRY_GERMANY,
         # China
-        "beijing": "China",
-        "shanghai": "China",
-        "guangzhou": "China",
-        "shenzhen": "China",
-        "chengdu": "China",
-        "hangzhou": "China",
-        "wuhan": "China",
-        "xian": "China",
-        "nanjing": "China",
-        "chongqing": "China",
-        "tianjin": "China",
-        "suzhou": "China",
+        "beijing": COUNTRY_CHINA,
+        "shanghai": COUNTRY_CHINA,
+        "guangzhou": COUNTRY_CHINA,
+        "shenzhen": COUNTRY_CHINA,
+        "chengdu": COUNTRY_CHINA,
+        "hangzhou": COUNTRY_CHINA,
+        "wuhan": COUNTRY_CHINA,
+        "xian": COUNTRY_CHINA,
+        "nanjing": COUNTRY_CHINA,
+        "chongqing": COUNTRY_CHINA,
+        "tianjin": COUNTRY_CHINA,
+        "suzhou": COUNTRY_CHINA,
         # Japan
-        "tokyo": "Japan",
-        "osaka": "Japan",
-        "kyoto": "Japan",
-        "yokohama": "Japan",
-        "nagoya": "Japan",
-        "sapporo": "Japan",
-        "fukuoka": "Japan",
-        "kobe": "Japan",
-        "kawasaki": "Japan",
+        "tokyo": COUNTRY_JAPAN,
+        "osaka": COUNTRY_JAPAN,
+        "kyoto": COUNTRY_JAPAN,
+        "yokohama": COUNTRY_JAPAN,
+        "nagoya": COUNTRY_JAPAN,
+        "sapporo": COUNTRY_JAPAN,
+        "fukuoka": COUNTRY_JAPAN,
+        "kobe": COUNTRY_JAPAN,
+        "kawasaki": COUNTRY_JAPAN,
         # South Korea
-        "seoul": "South Korea",
-        "busan": "South Korea",
-        "incheon": "South Korea",
-        "daegu": "South Korea",
-        "daejeon": "South Korea",
+        "seoul": COUNTRY_SOUTH_KOREA,
+        "busan": COUNTRY_SOUTH_KOREA,
+        "incheon": COUNTRY_SOUTH_KOREA,
+        "daegu": COUNTRY_SOUTH_KOREA,
+        "daejeon": COUNTRY_SOUTH_KOREA,
         # Singapore
         "singapore": "Singapore",
         # Hong Kong
@@ -1235,38 +1249,38 @@ def infer_country_from_city(city: str | None) -> str | None:
         "taichung": "Taiwan",
         "kaohsiung": "Taiwan",
         # Australia
-        "sydney": "Australia",
-        "melbourne": "Australia",
-        "brisbane": "Australia",
-        "perth": "Australia",
-        "adelaide": "Australia",
+        "sydney": COUNTRY_AUSTRALIA,
+        "melbourne": COUNTRY_AUSTRALIA,
+        "brisbane": COUNTRY_AUSTRALIA,
+        "perth": COUNTRY_AUSTRALIA,
+        "adelaide": COUNTRY_AUSTRALIA,
         # Canada
-        "toronto": "Canada",
-        "vancouver": "Canada",
-        "montreal": "Canada",
-        "calgary": "Canada",
-        "ottawa": "Canada",
-        "edmonton": "Canada",
-        "winnipeg": "Canada",
-        "quebec": "Canada",
-        "hamilton": "Canada",
+        "toronto": COUNTRY_CANADA,
+        "vancouver": COUNTRY_CANADA,
+        "montreal": COUNTRY_CANADA,
+        "calgary": COUNTRY_CANADA,
+        "ottawa": COUNTRY_CANADA,
+        "edmonton": COUNTRY_CANADA,
+        "winnipeg": COUNTRY_CANADA,
+        "quebec": COUNTRY_CANADA,
+        "hamilton": COUNTRY_CANADA,
         # India
-        "mumbai": "India",
-        "delhi": "India",
-        "bangalore": "India",
-        "bengaluru": "India",
-        "hyderabad": "India",
-        "chennai": "India",
-        "kolkata": "India",
-        "pune": "India",
-        "ahmedabad": "India",
-        "jaipur": "India",
-        "gurgaon": "India",
-        "gurugram": "India",
-        "noida": "India",
+        "mumbai": COUNTRY_INDIA,
+        "delhi": COUNTRY_INDIA,
+        "bangalore": COUNTRY_INDIA,
+        "bengaluru": COUNTRY_INDIA,
+        "hyderabad": COUNTRY_INDIA,
+        "chennai": COUNTRY_INDIA,
+        "kolkata": COUNTRY_INDIA,
+        "pune": COUNTRY_INDIA,
+        "ahmedabad": COUNTRY_INDIA,
+        "jaipur": COUNTRY_INDIA,
+        "gurgaon": COUNTRY_INDIA,
+        "gurugram": COUNTRY_INDIA,
+        "noida": COUNTRY_INDIA,
         # Netherlands
-        "amsterdam": "Netherlands",
-        "rotterdam": "Netherlands",
+        "amsterdam": COUNTRY_NETHERLANDS,
+        "rotterdam": COUNTRY_NETHERLANDS,
         # Switzerland
         "zurich": "Switzerland",
         "geneva": "Switzerland",
@@ -1296,7 +1310,7 @@ def infer_country_from_city(city: str | None) -> str | None:
         # Poland
         "warsaw": "Poland",
         # Czech
-        "prague": "Czechia",
+        "prague": COUNTRY_CZECHIA,
         # Hungary
         "budapest": "Hungary",
         # Romania
@@ -1309,8 +1323,8 @@ def infer_country_from_city(city: str | None) -> str | None:
         "tel aviv": "Israel",
         "jerusalem": "Israel",
         # UAE
-        "dubai": "United Arab Emirates",
-        "abu dhabi": "United Arab Emirates",
+        "dubai": COUNTRY_UAE,
+        "abu dhabi": COUNTRY_UAE,
         # Brazil
         "sao paulo": "Brazil",
         "rio de janeiro": "Brazil",
@@ -1331,7 +1345,7 @@ def infer_country_from_city(city: str | None) -> str | None:
         # Russia
         "moscow": "Russia",
         # Turkey
-        "istanbul": "Turkey",
+        "istanbul": COUNTRY_TURKEY,
         # Thailand
         "bangkok": "Thailand",
         # Malaysia
@@ -1525,7 +1539,7 @@ def normalize_location(location: str | None) -> dict[str, Any]:
             # Two different states - this is ambiguous/bad data
             return {
                 **empty_result,
-                "country": "United States",
+                "country": COUNTRY_UNITED_STATES,
             }
 
         if is_street_address(first):
