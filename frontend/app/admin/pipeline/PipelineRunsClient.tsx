@@ -42,14 +42,14 @@ interface PipelineRunsListResponse {
 }
 
 interface PipelineRunsClientProps {
-  pipelineStats: PipelineStats;
-  latestRun: PipelineRun | null;
-  pipelineRuns: PipelineRunsListResponse | null;
-  statusFilter: string;
-  currentPage: number;
+  readonly pipelineStats: PipelineStats;
+  readonly latestRun: PipelineRun | null;
+  readonly pipelineRuns: PipelineRunsListResponse | null;
+  readonly statusFilter: string;
+  readonly currentPage: number;
 }
 
-function StatisticIcon({ icon: Icon }: { icon: LucideIcon }) {
+function StatisticIcon({ icon: Icon }: { readonly icon: LucideIcon }) {
   return (
     <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30">
       <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />

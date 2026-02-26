@@ -14,10 +14,10 @@ import type { MatchResponse, LocationItem } from "@/lib/types/job";
 const MATCH_STATE_UPDATED_EVENT = "internnexus:match-state-updated";
 
 interface ToolbarProps {
-  companies: string[];
-  locations: LocationItem[];
-  categories?: string[];
-  isAuthenticated?: boolean;
+  readonly companies: string[];
+  readonly locations: LocationItem[];
+  readonly categories?: string[];
+  readonly isAuthenticated?: boolean;
 }
 
 export default function Toolbar({ companies, locations, categories = [], isAuthenticated = false }: ToolbarProps) {

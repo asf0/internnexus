@@ -36,7 +36,6 @@ export function JobCard({
           onClick();
         }
       }}
-      tabIndex={0}
       className={`mb-3 cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-md ${
         isSelected
           ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950"

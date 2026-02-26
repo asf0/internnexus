@@ -19,14 +19,14 @@ import { generateJobSlug, findJobBySlug } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
 interface JobListProps {
-  jobs?: Job[];
-  total?: number;
-  totalPages?: number;
-  currentPage: number;
-  matched?: boolean;
-  isAuthenticated?: boolean;
-  initialSavedJobIds?: string[];
-  initialAppliedJobIds?: string[];
+  readonly jobs?: Job[];
+  readonly total?: number;
+  readonly totalPages?: number;
+  readonly currentPage: number;
+  readonly matched?: boolean;
+  readonly isAuthenticated?: boolean;
+  readonly initialSavedJobIds?: string[];
+  readonly initialAppliedJobIds?: string[];
 }
 
 export default function JobList({

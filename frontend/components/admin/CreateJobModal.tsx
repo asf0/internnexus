@@ -7,9 +7,9 @@ import { Modal } from "@/components/modals";
 import { createJob, type CreateJobRequest } from "@/app/actions/admin";
 
 interface CreateJobModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onSuccess: () => void;
 }
 
 interface JobFormData {
