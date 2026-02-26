@@ -10,7 +10,7 @@ import { PersonalSection, ProfessionalSection, PasswordSection, DangerZone } fro
 import type { UserProfile } from "@/lib/types/user"
 
 interface SettingsFormProps {
-  profile: UserProfile
+  readonly profile: UserProfile;
 }
 
 export default function SettingsForm({ profile }: SettingsFormProps) {

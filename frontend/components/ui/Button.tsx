@@ -7,10 +7,10 @@ import {
 } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost";
-  size?: "sm" | "md" | "lg";
-  children: ReactNode;
-  asChild?: boolean;
+  readonly variant?: "primary" | "secondary" | "outline" | "ghost";
+  readonly size?: "sm" | "md" | "lg";
+  readonly children: ReactNode;
+  readonly asChild?: boolean;
 }
 
 export function Button({

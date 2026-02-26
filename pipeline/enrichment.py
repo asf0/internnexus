@@ -47,7 +47,7 @@ async def enrich_jobs(
         jobs_to_classify = [j for j in jobs if not j.job_category]
         if jobs_to_classify:
             try:
-                classifier = await get_classifier()
+                classifier = get_classifier()
                 inputs = [(j.title, j.description_text or "") for j in jobs_to_classify]
                 categories = await classifier.classify_batch(inputs)
                 for job, category in zip(jobs_to_classify, categories):

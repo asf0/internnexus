@@ -17,70 +17,70 @@ import DayDetailModal from "@/components/admin/DayDetailModal";
 const { Title } = Typography;
 
 interface ClickStats {
-  total_clicks: number;
-  clicks_today: number;
-  clicks_this_week: number;
-  clicks_this_month: number;
-  authenticated_clicks_total: number;
-  anonymous_clicks_total: number;
-  unique_users_total: number;
-  unique_jobs_total: number;
-  clicks_last_24h: number;
-  avg_clicks_per_day_30d: number;
-  top_sources: Array<{ value: string; click_count: number }>;
-  top_mediums: Array<{ value: string; click_count: number }>;
-  top_campaigns: Array<{ value: string; click_count: number }>;
-  clicks_by_hour_today: Array<{ hour: number; clicks: number }>;
-  daily_breakdown_14d: Array<{ date: string; clicks: number; unique_users: number }>;
-  top_jobs: Array<{
-    job_id: string;
-    title: string;
-    company: string;
-    click_count: number;
+  readonly total_clicks: number;
+  readonly clicks_today: number;
+  readonly clicks_this_week: number;
+  readonly clicks_this_month: number;
+  readonly authenticated_clicks_total: number;
+  readonly anonymous_clicks_total: number;
+  readonly unique_users_total: number;
+  readonly unique_jobs_total: number;
+  readonly clicks_last_24h: number;
+  readonly avg_clicks_per_day_30d: number;
+  readonly top_sources: Array<{ readonly value: string; readonly click_count: number }>;
+  readonly top_mediums: Array<{ readonly value: string; readonly click_count: number }>;
+  readonly top_campaigns: Array<{ readonly value: string; readonly click_count: number }>;
+  readonly clicks_by_hour_today: Array<{ readonly hour: number; readonly clicks: number }>;
+  readonly daily_breakdown_14d: Array<{ readonly date: string; readonly clicks: number; readonly unique_users: number }>;
+  readonly top_jobs: Array<{
+    readonly job_id: string;
+    readonly title: string;
+    readonly company: string;
+    readonly click_count: number;
   }>;
 }
 
 interface ClickByDay {
-  date: string;
-  clicks: number;
-  unique_users?: number;
-  unique_jobs?: number;
+  readonly date: string;
+  readonly clicks: number;
+  readonly unique_users?: number;
+  readonly unique_jobs?: number;
 }
 
 interface JobClick {
-  id: string;
-  job_id: string;
-  job_title: string;
-  company: string;
-  apply_url: string | null;
-  user_id: string | null;
-  user_email: string | null;
-  user_name: string | null;
-  clicked_at: string;
-  utm_source: string;
-  utm_medium: string | null;
-  utm_campaign: string | null;
+  readonly id: string;
+  readonly job_id: string;
+  readonly job_title: string;
+  readonly company: string;
+  readonly apply_url: string | null;
+  readonly user_id: string | null;
+  readonly user_email: string | null;
+  readonly user_name: string | null;
+  readonly clicked_at: string;
+  readonly utm_source: string;
+  readonly utm_medium: string | null;
+  readonly utm_campaign: string | null;
 }
 
 interface ClicksByUser {
-  user_id: string | null;
-  email: string | null;
-  name: string | null;
-  click_count: number;
+  readonly user_id: string | null;
+  readonly email: string | null;
+  readonly name: string | null;
+  readonly click_count: number;
 }
 
 interface ClicksListResponse {
-  items: JobClick[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
+  readonly items: JobClick[];
+  readonly total: number;
+  readonly page: number;
+  readonly page_size: number;
+  readonly total_pages: number;
 }
 
 interface ClicksClientProps {
-  clickStats: ClickStats;
-  clicksByDay: ClickByDay[] | null;
-  recentClicks: ClicksListResponse | null;
+  readonly clickStats: ClickStats;
+  readonly clicksByDay: Array<ClickByDay> | null;
+  readonly recentClicks: ClicksListResponse | null;
 }
 
 // Icon wrapper component for Ant Design compatibility

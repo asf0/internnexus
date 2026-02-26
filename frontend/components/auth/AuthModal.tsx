@@ -12,12 +12,12 @@ import { LoginForm } from "./LoginForm";
 import { RegisterForm } from "./RegisterForm";
 
 interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  defaultMode?: "login" | "register";
-  onAuthSuccess?: (applyWindow?: Window | null) => void;
-  intent?: "default" | "apply";
-  callbackUrl?: string;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly defaultMode?: "login" | "register";
+  readonly onAuthSuccess?: (applyWindow?: Window | null) => void;
+  readonly intent?: "default" | "apply";
+  readonly callbackUrl?: string;
 }
 
 export default function AuthModal({

@@ -19,14 +19,14 @@ import type { MenuProps } from "antd";
 const { Sider, Header, Content } = Layout;
 
 interface AdminLayoutClientProps {
-  user: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
+  readonly user: {
+    readonly id?: string;
+    readonly name?: string | null;
+    readonly email?: string | null;
+    readonly image?: string | null;
   } | null;
-  isAdmin: boolean;
-  children: React.ReactNode;
+  readonly isAdmin: boolean;
+  readonly children: React.ReactNode;
 }
 
 const menuItems: MenuProps["items"] = [

@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 
 interface CardProps {
-  children: ReactNode;
-  className?: string;
+  readonly children: ReactNode;
+  readonly className?: string;
 }
 
 export function Card({ children, className = "" }: CardProps) {
@@ -21,8 +21,8 @@ export function Card({ children, className = "" }: CardProps) {
 }
 
 interface CardContentProps {
-  children: ReactNode;
-  className?: string;
+  readonly children: ReactNode;
+  readonly className?: string;
 }
 
 export function CardContent({ children, className = "" }: CardContentProps) {

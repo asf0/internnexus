@@ -4,15 +4,15 @@ import { Briefcase, Building, GraduationCap, Link as LinkIcon, Plus, X } from "l
 import { Card, CardContent, IconContainer, FormField, Input, Badge, Button } from "@/components/ui";
 
 interface ProfessionalSectionProps {
-  jobTitle: string;
-  company: string;
-  industry: string;
-  linkedinUrl: string;
-  portfolioUrl: string;
-  skills: string[];
-  preferredLocations: string[];
-  onFieldChange: (field: string, value: string) => void;
-  onAddSkill: (skill: string) => void;
+  readonly jobTitle: string;
+  readonly company: string;
+  readonly industry: string;
+  readonly linkedinUrl: string;
+  readonly portfolioUrl: string;
+  readonly skills: ReadonlyArray<string>;
+  readonly preferredLocations: ReadonlyArray<string>;
+  readonly onFieldChange: (field: string, value: string) => void;
+  readonly onAddSkill: (skill: string) => void;
   onRemoveSkill: (skill: string) => void;
   onAddLocation: (location: string) => void;
   onRemoveLocation: (location: string) => void;

@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 
 interface IconContainerProps {
-  icon: LucideIcon;
-  color: "blue" | "purple" | "green" | "red";
-  className?: string;
+  readonly icon: LucideIcon;
+  readonly color: "blue" | "purple" | "green" | "red";
+  readonly className?: string;
 }
 
 export function IconContainer({ icon: Icon, color, className = "" }: IconContainerProps) {

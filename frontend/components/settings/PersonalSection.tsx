@@ -4,11 +4,11 @@ import { User, Phone, MapPin } from "lucide-react";
 import { Card, CardContent, IconContainer, FormField } from "@/components/ui";
 
 interface PersonalSectionProps {
-  name: string;
-  bio: string;
-  phone: string;
-  location: string;
-  onChange: (field: string, value: string) => void;
+  readonly name: string;
+  readonly bio: string;
+  readonly phone: string;
+  readonly location: string;
+  readonly onChange: (field: string, value: string) => void;
 }
 
 export function PersonalSection({ name, bio, phone, location, onChange }: PersonalSectionProps) {

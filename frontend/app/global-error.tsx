@@ -4,8 +4,8 @@ import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
 
 interface GlobalErrorProps {
-  error: Error & { digest?: string };
-  reset: () => void;
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
 }
 
 /**
