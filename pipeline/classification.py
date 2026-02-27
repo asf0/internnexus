@@ -45,6 +45,70 @@ VALID_CATEGORY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 VALID_CATEGORIES = CANONICAL_CATEGORIES
 CANDIDATE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_\-]+")
 MAX_REJECTION_SAMPLES_PER_BATCH = 5
+LOW_SIGNAL_REJECTION_TOKENS = {
+    "a",
+    "an",
+    "and",
+    "category",
+    "job",
+    "m",
+    "n_a",
+    "na",
+    "none",
+    "null",
+    "or",
+    "other",
+    "test",
+    "the",
+    "unknown",
+}
+
+CATEGORY_HINTS: dict[str, str] = {
+    "software_engineering": "backend frontend full_stack api platform",
+    "data_science": "analytics experimentation modeling insights statistics",
+    "data_engineering": "etl pipelines warehousing spark airflow",
+    "machine_learning": "ml ai model_training inference llm",
+    "product_management": "roadmap prioritization requirements stakeholders",
+    "product_design": "ux ui interaction visual design",
+    "sales": "account_executive bdr quota pipeline gtm",
+    "marketing": "brand growth campaign paid_media seo",
+    "operations": "process execution coordination service delivery",
+    "finance": "fp_and_a budgeting revenue accounting_strategy",
+    "hr": "people_ops talent_acquisition employee_relations",
+    "customer_success": "onboarding retention adoption account_health",
+    "security": "application_security infosec cyber risk controls",
+    "devops": "infra deployment ci_cd sre reliability",
+    "legal": "counsel contracts compliance legal_ops",
+    "healthcare": "clinical patient_care nursing medical",
+    "research": "r_and_d scientific_research lab",
+    "consulting": "advisory professional_services implementation",
+    "project_management": "program_management delivery planning pmo",
+    "quality_assurance": "qa testing validation test_automation",
+    "hardware_engineering": "electrical mechanical firmware manufacturing",
+    "content_writing": "writing editorial content technical_writing",
+    "translation": "localization linguist translation",
+    "education": "training instructional learning enablement",
+    "construction": "field_construction trades site_ops",
+    "accounting": "bookkeeping close gl ar ap",
+    "compliance": "regulatory aml kyc controls monitoring",
+    "risk_management": "risk assessment governance mitigation",
+    "recruiting": "recruiter sourcing interviewing hiring",
+    "customer_support": "helpdesk support tickets troubleshooting",
+    "logistics_supply_chain": "fulfillment warehouse logistics procurement",
+}
+
+
+def _is_high_signal_unmapped_candidate(category: str) -> bool:
+    """Return True when a rejected candidate is useful for curation."""
+    if not category:
+        return False
+    if category in LOW_SIGNAL_REJECTION_TOKENS:
+        return False
+    if category in INVALID_CATEGORIES:
+        return False
+    if category.isdigit() or len(category) < 3:
+        return False
+    return True
 
 
 def _extract_rejection_slug_candidates(raw_output: str) -> set[str]:
@@ -54,7 +118,9 @@ def _extract_rejection_slug_candidates(raw_output: str) -> set[str]:
         normalized = _normalize_slug_token(raw_token)
         if not normalized:
             continue
-        if "_" not in normalized and len(normalized) < 8:
+        if "_" not in normalized and len(normalized) < 4:
+            continue
+        if not _is_high_signal_unmapped_candidate(normalized):
             continue
         candidates.add(normalized)
     return candidates
@@ -133,34 +199,61 @@ _retry_decorator = retry(
 )
 
 
-def _build_classification_prompt(title: str, description: str) -> str:
-    """Build the classification prompt for the LLM."""
+def _build_category_cards() -> str:
+    """Render compact category cards with keyword hints."""
+    cards = []
+    for slug in VALID_CATEGORIES:
+        hints = CATEGORY_HINTS.get(slug, slug.replace("_", " "))
+        cards.append(f"- {slug}: {hints}")
+    return "\n".join(cards)
+
+
+def _build_classification_prompts(title: str, description: str) -> tuple[str, str]:
+    """Build deterministic system/user prompts for classification."""
     truncated_desc = description[:MAX_DESCRIPTION_LENGTH]
     if len(description) > MAX_DESCRIPTION_LENGTH:
         truncated_desc += "..."
 
-    categories_str = ", ".join(VALID_CATEGORIES)
+    system_prompt = """You classify job postings into exactly one allowed category slug.
+Rules:
+- Return JSON only: {\"category\":\"<allowed_slug>\"}
+- category must be one slug from the allowed list
+- Never invent or transform a new slug
+- If uncertain, choose the nearest allowed slug"""
 
-    prompt = f"""Classify this job into ONE category slug.
-Output requirements:
-- Return EXACTLY one slug from the allowed list
-- Lowercase with underscores only
-- No numbering, punctuation, or explanation
-
-Allowed slugs:
-{categories_str}
+    user_prompt = f"""Allowed categories:
+{_build_category_cards()}
 
 Title: {title}
 Description: {truncated_desc}
 
-Examples:
-software_engineering
-data_science
-product_management
+Return JSON only, example: {{"category":"software_engineering"}}"""
 
-Category slug:"""
+    return system_prompt, user_prompt
 
-    return prompt
+
+def _extract_json_category(raw_output: str) -> str | None:
+    """Extract category value from JSON output if present."""
+    if not raw_output:
+        return None
+
+    text = raw_output.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    category_value = payload.get("category")
+    if not isinstance(category_value, str):
+        return None
+    return _normalize_slug_token(category_value)
 
 
 def _normalize_slug_token(raw_token: str) -> str | None:
@@ -184,6 +277,12 @@ def _extract_canonical_category(raw_output: str) -> tuple[str | None, str]:
     if not raw_output or not raw_output.strip():
         return None, "empty_response"
 
+    json_category = _extract_json_category(raw_output)
+    if json_category:
+        canonical = _map_category_strict(json_category)
+        if canonical:
+            return canonical, "ok"
+
     for raw_token in CANDIDATE_TOKEN_PATTERN.findall(raw_output):
         normalized = _normalize_slug_token(raw_token)
         if not normalized:
@@ -200,16 +299,44 @@ def _map_category_strict(category: str) -> str | None:
     category_lower = category.lower().strip()
     if not category_lower:
         return None
-    if category_lower in INVALID_CATEGORIES:
+
+    normalized = category_lower
+    for region_suffix in ("_apac", "_emea", "_latam", "_na", "_us", "_uk"):
+        if normalized.endswith(region_suffix):
+            normalized = normalized[: -len(region_suffix)]
+            break
+
+    if normalized in INVALID_CATEGORIES:
         return None
-    if category_lower in CANONICAL_CATEGORIES:
-        return category_lower
-    if category_lower in CATEGORY_MAPPING:
-        return CATEGORY_MAPPING[category_lower]
+    if normalized in CANONICAL_CATEGORIES:
+        return normalized
+    if normalized in CATEGORY_MAPPING:
+        return CATEGORY_MAPPING[normalized]
+
+    for prefix, canonical in (
+        ("legal_", "legal"),
+        ("hr_", "hr"),
+        ("employee_", "hr"),
+        ("patient_", "healthcare"),
+        ("clinical_", "healthcare"),
+    ):
+        if normalized.startswith(prefix):
+            return canonical
+
+    if normalized.startswith("field_") and "sales" in normalized:
+        return "sales"
+    if normalized.startswith("field_") and "care" in normalized:
+        return "healthcare"
+    if normalized.endswith("_sales"):
+        return "sales"
+    if normalized.endswith("_consulting") or normalized.endswith("_consultant"):
+        return "consulting"
+    if normalized.endswith("_training"):
+        return "education"
 
     for suffix in ["_engineering", "_management", "_operations", "_development", "_analysis"]:
-        if category_lower.endswith(suffix):
-            base = category_lower[: -len(suffix)]
+        if normalized.endswith(suffix):
+            base = normalized[: -len(suffix)]
             if base in CATEGORY_MAPPING:
                 return CATEGORY_MAPPING[base]
             if base in CANONICAL_CATEGORIES:
@@ -297,7 +424,8 @@ class JobClassifier:
     @_retry_decorator
     async def _classify_ollama_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using Ollama native API (with retry)."""
-        prompt = _build_classification_prompt(title, description)
+        system_prompt, user_prompt = _build_classification_prompts(title, description)
+        prompt = f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}"
         client = await self._get_client()
 
         try:
@@ -309,7 +437,7 @@ class JobClassifier:
                     "stream": False,
                     "keep_alive": self._keep_alive,
                     "options": {
-                        "temperature": 0.1,
+                        "temperature": 0.0,
                         "num_predict": self._num_predict,
                     },
                 },
@@ -343,7 +471,7 @@ class JobClassifier:
     @_retry_decorator
     async def _classify_lmstudio_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify using LM Studio OpenAI-compatible API (with retry)."""
-        prompt = _build_classification_prompt(title, description)
+        system_prompt, user_prompt = _build_classification_prompts(title, description)
         client = await self._get_client()
 
         try:
@@ -354,12 +482,16 @@ class JobClassifier:
                     "model": self._model,
                     "messages": [
                         {
+                            "role": "system",
+                            "content": system_prompt,
+                        },
+                        {
                             "role": "user",
-                            "content": prompt,
-                        }
+                            "content": user_prompt,
+                        },
                     ],
-                    "temperature": 0.1,
-                    "max_tokens": 20,
+                    "temperature": 0.0,
+                    "max_tokens": 32,
                 },
             )
             response.raise_for_status()

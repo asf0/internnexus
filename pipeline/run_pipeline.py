@@ -298,6 +298,7 @@ class PipelineRunner:
 
             classifier = get_classifier()
             processed = 0
+            attempted_job_ids: set[object] = set()
             try:
                 while processed < total_jobs:
                     batch_limit = min(CLASSIFY_COMMIT_BATCH_SIZE, total_jobs - processed)
@@ -310,13 +311,16 @@ class PipelineRunner:
                         )
                         .limit(batch_limit)
                     )
+                    if attempted_job_ids:
+                        batch_query = batch_query.where(Job.id.notin_(attempted_job_ids))
                     batch_result = await session.execute(batch_query)
                     chunk = batch_result.scalars().all()
                     if not chunk:
                         logger.warning(
-                            "Classification stopped early at %d/%d jobs; no uncategorized rows returned",
+                            "Classification stopped early at %d/%d jobs; no uncategorized rows returned after excluding %d attempted rows",
                             processed,
                             total_jobs,
+                            len(attempted_job_ids),
                         )
                         break
 
@@ -325,16 +329,27 @@ class PipelineRunner:
 
                     batch_success = 0
                     batch_errors = 0
+                    failed_entries: list[tuple[object | None, str]] = []
                     for job, (category, reason) in zip(chunk, categories_with_reason):
+                        job_id = getattr(job, "id", None)
+                        if job_id is not None:
+                            attempted_job_ids.add(job_id)
                         if category:
                             job.job_category = category
                             success += 1
                             batch_success += 1
                         else:
-                            job_id = getattr(job, "id", None)
-                            logger.warning(f"Classification failed for job {job_id}: {reason}")
+                            failed_entries.append((job_id, reason))
                             errors += 1
                             batch_errors += 1
+
+                    if failed_entries:
+                        sample = ", ".join(f"{job_id}:{reason}" for job_id, reason in failed_entries[:10])
+                        logger.warning(
+                            "Classification failed for %d jobs in batch (sample: %s)",
+                            len(failed_entries),
+                            sample,
+                        )
 
                     await session.commit()
                     processed += len(chunk)

@@ -108,7 +108,7 @@ export default function LocationSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex min-h-[38px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        className="flex w-full min-h-[44px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
@@ -125,15 +125,28 @@ export default function LocationSelect({
                 className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface"
               >
                 {label}
-                <button
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Remove ${label}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     removeItem(item);
                   }}
-                  className="hover:text-slate-900 dark:hover:text-slate-100"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeItem(item);
+                    }
+                  }}
+                  className="cursor-pointer hover:text-slate-900 dark:hover:text-slate-100"
                 >
                   <X size={12} />
-                </button>
+                </span>
               </span>
             );
           })

@@ -38,6 +38,14 @@ class _FakeColumn:
     def asc(self):
         return _FakeSort(self.name)
 
+    def notin_(self, values):
+        return _FakeNotInPredicate(values)
+
+
+class _FakeNotInPredicate:
+    def __init__(self, values):
+        self.values = set(values)
+
 
 class _FakeJobModel:
     job_category = _FakeColumn("job_category")
@@ -51,11 +59,15 @@ class _FakeQuery:
     def __init__(self, kind: str):
         self.kind = kind
         self.limit_value: int | None = None
+        self.excluded_ids: set | None = None
 
     def select_from(self, _obj):
         return self
 
     def where(self, *_args):
+        for arg in _args:
+            if isinstance(arg, _FakeNotInPredicate):
+                self.excluded_ids = set(arg.values)
         return self
 
     def order_by(self, *_args):
@@ -98,6 +110,8 @@ class _FakeSession:
             return _FakeResult(scalar_value=remaining)
 
         remaining_jobs = [job for job in self.jobs if job.job_category is None]
+        if query.excluded_ids:
+            remaining_jobs = [job for job in remaining_jobs if getattr(job, "id", None) not in query.excluded_ids]
         take = query.limit_value if query.limit_value is not None else len(remaining_jobs)
         return _FakeResult(items=remaining_jobs[:take])
 
@@ -108,21 +122,11 @@ class _FakeSession:
 @pytest.mark.asyncio
 async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     jobs = [
-        SimpleNamespace(
-            title="A", description_text="d1", job_category=None, classification_attempts=0
-        ),
-        SimpleNamespace(
-            title="B", description_text="d2", job_category=None, classification_attempts=0
-        ),
-        SimpleNamespace(
-            title="C", description_text="d3", job_category=None, classification_attempts=0
-        ),
-        SimpleNamespace(
-            title="D", description_text="d4", job_category=None, classification_attempts=0
-        ),
-        SimpleNamespace(
-            title="E", description_text="d5", job_category=None, classification_attempts=0
-        ),
+        SimpleNamespace(id=1, title="A", description_text="d1", job_category=None, classification_attempts=0),
+        SimpleNamespace(id=2, title="B", description_text="d2", job_category=None, classification_attempts=0),
+        SimpleNamespace(id=3, title="C", description_text="d3", job_category=None, classification_attempts=0),
+        SimpleNamespace(id=4, title="D", description_text="d4", job_category=None, classification_attempts=0),
+        SimpleNamespace(id=5, title="E", description_text="d5", job_category=None, classification_attempts=0),
     ]
     fake_session = _FakeSession(jobs)
 
@@ -135,9 +139,7 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
 
         async def classify_batch_with_reasons(self, inputs):
             categories = await self.classify_batch(inputs)
-            return [
-                (category, "ok" if category else "no_mappable_token") for category in categories
-            ]
+            return [(category, "ok" if category else "no_mappable_token") for category in categories]
 
     def fake_select(target):
         return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
@@ -165,6 +167,48 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     assert success == 4
     assert errors == 1
     assert fake_session.commit_calls == 3
+
+
+@pytest.mark.asyncio
+async def test_step_classify_does_not_starve_new_rows_when_first_row_fails(monkeypatch):
+    jobs = [
+        SimpleNamespace(id=1, title="Failing", description_text="d1", job_category=None),
+        SimpleNamespace(id=2, title="Second", description_text="d2", job_category=None),
+    ]
+    fake_session = _FakeSession(jobs)
+
+    class _FakeClassifier:
+        async def classify_batch_with_reasons(self, inputs):
+            results = []
+            for title, _description in inputs:
+                if title == "Failing":
+                    results.append((None, "no_mappable_token"))
+                else:
+                    results.append(("software_engineering", "ok"))
+            return results
+
+    def fake_select(target):
+        return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
+
+    _FAKE_COUNT = object()
+    monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 1)
+    monkeypatch.setattr(
+        "pipeline.repositories.sqlalchemy_repo.AsyncSessionLocal",
+        lambda: fake_session,
+    )
+    monkeypatch.setattr("pipeline.repositories.sqlalchemy_repo.Job", _FakeJobModel)
+    monkeypatch.setattr("sqlalchemy.select", fake_select)
+    monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
+
+    monkeypatch.setattr("pipeline.classification.get_classifier", lambda: _FakeClassifier())
+    monkeypatch.setattr("pipeline.classification.reset_classifier", lambda: None)
+
+    runner = run_pipeline.PipelineRunner()
+    success, errors = await runner.step_classify(state=None)
+
+    assert success == 1
+    assert errors == 1
+    assert jobs[1].job_category == "software_engineering"
 
 
 @pytest.mark.asyncio

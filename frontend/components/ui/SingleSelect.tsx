@@ -32,7 +32,7 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex min-h-[38px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        className="flex w-full min-h-[44px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >

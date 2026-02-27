@@ -310,7 +310,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
       {/* Expanded Filters Panel */}
       {showFilters && (
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {/* Company */}
             <MultiSelect
               options={[...companies].sort((a, b) => a.localeCompare(b))}
@@ -362,7 +362,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
               placeholder="Date Posted"
             />
 
-            <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 dark:border-md-outline dark:text-md-on-surface-variant">
+            <label className="flex min-h-[44px] items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 dark:border-md-outline dark:text-md-on-surface-variant">
               <input
                 type="checkbox"
                 checked={currentSavedOnly}

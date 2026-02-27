@@ -59,3 +59,22 @@ async def test_rejected_outputs_without_tokens_write_jsonl_events(tmp_path, monk
     payload = json.loads(lines[0])
     assert payload["reason"] == "empty_response"
     assert payload["title"] == "Role C"
+
+
+@pytest.mark.asyncio
+async def test_low_signal_rejected_tokens_are_not_added_to_unmapped(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+
+    async def _fake_classify(self, title: str, description: str):
+        del self, title, description
+        await asyncio.sleep(0)
+        return None, "no_mappable_token", "test"
+
+    monkeypatch.setattr(JobClassifier, "_classify_job_with_reason", _fake_classify)
+
+    classifier = JobClassifier(model="dummy", base_url="http://localhost:11434", provider="ollama")
+    results = await classifier.classify_batch_with_reasons([("Role D", "Desc")])
+
+    assert results == [(None, "no_mappable_token")]
+    assert not (tmp_path / "unmapped_categories.json").exists()
+    assert (tmp_path / "classification_rejections.jsonl").exists()

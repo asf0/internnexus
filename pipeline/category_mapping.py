@@ -87,6 +87,7 @@ CATEGORY_MAPPING = {
     "systems_engineering": "software_engineering",
     "system_engineering": "software_engineering",
     "site_reliability_engineering": "software_engineering",
+    "sre": "software_engineering",
     "reliability_engineering": "software_engineering",
     "performance_engineering": "software_engineering",
     "test_engineering": "software_engineering",
@@ -202,7 +203,16 @@ CATEGORY_MAPPING = {
     "content_design": "product_design",
     "design_operations": "product_design",
     "animation": "product_design",
+    "motion_designing": "product_design",
     # Sales variations
+    "business_development": "sales",
+    "field_sales": "sales",
+    "field_cto": "software_engineering",
+    "global_account_executive": "sales",
+    "government_sales": "sales",
+    "telecom_sales_specialist": "sales",
+    "gtm_enablement": "sales",
+    "value_engineering": "consulting",
     "sales_management": "sales",
     "sales_marketing": "sales",
     "sales_and_service_management": "sales",
@@ -223,7 +233,23 @@ CATEGORY_MAPPING = {
     "client_success": "sales",
     "client_success_management": "sales",
     # Marketing variations
+    "communications": "marketing",
+    "communications_associate": "marketing",
+    "brand_marketing": "marketing",
+    "affiliate_activation": "marketing",
+    "affiliate_marketing": "marketing",
+    "affiliate_partnership_management": "marketing",
     "growth_marketing": "marketing",
+    "email_marketing": "marketing",
+    "event_marketing": "marketing",
+    "paid_growth_strategist": "marketing",
+    "paid_media": "marketing",
+    "paid_media_director": "marketing",
+    "performance_marketing": "marketing",
+    "public_relations": "marketing",
+    "media_management": "marketing",
+    "media_planning": "marketing",
+    "trade_marketing": "marketing",
     "product_marketing": "marketing",
     "digital_marketing": "marketing",
     "content_marketing": "marketing",
@@ -236,6 +262,28 @@ CATEGORY_MAPPING = {
     "seo_strategist": "marketing",
     # Operations variations
     "operation": "operations",
+    "barista": "operations",
+    "continuous_improvement": "operations",
+    "community_management": "operations",
+    "community_operations": "operations",
+    "automotive_service_manager": "operations",
+    "embedded_studio_management": "operations",
+    "cookie_crew": "operations",
+    "food_safety_management": "operations",
+    "maintenance_management": "operations",
+    "remote_virtual_assistant": "operations",
+    "operationsfinance": "finance",
+    "operationsfinancelead": "finance",
+    "parts_operations": "operations",
+    "production_supervision": "operations",
+    "production_workforce": "operations",
+    "retail_coordinator": "operations",
+    "sanitation_manager": "operations",
+    "store_operations": "operations",
+    "supplier_diversity": "operations",
+    "tech_leading": "operations",
+    "tooling_operations": "operations",
+    "vehicle_fluids_analysis": "operations",
     "operations_management": "operations",
     "business_operations": "operations",
     "engineering_operations": "operations",
@@ -307,7 +355,18 @@ CATEGORY_MAPPING = {
     "accounting_operations": "finance",
     "finance_and_strategy": "finance",
     "finance_business_development": "finance",
+    "finance_accounting": "finance",
+    "finance_consulting": "finance",
+    "finance_director": "finance",
     "finance_events_volunteer": "finance",
+    "finance_specialist": "finance",
+    "portfolio_analysis": "finance",
+    "supply_planning": "finance",
+    "billing_and_revenue_management": "finance",
+    "finance_director_apac": "finance",
+    "finance_transformations_project_manager": "finance",
+    "payments_partnerships_manager": "finance",
+    "supply_planning_analyst": "finance",
     "procurement": "operations",
     # Accounting variations
     "accountant": "accounting",
@@ -319,13 +378,19 @@ CATEGORY_MAPPING = {
     "accounting_and_tax_specialist": "accounting",
     "accounting_and_consolidation_specialist": "accounting",
     "technical_accounting": "accounting",
+    "tax_management": "accounting",
+    "tax_operations": "accounting",
     # Compliance variations
     "compliance": "compliance",
+    "aml_analysis": "compliance",
+    "aml_investigation": "compliance",
     "compliance_analyst": "compliance",
     "compliance_consulting": "compliance",
     "compliance_inspection": "compliance",
     "compliance_investigation": "compliance",
     "compliance_management": "compliance",
+    "compliance_program_management": "compliance",
+    "global_immigration_compliance": "compliance",
     "governance_and_compliance": "compliance",
     "regulatory_compliance": "compliance",
     "payroll_compliance": "compliance",
@@ -335,11 +400,15 @@ CATEGORY_MAPPING = {
     "risk_specialist": "risk_management",
     "risk_administration": "risk_management",
     "risk_adjustment": "risk_management",
+    "risk_analytics": "risk_management",
     "remote_risk_specialist": "risk_management",
     "security_risk_management": "risk_management",
     # Recruiting variations
     "junior_recruiter": "recruiting",
     "healthcare_recruiter": "recruiting",
+    "director_of_talent_acquisition": "recruiting",
+    "executive_recruiting": "recruiting",
+    "recruiting_manager": "recruiting",
     "talent_sourcing": "recruiting",
     "senior_talent_partner": "recruiting",
     # Customer support variations
@@ -354,6 +423,7 @@ CATEGORY_MAPPING = {
     "support_specialist": "customer_support",
     # Logistics and supply chain variations
     "logistics": "logistics_supply_chain",
+    "delivery_operations": "logistics_supply_chain",
     "logistics_analysis": "logistics_supply_chain",
     "global_logistics_specialist": "logistics_supply_chain",
     "supply_chain_operations": "logistics_supply_chain",
@@ -366,7 +436,12 @@ CATEGORY_MAPPING = {
     "recruitment_management": "hr",
     "recruitment_coordinator": "hr",
     "recruitment_and_hr_operations": "hr",
+    "global_relocation_program_management": "hr",
+    "hr_shared_services": "hr",
     "hr_business_partner": "hr",
+    "hrbp": "hr",
+    "employee_relations": "hr",
+    "hr_specialist": "hr",
     "hr_sales_operations": "hr",
     "hr_payroll_operations": "hr",
     "payroll": "finance",
@@ -377,6 +452,9 @@ CATEGORY_MAPPING = {
     "learning_and_development": "hr",
     # Customer Success variations
     "customer_service": "customer_success",
+    "customer_enablement": "customer_success",
+    "field_care_coordinator": "healthcare",
+    "patient_support": "healthcare",
     "customer_support_management": "customer_success",
     "customer_success_management": "customer_success",
     "customer_experience": "customer_success",
@@ -388,6 +466,9 @@ CATEGORY_MAPPING = {
     "production_support": "customer_success",
     # Security variations
     "information_security": "security",
+    "application_security": "security",
+    "application_security_consulting": "security",
+    "data_protection": "security",
     "cyber_security": "security",
     "cybersecurity": "security",
     "data_security": "security",
@@ -400,9 +481,18 @@ CATEGORY_MAPPING = {
     "security_research": "security",
     "security_national_security": "security",
     "information_security_and_grc": "security",
+    "incident_response": "security",
+    "security_consulting": "security",
+    "threat_hunting_and_analysis": "security",
     # Legal variations
     "law": "legal",
     "lawyer": "legal",
+    "legal_advisory": "legal",
+    "legal_administrative_assistant": "legal",
+    "legal_administrative_support": "legal",
+    "legal_counseling": "legal",
+    "legal_counselling": "legal",
+    "legal_expertise": "legal",
     "legal_operations": "legal",
     "legal_services": "legal",
     "legal_contracts": "legal",
@@ -411,31 +501,43 @@ CATEGORY_MAPPING = {
     "legal_business_development": "legal",
     "law_business_development": "legal",
     "law_operations": "legal",
+    "legal_compliance": "legal",
     "regulatory_affairs": "legal",
     # Healthcare variations
     "healthcare_management": "healthcare",
     "clinical_management": "healthcare",
     "clinical_research": "healthcare",
+    "director_clinical_research": "healthcare",
     "clinical_pharmacy": "healthcare",
     "medical_research": "healthcare",
     "medical_healthcare": "healthcare",
+    "medical_director_veterinarian": "healthcare",
+    "ai_executive_producer": "marketing",
     "nursing_nurse_management": "healthcare",
     "healthcare_nursing": "healthcare",
     "nurse_practitioner": "healthcare",
     "environmental_health_and_safety": "healthcare",
     "environmental_health_and_safety_technician": "healthcare",
+    "ehs_specialist_iii": "healthcare",
     "medtech_rim": "healthcare",
+    "physical_therapy": "healthcare",
     # Research variations
     "research": "research",
+    "growth_analysis": "marketing",
+    "senior_analyst": "data_science",
     "research_science": "research",
     "research_engineering": "research",
     "research_and_development": "research",
+    "education_research": "research",
     "materials_research_and_development": "research",
     # Consulting variations
     "consultant": "consulting",
     "consultant_integration": "consulting",
     "consultant_patient_analytics": "consulting",
     "business_consulting": "consulting",
+    "education_consulting": "consulting",
+    "research_consulting": "consulting",
+    "solution_consulting": "consulting",
     "technology_consulting": "consulting",
     "technical_consulting": "consulting",
     "professional_services": "consulting",
@@ -445,8 +547,11 @@ CATEGORY_MAPPING = {
     # Project Management variations
     "project_manager": "project_management",
     "program_manager": "project_management",
+    "proposal_coordinator": "project_management",
+    "public_sector_contract_strategy": "legal",
     "technical_program_manager": "project_management",
     "staff_technical_program_manager": "project_management",
+    "bim_project_management": "project_management",
     "remote_project_management": "project_management",
     "localization_project_management": "project_management",
     "construction_project_management": "construction",
@@ -456,6 +561,9 @@ CATEGORY_MAPPING = {
     "testing": "quality_assurance",
     "quality_control": "quality_assurance",
     "quality_assurance": "quality_assurance",
+    "field_testing": "quality_assurance",
+    "test_automation_development": "quality_assurance",
+    "video_device_quality_assurance": "quality_assurance",
     "ai_testing": "quality_assurance",
     "ai_testing_french_language": "quality_assurance",
     "localization_tester": "quality_assurance",
@@ -465,6 +573,7 @@ CATEGORY_MAPPING = {
     "content_writing": "content_writing",
     "academic_content_specialist": "content_writing",
     "creative_annotating": "content_writing",
+    "transcription": "content_writing",
     # Translation variations
     "language_translator": "translation",
     "language_translations": "translation",
@@ -478,14 +587,24 @@ CATEGORY_MAPPING = {
     "training": "education",
     "technical_training": "education",
     "training_and_education": "education",
+    "forensics_training": "education",
+    "voice_coaching": "education",
     "instructional_design": "education",
     "instructional_designer": "education",
     "instructional_designing": "education",
     "instructional_designing_and_lms_administration": "education",
+    "education_research_consulting": "education",
     "professional_learning_specialist": "education",
     "volunteer_programme": "education",
     # Construction variations
     "construction": "construction",
+    "bim_specialist": "construction",
+    "fitter_ii": "construction",
+    "installer_assistant": "construction",
+    "toolmaking": "construction",
+    "welding_engineering": "construction",
+    "roofing": "construction",
+    "welder": "construction",
     # Problematic categories to fix
     "none": None,  # Should be NULL
     "space_x": None,  # Company name
@@ -506,7 +625,12 @@ CATEGORY_MAPPING = {
     "video_production": "content_writing",
     # Field data collection
     "data_collection": "operations",
+    "delivery_driving": "logistics_supply_chain",
+    "driver_lead": "logistics_supply_chain",
     "field_data_collection": "operations",
+    "fulfillment_team_member": "logistics_supply_chain",
+    "sports_data_collection": "operations",
+    "vehicle_delivery_specialist": "logistics_supply_chain",
     "data_verification_assistant": "operations",
     "configuration_technical_setup_specialist": "operations",
     "configuration_and_technical_setup_specialist": "operations",
@@ -516,12 +640,22 @@ CATEGORY_MAPPING = {
     "developer_advocacy": "software_engineering",
     # Architecture
     "architecture": "software_engineering",
+    "arquitecto_de_soluciones": "software_engineering",
+    "ai_data_specialist": "data_science",
+    "database_architecture": "data_engineering",
+    "mainframe_development": "software_engineering",
+    "solution_acceleration_architect": "software_engineering",
+    "java_backend_development": "software_engineering",
+    "javascript_development": "software_engineering",
     "enterprise_architecture": "software_engineering",
     "project_architect": "software_engineering",
     # Leadership
     "leadership": "operations",
     "leadership_advisor": "operations",
     "technical_leader": "operations",
+    "design_leading": "product_design",
+    "ux_research": "product_design",
+    "user_experience_design": "product_design",
     # Venture capital
     "venture_capital": "finance",
     # Installation
@@ -534,8 +668,26 @@ CATEGORY_MAPPING = {
     "cloudinary": "software_engineering",
     # Knowledge management
     "knowledge_management": "operations",
+    "learning_development": "hr",
+    "mlro_deputy_mlo": "compliance",
+    "people_analytics": "hr",
+    "people_communications": "hr",
+    "people_culture": "hr",
     # Mainframe
     "mainframe_systems_programming": "software_engineering",
+    "android_development": "software_engineering",
+    "field_applications_engineer": "software_engineering",
+    "firmware_engineering": "hardware_engineering",
+    "graphic_designer": "marketing",
+    "ios_development": "software_engineering",
+    "java_development": "software_engineering",
+    "lider_tecnico_java": "software_engineering",
+    "release_engineering": "devops",
+    "salesengineering": "sales",
+    "laser_production_technician": "hardware_engineering",
+    "storage_engineering": "devops",
+    "subscription_services": "customer_success",
+    "supply_chain": "logistics_supply_chain",
     # Partner enablement
     "partner_enablement_management": "operations",
     # Technology entry level
@@ -568,18 +720,25 @@ def get_canonical_category(category: str | None) -> str | None:
         return None
 
     category_lower = category.lower().strip()
+    normalized_category = category_lower
 
     # Check if it's an invalid category
     if category_lower in INVALID_CATEGORIES:
         return None
 
+    # Normalize common regional suffixes (e.g. finance_director_apac)
+    for region_suffix in ["_apac", "_emea", "_latam", "_na", "_us", "_uk"]:
+        if category_lower.endswith(region_suffix):
+            normalized_category = category_lower[: -len(region_suffix)]
+            break
+
     # Check direct mapping
-    if category_lower in CATEGORY_MAPPING:
-        return CATEGORY_MAPPING[category_lower]
+    if normalized_category in CATEGORY_MAPPING:
+        return CATEGORY_MAPPING[normalized_category]
 
     # Check if already canonical
-    if category_lower in CANONICAL_CATEGORIES:
-        return category_lower
+    if normalized_category in CANONICAL_CATEGORIES:
+        return normalized_category
 
     # Try to find a match by removing common suffixes
     for suffix in [
@@ -600,15 +759,15 @@ def get_canonical_category(category: str | None) -> str | None:
         "_officer",
         "_assistant",
     ]:
-        if category_lower.endswith(suffix):
-            base = category_lower[: -len(suffix)]
+        if normalized_category.endswith(suffix):
+            base = normalized_category[: -len(suffix)]
             if base in CATEGORY_MAPPING:
                 return CATEGORY_MAPPING[base]
             if base in CANONICAL_CATEGORIES:
                 return base
 
     # Unknown categories are kept NULL and logged for curation.
-    _log_unmapped_category(category_lower)
+    _log_unmapped_category(normalized_category)
     return None
 
 

@@ -1,11 +1,6 @@
 name: Frontend CI
 
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'frontend/**/*'
-      - '.gitea/workflows/ci-frontend.yml'
   pull_request:
     branches: [main, develop]
     paths:

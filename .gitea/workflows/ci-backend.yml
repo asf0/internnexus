@@ -1,13 +1,6 @@
 name: Backend CI
 
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'backend/**/*.py'
-      - 'pipeline/**/*.py'
-      - 'pyproject.toml'
-      - '.gitea/workflows/ci-backend.yml'
   pull_request:
     branches: [main, develop]
     paths:
