@@ -33,18 +33,10 @@ COPY uv.lock .
 RUN uv pip install --system --no-cache -e .
 
 # Copy backend code (needed for imports)
-COPY backend/app/ ./backend/app/
-COPY backend/alembic/ ./backend/alembic/
-COPY backend/alembic.ini ./backend/
+COPY backend/ ./backend/
 
 # Copy pipeline code
 COPY pipeline/ ./pipeline/
-
-# Create __init__.py files to make packages importable if missing
-RUN touch backend/__init__.py
-
-# Set PYTHONPATH to include both backend and app for imports
-ENV PYTHONPATH=/app:/app/backend
 
 # Default command runs pipeline in continuous mode
 CMD ["python", "-m", "pipeline.run_pipeline", "-c"]
