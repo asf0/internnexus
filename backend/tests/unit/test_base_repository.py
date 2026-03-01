@@ -86,6 +86,7 @@ class TestBaseRepository:
             result = await repository.create(email="test@example.com", name="Test User")
 
             # Assert
+            assert result is not None
             mock_session.add.assert_called_once()
             mock_session.flush.assert_called_once()
 
@@ -118,6 +119,7 @@ class TestBaseRepository:
         # We need to mock hasattr to return False for invalid_field
         with patch.object(repository.model, "__init__", return_value=None):
             result = await repository.update(mock_user, valid_field="value")
+            assert result is not None
 
         # Assert
         mock_session.flush.assert_called_once()
