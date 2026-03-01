@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pytest pytest-asyncio
-          pip install -e ./backend
+          pip install -e .
 
       - name: CI diagnostics
         run: |
@@ -54,18 +54,17 @@ jobs:
 
       - name: Run import-chain tests
         run: |
-          cd backend
-          if [ -f tests/test_import_chains.py ]; then
-            pytest tests/test_import_chains.py -q
+          if [ -f backend/tests/test_import_chains.py ]; then
+            pytest backend/tests/test_import_chains.py -q
           else
-            python -m compileall -q app
-            python -c "import sys; sys.path.insert(0, '.'); import app.main, app.api.auth, app.api.jobs, app.api.matching; print('backend import validation passed')"
+            python -m compileall -q backend/app
+            python -c "import app.main, app.api.auth, app.api.jobs, app.api.matching; print('backend import validation passed')"
           fi
 
       - name: Check import smoke
         run: |
-          python -c "import sys; sys.path.insert(0, 'backend'); import app.main, app.api.auth, app.api.jobs, app.api.matching; print('No circular imports detected')"
+          python -c "import app.main, app.api.auth, app.api.jobs, app.api.matching; print('No circular imports detected')"
 
       - name: Validate entry points
         run: |
-          python -c "import sys; sys.path.insert(0, 'backend'); import app.main; print('main.py imports cleanly')"
+          python -c "import app.main; print('main.py imports cleanly')"
