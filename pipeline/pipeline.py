@@ -321,7 +321,7 @@ async def mark_all_jobs_inactive(session: AsyncSession) -> int:
     Returns:
         Number of jobs marked inactive
     """
-    result = await session.execute(update(Job).where(Job.is_active is True).values(is_active=False))
+    result = await session.execute(update(Job).where(Job.is_active.is_(True)).values(is_active=False))
     await session.commit()
     count = result.rowcount
     if count > 0:
