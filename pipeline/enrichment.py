@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 _embedder: EmbeddingService | None = None
 
 
+def reset_embedder() -> None:
+    """Reset the embedder singleton to free memory."""
+    global _embedder
+    if _embedder is not None:
+        _embedder = None
+        logger.debug("Embedder reset")
+
+
 def _get_embedder() -> EmbeddingService | None:
     """Get or create the embedding service (lazy initialization)."""
     global _embedder
