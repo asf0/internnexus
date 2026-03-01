@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import html
 import json
 import logging
@@ -10,6 +11,14 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict, cast
+
+# Try to import psutil for memory logging, but make it optional
+try:
+    import psutil
+
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
 
 import httpx
 from sqlalchemy import case, update
@@ -34,6 +43,20 @@ logger = logging.getLogger(__name__)
 API_FETCH_CONCURRENCY = 10
 NOT_FOUND_COOLDOWN_HOURS = 24
 SLUG_404_CACHE_PATH = Path(__file__).parent / "output" / "slug_404_cache.json"
+
+
+def _log_memory_usage(batch_num: int | None = None) -> None:
+    """Log current memory usage if psutil is available."""
+    if HAS_PSUTIL:
+        try:
+            process = psutil.Process()
+            mem_mb = process.memory_info().rss / 1024 / 1024
+            if batch_num is not None:
+                logger.info(f"Batch {batch_num}: {mem_mb:.2f} MB")
+            else:
+                logger.info(f"Memory: {mem_mb:.2f} MB")
+        except Exception:
+            pass
 
 
 class SlugFetchError(TypedDict, total=False):
@@ -542,7 +565,19 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
             await upsert_ashby_metadata_batch(db, fp_to_id, ashby_jobs)
 
         await db.commit()
+
+        # Memory management: expunge objects from session and yield to event loop
+        db.expunge_all()
+        await asyncio.sleep(0)
+
         total_upserted += len(rows)
-        logger.info(
-            f"Upserted batch {i // BATCH_SIZE + 1}: {len(rows)} jobs (total: {total_upserted}/{len(unique_jobs)})"
-        )
+        batch_num = i // BATCH_SIZE + 1
+        logger.info(f"Upserted batch {batch_num}: {len(rows)} jobs (total: {total_upserted}/{len(unique_jobs)})")
+
+        # Every 10 batches: force garbage collection
+        if batch_num % 10 == 0:
+            gc.collect()
+
+        # Every 50 batches: log memory usage
+        if batch_num % 50 == 0:
+            _log_memory_usage(batch_num)

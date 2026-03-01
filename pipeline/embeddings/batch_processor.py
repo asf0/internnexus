@@ -308,6 +308,10 @@ async def _embed_and_save(
             failed.extend(batch_failed)
 
     await db.commit()
+
+    # Memory management: clear embedding references
+    del embeddings
+
     return success, errors, failed
 
 
@@ -341,6 +345,9 @@ async def _process_with_semaphore(
     retry_attempt: int = 0,
 ) -> tuple[int, int, int, list[tuple[Job, BaseException]]]:
     """Process a batch with semaphore-controlled concurrency."""
+    import gc
+    from pipeline.enrichment import reset_embedder
+
     async with semaphore:
         async with AsyncSessionLocal() as db:
             jobs = await _fetch_jobs_by_ids(db, job_ids)
@@ -350,4 +357,10 @@ async def _process_with_semaphore(
                 f"  Batch {batch_num}: {success} success, {errors} errors, {skipped} skipped"
                 + (f" (retry {retry_attempt})" if retry_attempt > 0 else "")
             )
+
+            # Memory management: every 50 batches, reset embedder and gc
+            if batch_num % 50 == 0:
+                reset_embedder()
+                gc.collect()
+
             return result
