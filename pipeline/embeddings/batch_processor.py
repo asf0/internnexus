@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from pipeline.backend_bridge import (
     EmbeddingError,
@@ -170,7 +171,7 @@ async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[int]) -> list[Job]:
     """Fetch specific jobs by ID for retry."""
     if not job_ids:
         return []
-    result = await db.execute(select(Job).where(Job.id.in_(job_ids)))
+    result = await db.execute(select(Job).where(Job.id.in_(job_ids)).options(defer(Job.description_embedding)))
     jobs = result.scalars().all()
     return list(jobs)
 
