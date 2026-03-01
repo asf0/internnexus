@@ -81,6 +81,12 @@ services:
     container_name: internnexus-pipeline
     restart: unless-stopped
     command: ["python", "-m", "pipeline.run_pipeline", "-c"]
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+        reservations:
+          memory: 512M
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}

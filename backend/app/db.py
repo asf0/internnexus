@@ -39,3 +39,12 @@ SessionLocal = sessionmaker(bind=sync_engine, autoflush=False, autocommit=False)
 async def get_db() -> AsyncGenerator:
     async with AsyncSessionLocal() as session:
         yield session
+
+
+async def dispose_engines() -> None:
+    """Dispose database engines to free connection pools. Call on app shutdown."""
+    global async_engine, sync_engine
+    if async_engine:
+        await async_engine.dispose()
+    if sync_engine:
+        sync_engine.dispose()

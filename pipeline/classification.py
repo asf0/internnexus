@@ -688,3 +688,12 @@ def reset_classifier() -> None:
     if _classifier_instance:
         _classifier_close_task = asyncio.create_task(_classifier_instance.close())
     _classifier_instance = None
+
+
+async def reset_classifier_async() -> None:
+    """Reset the classifier singleton and await close (for cleanup)."""
+    global _classifier_instance, _classifier_close_task
+    if _classifier_instance:
+        await _classifier_instance.close()
+    _classifier_instance = None
+    _classifier_close_task = None

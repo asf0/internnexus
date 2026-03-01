@@ -4,44 +4,85 @@ import asyncio
 import gc
 import logging
 
+from backend.app.cache.redis_pool import close_redis_pool
+from backend.app.db import dispose_engines
 from backend.app.http_client.client import close_http_client
-from pipeline.classification import reset_classifier
+from pipeline.classification import reset_classifier_async
 from pipeline.enrichment import reset_embedder
 from pipeline.location.cache import close_location_cache
 
 logger = logging.getLogger(__name__)
 
+# Try to import psutil for memory logging, but make it optional
+try:
+    import psutil
+
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
+
+def log_memory_usage(label: str = "") -> None:
+    """Log current memory usage if psutil is available."""
+    if HAS_PSUTIL:
+        try:
+            process = psutil.Process()
+            mem_mb = process.memory_info().rss / 1024 / 1024
+            logger.info(f"Memory usage{' (' + label + ')' if label else ''}: {mem_mb:.2f} MB")
+        except Exception as e:
+            logger.debug(f"Could not log memory usage: {e}")
+
 
 async def cleanup_resources() -> None:
     """Clean up global resources to free memory between pipeline runs."""
     logger.debug("Cleaning up resources...")
+    log_memory_usage("before cleanup")
 
     # Close HTTP client connection pool
     try:
         await close_http_client()
+        logger.debug("HTTP client closed")
     except Exception as e:
         logger.warning(f"Error closing HTTP client: {e}")
 
     # Close location cache
     try:
         await close_location_cache()
+        logger.debug("Location cache closed")
     except Exception as e:
         logger.warning(f"Error closing location cache: {e}")
 
-    # Reset classifier singleton
+    # Reset classifier singleton (async version)
     try:
-        reset_classifier()
+        await reset_classifier_async()
+        logger.debug("Classifier reset")
     except Exception as e:
         logger.warning(f"Error resetting classifier: {e}")
 
     # Reset embedder singleton
     try:
         reset_embedder()
+        logger.debug("Embedder reset")
     except Exception as e:
         logger.warning(f"Error resetting embedder: {e}")
 
+    # Close Redis connection pool
+    try:
+        await close_redis_pool()
+        logger.debug("Redis pool closed")
+    except Exception as e:
+        logger.warning(f"Error closing Redis pool: {e}")
+
+    # Dispose database engines
+    try:
+        await dispose_engines()
+        logger.debug("Database engines disposed")
+    except Exception as e:
+        logger.warning(f"Error disposing database engines: {e}")
+
     # Force garbage collection
     gc.collect()
+    log_memory_usage("after cleanup")
     logger.debug("Resource cleanup completed")
 
 
