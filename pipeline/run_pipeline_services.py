@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 
 
 async def resolve_resume_run_id(*, resume_requested: bool, get_incomplete_run, logger):
@@ -40,6 +41,7 @@ async def run_continuous_loop(*, runner, interval: int, get_incomplete_run, logg
             await runner.run()
             backoff = 1
             runner.resume_run_id = None
+            gc.collect()
         except KeyboardInterrupt:
             logger.info("Interrupted, exiting...")
             break
@@ -48,6 +50,7 @@ async def run_continuous_loop(*, runner, interval: int, get_incomplete_run, logg
             backoff_multiplier = min(backoff, runner.config.pipeline.max_backoff_multiplier)
             sleep_time = interval * backoff_multiplier
             logger.warning(f"Backing off for {sleep_time}s (multiplier: {backoff_multiplier}x)")
+            gc.collect()
             await asyncio.sleep(sleep_time)
             backoff += 1
             incomplete = await get_incomplete_run()
@@ -57,3 +60,4 @@ async def run_continuous_loop(*, runner, interval: int, get_incomplete_run, logg
 
         logger.info(f"Sleeping for {interval}s...")
         await asyncio.sleep(interval)
+        gc.collect()

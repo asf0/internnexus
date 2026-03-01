@@ -193,9 +193,7 @@ class TestClickTrackingSuccess:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_click_tracking_anonymous_user_success(
-        self, app, mock_db_session, mock_active_job
-    ):
+    async def test_click_tracking_anonymous_user_success(self, app, mock_db_session, mock_active_job):
         """Test successful click tracking for anonymous user creates JobClick with null user_id."""
         # Arrange
         job_id = mock_active_job.id
@@ -293,9 +291,7 @@ class TestClickTrackingErrors:
         mock_db_session.commit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_click_tracking_inactive_job_returns_404(
-        self, app, mock_db_session, mock_inactive_job
-    ):
+    async def test_click_tracking_inactive_job_returns_404(self, app, mock_db_session, mock_inactive_job):
         """Test click tracking for inactive job returns 404."""
         # Arrange
         inactive_job_id = mock_inactive_job.id
@@ -348,7 +344,6 @@ class TestUTMParameters:
         """Test that UTM params are added to the returned URL."""
         # Arrange
         job_id = mock_active_job.id
-        base_url = "https://example.com/apply?job=123"
 
         with (
             patch("app.api.jobs.get_db", return_value=mock_db_session),
@@ -385,9 +380,7 @@ class TestUTMParameters:
         assert "utm_source=internnexus" in apply_url
 
     @pytest.mark.asyncio
-    async def test_custom_utm_params_from_request_body_included(
-        self, app, mock_db_session, mock_active_job
-    ):
+    async def test_custom_utm_params_from_request_body_included(self, app, mock_db_session, mock_active_job):
         """Test that custom UTM params from request body are included in URL and JobClick."""
         # Arrange
         job_id = mock_active_job.id
@@ -523,7 +516,7 @@ class TestIPHashing:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 # Act - make two requests with same IP
-                response1 = await client.post(
+                await client.post(
                     f"/jobs/{job_id}/click",
                     json={},
                     headers={"X-Forwarded-For": client_ip},
@@ -537,12 +530,9 @@ class TestIPHashing:
         assert added_click.ip_hash == expected_hash
 
     @pytest.mark.asyncio
-    async def test_different_ips_produce_different_hashes(
-        self, app, mock_db_session, mock_active_job
-    ):
+    async def test_different_ips_produce_different_hashes(self, app, mock_db_session, mock_active_job):
         """Test that different IPs produce different hashes."""
         # Arrange
-        job_id = mock_active_job.id
         ip1 = "192.168.1.1"
         ip2 = "192.168.1.2"
 
