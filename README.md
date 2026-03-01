@@ -79,10 +79,14 @@ docker-compose up -d  # PostgreSQL + Redis
 
 ### 3. Install & Run Backend
 ```bash
-cd backend
-uv sync
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
+# Install from project root
+uv pip install -e ".[dev]"
+
+# Run database migrations
+uv run alembic -c backend/alembic.ini upgrade head
+
+# Start the backend server
+uv run uvicorn backend.app.main:app --reload
 ```
 
 > **Note**: pycountry will be installed automatically for location normalization.
@@ -96,8 +100,8 @@ bun dev
 
 ### 5. Ingest Jobs
 ```bash
-cd backend
-uv run python run_pipeline.py --skip-discover
+# Run pipeline from project root
+uv run python -m pipeline.run_pipeline --skip-discover
 ```
 
 **Done!** Visit http://localhost:3000
@@ -118,54 +122,48 @@ The ingestion system runs 5 sequential steps:
 
 ```bash
 # Run full pipeline
-uv run run_pipeline.py
+uv run python -m pipeline.run_pipeline
 
 # Skip discovery (faster, uses cached companies)
-uv run run_pipeline.py --skip-discover
+uv run python -m pipeline.run_pipeline --skip-discover
 
 # Run continuously (interval from config)
-uv run run_pipeline.py -c
+uv run python -m pipeline.run_pipeline -c
 
 # Run with custom interval
-uv run run_pipeline.py -c --interval 3600
+uv run python -m pipeline.run_pipeline -c --interval 3600
 
 # Single step execution
-uv run run_pipeline.py --step discover
-uv run run_pipeline.py --step ingest
-uv run run_pipeline.py --step cleanup
-uv run run_pipeline.py --step embed
+uv run python -m pipeline.run_pipeline --step discover
+uv run python -m pipeline.run_pipeline --step ingest
+uv run python -m pipeline.run_pipeline --step cleanup
+uv run python -m pipeline.run_pipeline --step embed
 
 # Utility commands
-uv run run_pipeline.py --dry-run    # Preview without changes
-uv run run_pipeline.py --resume     # Resume failed run
-uv run run_pipeline.py --check      # Health checks only
-uv run run_pipeline.py --fresh      # Clear incomplete runs
+uv run python -m pipeline.run_pipeline --dry-run    # Preview without changes
+uv run python -m pipeline.run_pipeline --resume     # Resume failed run
+uv run python -m pipeline.run_pipeline --check      # Health checks only
+uv run python -m pipeline.run_pipeline --fresh      # Clear incomplete runs
 
 # Re-process ALL locations (careful!)
-uv run run_pipeline.py --step cleanup --all
+uv run python -m pipeline.run_pipeline --step cleanup --all
 ```
 
 ---
 
 ## 📚 Documentation
 
-- **[Setup Guide](docs/SETUP.md)** - Complete installation instructions
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and data flow
-- **[Configuration](docs/CONFIGURATION.md)** - Environment variables reference
-- **[Pipeline](docs/PIPELINE.md)** - Job ingestion workflow
-- **[Backend Docs](docs/backend/)** - API and codebase documentation
-- **[Security](docs/SECURITY.md)** - Security policies and best practices
-- **[OAuth Setup](docs/OAUTH_SETUP.md)** - GitHub/Google OAuth configuration
+Documentation coming soon. See code comments and docstrings for detailed API documentation.
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-cd backend
-uv run pytest                    # Run all tests
-uv run pytest --cov=app         # With coverage
-uv run pytest -v                # Verbose output
+# Run from project root
+uv run pytest backend/tests                    # Run all tests
+uv run pytest backend/tests --cov=backend/app  # With coverage
+uv run pytest backend/tests -v                 # Verbose output
 ```
 
 ---
@@ -192,7 +190,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 EMBEDDING_MODEL=nomic-embed-text
 ```
 
-See [CONFIGURATION.md](docs/CONFIGURATION.md) for complete reference.
+See `.env.example` for additional configuration options.
 
 ---
 
@@ -216,7 +214,7 @@ InternNexus supports advanced boolean search syntax:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Security Policy](docs/SECURITY.md) for guidelines.
+We welcome contributions! Please follow standard GitHub fork and PR workflow.
 
 ### Development Setup
 
@@ -228,7 +226,7 @@ git clone https://github.com/your-username/internjobs.git
 git checkout -b feature/your-feature
 
 # 3. Make changes and test
-uv run pytest
+uv run pytest backend/tests
 
 # 4. Commit and push
 git commit -m "Add your feature"
@@ -255,7 +253,7 @@ MIT License - see [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📖 [Documentation](docs/)
+- 📖 Documentation (coming soon)
 - 🐛 [Issue Tracker](../../issues)
 - 💬 [Discussions](../../discussions)
 
