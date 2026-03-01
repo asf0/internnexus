@@ -14,14 +14,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy lockfiles from repository root for reproducible installs
+# Copy lockfiles and backend code (needed before editable install)
 COPY pyproject.toml uv.lock ./
+COPY backend/ ./backend/
 
 # Install project dependencies (non-dev) from lockfile
 RUN uv pip install --system --no-cache -e .
-
-# Copy application code
-COPY backend/ ./backend/
 
 # Expose port
 EXPOSE 8000

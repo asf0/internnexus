@@ -23,17 +23,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml from root
+# Copy pyproject.toml and backend code (needed before editable install)
 COPY pyproject.toml .
 COPY uv.lock .
+COPY backend/ ./backend/
 
 # Install Python dependencies using uv (non-dev for production runtime)
 # Playwright Python package is installed via project dependencies,
 # but browsers are not downloaded in this image.
 RUN uv pip install --system --no-cache -e .
-
-# Copy backend code (needed for imports)
-COPY backend/ ./backend/
 
 # Copy pipeline code
 COPY pipeline/ ./pipeline/
