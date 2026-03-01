@@ -21,12 +21,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv pip install --system --no-cache -e .
 
 # Copy application code
-COPY backend/app/ ./app/
-COPY backend/alembic/ ./alembic/
-COPY backend/alembic.ini ./alembic.ini
+COPY backend/ ./backend/
 
 # Expose port
 EXPOSE 8000
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
