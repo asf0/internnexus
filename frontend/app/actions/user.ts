@@ -1,5 +1,6 @@
 "use server";
 
+import { signOut } from "@/auth";
 import { getBackendToken } from "@/lib/auth.server";
 import { revalidatePath } from "next/cache";
 import { BACKEND_URL } from "@/lib/config";
@@ -47,7 +48,7 @@ export interface ChangePasswordData {
   new_password: string;
 }
 
-export async function updateUserProfile(data: UpdateUserData): Promise<{ success: boolean; error?: string }> {
+export async function updateUserProfile(data: UpdateUserData): Promise<{ success: boolean; error?: string; name?: string | null; image?: string | null }> {
   const backendToken = await getBackendToken();
 
   if (!backendToken) {
@@ -69,9 +70,10 @@ export async function updateUserProfile(data: UpdateUserData): Promise<{ success
       return { success: false, error: parseApiError(errorData) };
     }
 
-    revalidatePath("/profile");
+    const updatedUser = await response.json();
+    revalidatePath("/");
     revalidatePath("/settings");
-    return { success: true };
+    return { success: true, name: updatedUser.name ?? null, image: updatedUser.image ?? null };
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.error("Error updating user profile:", error);
@@ -131,6 +133,7 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
       return { success: false, error: parseApiError(errorData) };
     }
 
+    await signOut({ redirect: false });
     return { success: true };
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {

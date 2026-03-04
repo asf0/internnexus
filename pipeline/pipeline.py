@@ -312,8 +312,13 @@ async def fetch_api_jobs(
     api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
     not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
     run_id: str | None = None,
-) -> list[JobSchema]:
-    """Fetch jobs from all 3 ATS platforms in parallel."""
+) -> tuple[list[JobSchema], list[JobSchema], list[JobSchema]]:
+    """Fetch jobs from all 3 ATS platforms in parallel.
+
+    Returns a 3-tuple of (greenhouse_jobs, lever_jobs, ashby_jobs) so callers
+    can upsert and free each source list independently, avoiding a peak where
+    all three lists plus a merged copy are alive simultaneously.
+    """
     gh_slugs = get_greenhouse_slugs()
     lever_slugs = get_lever_slugs()
     ashby_slugs = get_ashby_slugs()
@@ -328,10 +333,9 @@ async def fetch_api_jobs(
         run_id=run_id,
     )
 
-    all_jobs = greenhouse_jobs + lever_jobs + ashby_jobs
     logger.info(f"Fetched {len(greenhouse_jobs)} Greenhouse, {len(lever_jobs)} Lever, {len(ashby_jobs)} Ashby jobs")
 
-    return all_jobs
+    return greenhouse_jobs, lever_jobs, ashby_jobs
 
 
 async def mark_all_jobs_inactive(session: AsyncSession) -> int:

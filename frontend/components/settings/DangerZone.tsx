@@ -8,7 +8,7 @@ import { DELETE_CONFIRM_TEXT } from "@/lib/constants";
 interface DangerZoneProps {
   showDeleteModal: boolean;
   deleteConfirmText: string;
-  isSaving: boolean;
+  isDeleting: boolean;
   onDeleteModalOpen: () => void;
   onDeleteModalClose: () => void;
   onDeleteConfirmTextChange: (text: string) => void;
@@ -18,7 +18,7 @@ interface DangerZoneProps {
 export function DangerZone({
   showDeleteModal,
   deleteConfirmText,
-  isSaving,
+  isDeleting,
   onDeleteModalOpen,
   onDeleteModalClose,
   onDeleteConfirmTextChange,
@@ -89,10 +89,10 @@ export function DangerZone({
           <Button
             variant="primary"
             onClick={onDeleteAccount}
-            disabled={isSaving || deleteConfirmText !== DELETE_CONFIRM_TEXT}
+            disabled={isDeleting || deleteConfirmText !== DELETE_CONFIRM_TEXT}
             className="flex-1 bg-red-600 hover:bg-red-700"
           >
-            {isSaving ? <Loader2 className="h-4 h-4 animate-spin mx-auto" /> : "Delete Account"}
+            {isDeleting ? <Loader2 className="h-4 h-4 animate-spin mx-auto" /> : "Delete Account"}
           </Button>
         </div>
       </Modal>

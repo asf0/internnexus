@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import MatchResponse, MatchResult
+from app.api.schemas import MatchResponse, MatchResult, MatchFacetsResponse, FacetItem, LocationFacetItem
 from app.api.mappers import enum_to_str, job_to_match_result
 from app.config import get_settings
 from app.auth.dependencies import get_current_user
@@ -34,8 +34,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _RESUME_SCHEMA_ERROR_DETAIL = (
-    "Resume storage schema is outdated. Run database migrations "
-    "(uv run alembic upgrade head) and retry."
+    "Resume storage schema is outdated. Run database migrations (uv run alembic upgrade head) and retry."
 )
 
 
@@ -163,9 +162,7 @@ def _recency_score(posted_at: datetime | None) -> float:
     if posted_at is None:
         return 0.4
     now = datetime.now(timezone.utc)
-    posted_utc = (
-        posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
-    )
+    posted_utc = posted_at if posted_at.tzinfo is not None else posted_at.replace(tzinfo=timezone.utc)
     age_days = max(0.0, (now - posted_utc).total_seconds() / 86400.0)
     # Linear decay to 0 at 120 days.
     return _clamp_01(1.0 - (age_days / 120.0))
@@ -207,6 +204,124 @@ def _match_results_from_cache(matches_data: list[dict[str, object]]) -> list[Mat
     return [MatchResult.model_validate(item) for item in matches_data]
 
 
+def _parse_filter_values(filter_value: str | None) -> list[str]:
+    """Parse pipe-separated filter values into a list.
+
+    Args:
+        filter_value: Raw filter value from query parameter (may contain | delimiters)
+
+    Returns:
+        List of individual filter values, empty list if no valid values
+    """
+    if not filter_value:
+        return []
+
+    # Split by | and filter out empty strings
+    values = [v.strip() for v in filter_value.split("|") if v.strip()]
+    return values
+
+
+def _filter_matches(
+    matches: list[MatchResult],
+    search: str | None = None,
+    company: str | None = None,
+    location: str | None = None,
+    category: str | None = None,
+    job_type: str | None = None,
+    work_mode: str | None = None,
+    posted_within: str | None = None,
+) -> list[MatchResult]:
+    """Filter match results based on provided criteria.
+
+    Supports multiple values for filters (separated by |), using OR logic.
+    For example, location="United States|Brazil" will match jobs in either location.
+    """
+    filtered = matches
+
+    if search:
+        search_lower = search.lower()
+        filtered = [
+            m
+            for m in filtered
+            if (
+                search_lower in m.title.lower()
+                or search_lower in m.company.lower()
+                or search_lower in m.description_text.lower()
+            )
+        ]
+
+    # Company filter with multiple values (OR logic)
+    if company:
+        company_values = _parse_filter_values(company)
+        if company_values:
+            company_values_lower = [v.lower() for v in company_values]
+            filtered = [m for m in filtered if any(v in m.company.lower() for v in company_values_lower)]
+
+    # Location filter with multiple values (OR logic)
+    if location:
+        location_values = _parse_filter_values(location)
+        if location_values:
+            location_values_lower = [v.lower() for v in location_values]
+            filtered = [
+                m
+                for m in filtered
+                if any(
+                    v in m.location.lower()
+                    or (m.city and v in m.city.lower())
+                    or (m.state and v in m.state.lower())
+                    or (m.country and v in m.country.lower())
+                    for v in location_values_lower
+                )
+            ]
+
+    # Category filter with multiple values (OR logic)
+    if category:
+        category_values = _parse_filter_values(category)
+        if category_values:
+            category_values_lower = [v.lower() for v in category_values]
+            filtered = [
+                m
+                for m in filtered
+                if m.job_category and any(v in m.job_category.lower() for v in category_values_lower)
+            ]
+
+    # Job type filter with multiple values (OR logic)
+    if job_type:
+        job_type_values = _parse_filter_values(job_type)
+        if job_type_values:
+            job_type_values_lower = [v.lower() for v in job_type_values]
+            filtered = [
+                m for m in filtered if m.job_type and any(v in m.job_type.lower() for v in job_type_values_lower)
+            ]
+
+    # Work mode filter with multiple values (OR logic)
+    if work_mode:
+        work_mode_values = _parse_filter_values(work_mode)
+        if work_mode_values:
+            work_mode_values_lower = [v.lower() for v in work_mode_values]
+            filtered = [
+                m for m in filtered if m.work_mode and any(v in m.work_mode.lower() for v in work_mode_values_lower)
+            ]
+
+    if posted_within:
+        from datetime import datetime, timedelta
+
+        now = datetime.now(timezone.utc)
+        cutoff = None
+
+        if posted_within == "24h":
+            cutoff = now - timedelta(hours=24)
+        elif posted_within == "7d":
+            cutoff = now - timedelta(days=7)
+        elif posted_within == "30d":
+            cutoff = now - timedelta(days=30)
+
+        if cutoff:
+            filtered = [m for m in filtered if m.posted_at and m.posted_at >= cutoff]
+
+    return filtered
+
+
 async def _rank_matches(
     db: AsyncSession, resume_embedding: list[float], resume_text: str, min_score: float
 ) -> list[MatchResult]:
@@ -216,9 +331,7 @@ async def _rank_matches(
     stmt = (
         select(
             Job,
-            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label(
-                "semantic_score"
-            ),
+            (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("semantic_score"),
         )
         .where(Job.description_embedding.isnot(None))
         .where(Job.is_active.is_(True))
@@ -228,9 +341,7 @@ async def _rank_matches(
 
     try:
         result = await db.execute(stmt)
-        candidate_rows: list[tuple[Job, float | None]] = [
-            (job, semantic) for job, semantic in result.tuples().all()
-        ]
+        candidate_rows: list[tuple[Job, float | None]] = [(job, semantic) for job, semantic in result.tuples().all()]
     except Exception as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)
@@ -317,9 +428,7 @@ async def _return_cached_first_page(
     min_score: float,
     page_size: int,
 ) -> MatchResponse | None:
-    cached_session_id = await cache_service.get_cached_session_for_resume(
-        user_id, cache_hash, min_score
-    )
+    cached_session_id = await cache_service.get_cached_session_for_resume(user_id, cache_hash, min_score)
     if not cached_session_id:
         return None
     if not await cache_service.validate_match_session(user_id, cached_session_id):
@@ -461,23 +570,17 @@ async def match_profile_resume(
     page_size = max(1, min(page_size, 100))
 
     try:
-        resume_result = await db.execute(
-            select(UserResume).where(UserResume.user_id == current_user.id)
-        )
+        resume_result = await db.execute(select(UserResume).where(UserResume.user_id == current_user.id))
     except ProgrammingError as exc:
         if _is_resume_schema_error(exc):
             raise HTTPException(status_code=503, detail=_RESUME_SCHEMA_ERROR_DETAIL) from exc
         raise
     user_resume = resume_result.scalar_one_or_none()
     if user_resume is None:
-        raise HTTPException(
-            status_code=400, detail="No profile resume found. Upload one in your profile first."
-        )
+        raise HTTPException(status_code=400, detail="No profile resume found. Upload one in your profile first.")
 
     if not user_resume.content_hash:
-        raise HTTPException(
-            status_code=400, detail="Stored resume is incomplete. Please upload again."
-        )
+        raise HTTPException(status_code=400, detail="Stored resume is incomplete. Please upload again.")
 
     cached_response = await _return_cached_first_page(
         cache_service=cache_service,
@@ -523,9 +626,7 @@ async def match_profile_resume(
             user_resume.status = "error"
             user_resume.embedding_error = str(exc)
             await db.commit()
-            raise HTTPException(
-                status_code=503, detail=f"Embedding service unavailable: {exc}"
-            ) from exc
+            raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {exc}") from exc
 
         user_resume.resume_embedding = resume_embedding
         user_resume.embedding_model = settings.embedding_model
@@ -573,42 +674,71 @@ async def get_match_page(
     cache_service: MatchCacheService = Depends(get_match_cache_service),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    search: str | None = Query(None, description="Search in title, company, description"),
+    company: str | None = Query(None, description="Filter by company name"),
+    location: str | None = Query(None, description="Filter by location"),
+    category: str | None = Query(None, description="Filter by job category"),
+    job_type: str | None = Query(None, description="Filter by job type"),
+    work_mode: str | None = Query(None, description="Filter by work mode"),
+    posted_within: str | None = Query(None, description="Filter by posting date (24h, 7d, 30d)"),
 ) -> MatchResponse:
-    """Retrieve a specific page of cached match results.
+    """Retrieve a specific page of cached match results with optional filters.
 
     Args:
         session_id: The match session ID from POST /match
         page: Page number (1-indexed)
         page_size: Number of items per page (max 100)
+        search: Optional search text to filter matches
+        company: Optional company name filter
+        location: Optional location filter
+        category: Optional job category filter
+        job_type: Optional job type filter
+        work_mode: Optional work mode filter
+        posted_within: Optional date filter (24h, 7d, 30d)
 
     Returns:
-        MatchResponse with paginated matches
+        MatchResponse with filtered and paginated matches
 
     Raises:
         HTTPException 404: If session not found or expired
         HTTPException 400: If pagination params invalid
     """
-    # Validate session ownership then retrieve paginated matches from cache.
+    # Validate session ownership then retrieve all matches from cache.
     if not await cache_service.validate_match_session(current_user.id, session_id):
         raise HTTPException(status_code=404, detail="Match session not found or expired")
 
-    result = await cache_service.get_paginated_matches(current_user.id, session_id, page, page_size)
+    # Get ALL matches from cache (not paginated yet)
+    all_matches_data = await cache_service.get_all_matches(current_user.id, session_id)
 
-    # If result is None (session expired/not found), raise HTTPException 404
-    if result is None:
+    if all_matches_data is None:
         raise HTTPException(status_code=404, detail="Match session not found or expired")
 
-    # Unpack result: matches_data, total_count
-    matches_data, total_count = result
+    # Convert to MatchResult objects
+    all_matches = _match_results_from_cache(all_matches_data)
 
-    matches = _match_results_from_cache(matches_data)
+    # Apply filters
+    filtered_matches = _filter_matches(
+        all_matches,
+        search=search,
+        company=company,
+        location=location,
+        category=category,
+        job_type=job_type,
+        work_mode=work_mode,
+        posted_within=posted_within,
+    )
 
-    # Calculate total_pages
+    # Calculate pagination on filtered results
+    total_count = len(filtered_matches)
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
-    # Return MatchResponse with all required fields
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_matches = filtered_matches[start_idx:end_idx]
+
+    # Return MatchResponse with filtered results
     return MatchResponse(
-        matches=matches,
+        matches=paginated_matches,
         total=total_count,
         session_id=session_id,
         page=page,
@@ -616,3 +746,217 @@ async def get_match_page(
         total_pages=total_pages,
         reused_from_cache=False,
     )
+
+
+def _calculate_facets(matches: list[MatchResult]) -> MatchFacetsResponse:
+    """Calculate facet values and counts from a list of matches.
+
+    Args:
+        matches: List of MatchResult objects to analyze
+
+    Returns:
+        MatchFacetsResponse with companies, categories, job_types, work_modes, and locations
+    """
+    # Count companies
+    company_counts: dict[str, int] = {}
+    for match in matches:
+        company = match.company
+        company_counts[company] = company_counts.get(company, 0) + 1
+
+    companies = [
+        FacetItem(value=company, label=company, count=count)
+        for company, count in sorted(company_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Count categories
+    category_counts: dict[str, int] = {}
+    for match in matches:
+        if match.job_category:
+            category_counts[match.job_category] = category_counts.get(match.job_category, 0) + 1
+
+    categories = [
+        FacetItem(value=cat, label=cat, count=count)
+        for cat, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Count job types
+    job_type_counts: dict[str, int] = {}
+    for match in matches:
+        if match.job_type:
+            job_type_counts[match.job_type] = job_type_counts.get(match.job_type, 0) + 1
+
+    job_types = [
+        FacetItem(value=jt, label=jt, count=count)
+        for jt, count in sorted(job_type_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Count work modes
+    work_mode_counts: dict[str, int] = {}
+    for match in matches:
+        if match.work_mode:
+            work_mode_counts[match.work_mode] = work_mode_counts.get(match.work_mode, 0) + 1
+
+    work_modes = [
+        FacetItem(value=wm, label=wm, count=count)
+        for wm, count in sorted(work_mode_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Build location hierarchy
+    locations = _build_location_hierarchy(matches)
+
+    return MatchFacetsResponse(
+        companies=companies,
+        categories=categories,
+        job_types=job_types,
+        work_modes=work_modes,
+        locations=locations,
+        total_matches=len(matches),
+    )
+
+
+def _build_location_hierarchy(matches: list[MatchResult]) -> list[LocationFacetItem]:
+    """Build location hierarchy from match location data.
+
+    Args:
+        matches: List of MatchResult objects
+
+    Returns:
+        Hierarchical list of LocationFacetItem objects
+    """
+    # Track counts per location path
+    country_counts: dict[str, int] = {}
+    state_counts: dict[tuple[str, str], int] = {}  # (country, state) -> count
+    city_counts: dict[tuple[str, str | None, str], int] = {}  # (country, state, city) -> count
+
+    for match in matches:
+        country = match.country
+        state = match.state
+        city = match.city
+
+        if country:
+            country_counts[country] = country_counts.get(country, 0) + 1
+
+        if country and state:
+            state_key = (country, state)
+            state_counts[state_key] = state_counts.get(state_key, 0) + 1
+
+        if country and city:
+            city_key = (country, state, city)
+            city_counts[city_key] = city_counts.get(city_key, 0) + 1
+
+    # Build hierarchy
+    locations: list[LocationFacetItem] = []
+
+    for country, country_count in sorted(country_counts.items(), key=lambda x: x[1], reverse=True):
+        # Get states for this country
+        country_states = [(state, count) for (c, state), count in state_counts.items() if c == country]
+
+        state_items: list[LocationFacetItem] = []
+        for state, state_count in sorted(country_states, key=lambda x: x[1], reverse=True):
+            # Get cities for this state
+            state_cities = [(city, count) for (c, s, city), count in city_counts.items() if c == country and s == state]
+
+            city_items: list[LocationFacetItem] = []
+            for city, city_count in sorted(state_cities, key=lambda x: x[1], reverse=True):
+                city_items.append(
+                    LocationFacetItem(
+                        value=city,
+                        label=city,
+                        count=city_count,
+                        type="city",
+                        country=country,
+                        state=state,
+                        children=None,
+                    )
+                )
+
+            state_items.append(
+                LocationFacetItem(
+                    value=state,
+                    label=state,
+                    count=state_count,
+                    type="state",
+                    country=country,
+                    state=state,
+                    children=city_items if city_items else None,
+                )
+            )
+
+        locations.append(
+            LocationFacetItem(
+                value=country,
+                label=country,
+                count=country_count,
+                type="country",
+                country=country,
+                state=None,
+                children=state_items if state_items else None,
+            )
+        )
+
+    return locations
+
+
+@router.get("/match/{session_id}/facets", response_model=MatchFacetsResponse)
+@limiter.limit(RATE_LIMITS["match"])
+async def get_match_facets(
+    request: Request,
+    session_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    cache_service: MatchCacheService = Depends(get_match_cache_service),
+    search: str | None = Query(None, description="Search in title, company, description"),
+    company: str | None = Query(None, description="Filter by company name"),
+    location: str | None = Query(None, description="Filter by location"),
+    category: str | None = Query(None, description="Filter by job category"),
+    job_type: str | None = Query(None, description="Filter by job type"),
+    work_mode: str | None = Query(None, description="Filter by work mode"),
+    posted_within: str | None = Query(None, description="Filter by posting date (24h, 7d, 30d)"),
+) -> MatchFacetsResponse:
+    """Get dynamic facets (filter options with counts) for cached match results.
+
+    Calculates facets based on the current filter state. For example, if location
+    is set to "United States", only companies with jobs in the US will be returned.
+
+    Args:
+        session_id: The match session ID from POST /match
+        search: Optional search text to filter matches
+        company: Optional company name filter
+        location: Optional location filter
+        category: Optional job category filter
+        job_type: Optional job type filter
+        work_mode: Optional work mode filter
+        posted_within: Optional date filter (24h, 7d, 30d)
+
+    Returns:
+        MatchFacetsResponse with companies, categories, job_types, work_modes, and locations
+
+    Raises:
+        HTTPException 404: If session not found or expired
+    """
+    # Validate session ownership then retrieve all matches from cache.
+    if not await cache_service.validate_match_session(current_user.id, session_id):
+        raise HTTPException(status_code=404, detail="Match session not found or expired")
+
+    # Get ALL matches from cache
+    all_matches_data = await cache_service.get_all_matches(current_user.id, session_id)
+
+    if all_matches_data is None:
+        raise HTTPException(status_code=404, detail="Match session not found or expired")
+
+    # Convert to MatchResult objects
+    all_matches = _match_results_from_cache(all_matches_data)
+
+    # Apply filters to get the subset of matches that match current criteria
+    filtered_matches = _filter_matches(
+        all_matches,
+        search=search,
+        company=company,
+        location=location,
+        category=category,
+        job_type=job_type,
+        work_mode=work_mode,
+        posted_within=posted_within,
+    )
+
+    # Calculate facets from filtered matches
+    return _calculate_facets(filtered_matches)

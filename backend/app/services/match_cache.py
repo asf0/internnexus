@@ -76,9 +76,7 @@ class MatchCacheService:
             # Store in Redis with TTL using the public API
             result = await redis.set(key, matches_data, ttl=ttl)
             if result:
-                logger.debug(
-                    f"Cached {len(matches)} matches for user {user_id} session {session_id} (TTL: {ttl}s)"
-                )
+                logger.debug(f"Cached {len(matches)} matches for user {user_id} session {session_id} (TTL: {ttl}s)")
             return result
         except Exception as e:
             logger.warning(f"Failed to cache matches for user {user_id} session {session_id}: {e}")
@@ -141,9 +139,41 @@ class MatchCacheService:
             return (paginated, total_count)
 
         except Exception as e:
-            logger.warning(
-                f"Failed to retrieve matches for user {user_id} session {session_id}: {e}"
-            )
+            logger.warning(f"Failed to retrieve matches for user {user_id} session {session_id}: {e}")
+            return None
+
+    async def get_all_matches(
+        self,
+        user_id: UUID,
+        session_id: str,
+    ) -> list[dict[str, Any]] | None:
+        """Retrieve all matches from cache without pagination.
+
+        Args:
+            user_id: Owner of the match session.
+            session_id: Unique identifier for the matching session.
+
+        Returns:
+            List of match data dictionaries if found, None otherwise.
+        """
+        redis = await self._get_redis()
+        key = self._make_key(user_id, session_id)
+
+        try:
+            data = await redis.get(key)
+            if data is None:
+                logger.debug(f"No cached matches found for user {user_id} session {session_id}")
+                return None
+
+            # Data should be a list of dicts
+            if not isinstance(data, list):
+                logger.warning(f"Invalid cache data format for user {user_id} session {session_id}")
+                return None
+
+            return data
+
+        except Exception as e:
+            logger.warning(f"Failed to retrieve matches for user {user_id} session {session_id}: {e}")
             return None
 
     async def get_total_count(self, user_id: UUID, session_id: str) -> int | None:
@@ -171,9 +201,7 @@ class MatchCacheService:
             return len(data)
 
         except Exception as e:
-            logger.warning(
-                f"Failed to get match count for user {user_id} session {session_id}: {e}"
-            )
+            logger.warning(f"Failed to get match count for user {user_id} session {session_id}: {e}")
             return None
 
     async def validate_match_session(self, user_id: UUID, session_id: str) -> bool:
@@ -219,9 +247,7 @@ class MatchCacheService:
         try:
             return await redis.set(key, session_id, ttl=ttl)
         except Exception as e:
-            logger.warning(
-                f"Failed to cache resume hash mapping for user {user_id} session {session_id}: {e}"
-            )
+            logger.warning(f"Failed to cache resume hash mapping for user {user_id} session {session_id}: {e}")
             return False
 
     async def get_cached_session_for_resume(
@@ -239,9 +265,7 @@ class MatchCacheService:
                 return cached
             return None
         except Exception as e:
-            logger.warning(
-                f"Failed to read resume hash mapping for user {user_id}, hash {resume_hash[:12]}: {e}"
-            )
+            logger.warning(f"Failed to read resume hash mapping for user {user_id}, hash {resume_hash[:12]}: {e}")
             return None
 
 

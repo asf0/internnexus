@@ -9,6 +9,7 @@ interface LocationSelectProps {
   readonly selected: string[];
   readonly onChange: (selected: string[]) => void;
   readonly placeholder: string;
+  readonly disabled?: boolean;
 }
 
 export default function LocationSelect({
@@ -16,6 +17,7 @@ export default function LocationSelect({
   selected,
   onChange,
   placeholder,
+  disabled = false,
 }: LocationSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -107,8 +109,11 @@ export default function LocationSelect({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full min-h-[44px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`flex w-full min-h-[44px] flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container ${
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+        }`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >

@@ -79,3 +79,34 @@ class PaginatedMatchResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class FacetItem(BaseModel):
+    """A single facet option with its count."""
+
+    value: str
+    label: str
+    count: int
+
+
+class LocationFacetItem(BaseModel):
+    """A location in the facet hierarchy."""
+
+    value: str
+    label: str
+    count: int
+    type: str  # "country", "state", "city"
+    country: str | None = None
+    state: str | None = None
+    children: list["LocationFacetItem"] | None = None
+
+
+class MatchFacetsResponse(BaseModel):
+    """Response for match facets calculated from cached results."""
+
+    companies: list[FacetItem]
+    categories: list[FacetItem]
+    job_types: list[FacetItem]
+    work_modes: list[FacetItem]
+    locations: list[LocationFacetItem]
+    total_matches: int
