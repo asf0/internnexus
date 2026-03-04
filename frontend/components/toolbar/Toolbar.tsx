@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
+import { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import { Search, SlidersHorizontal, Upload, ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
 import { MultiSelect, LocationSelect } from "@/components/common";
 import { Button, Input, SingleSelect } from "@/components/ui";
-import { matchProfileResume, matchResume } from "@/app/actions/match";
+import { matchProfileResume, matchResume, fetchMatchFacets } from "@/app/actions/match";
+import { useMatchState } from "@/lib/hooks/useMatchState";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { formatCategoryLabel } from "@/lib/utils";
-import type { MatchResponse, LocationItem } from "@/lib/types/job";
+import type { MatchResponse, LocationItem, MatchFacetsResponse } from "@/lib/types/job";
 
 const MATCH_STATE_UPDATED_EVENT = "internnexus:match-state-updated";
 
@@ -24,17 +25,22 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const { sessionId } = useMatchState();
 
   const [showFilters, setShowFilters] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
   const [isMatching, setIsMatching] = useState(false);
+  const [facets, setFacets] = useState<MatchFacetsResponse | null>(null);
+  const [isLoadingFacets, setIsLoadingFacets] = useState(false);
 
   // Local state for search input with debouncing
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [debouncedSearch] = useDebounce(searchInput, 400);
   const isInitialMount = useRef(true);
+  const isFetchingFacets = useRef(false);
+  const lastFetchedFiltersRef = useRef<string | null>(null);
 
   // Update URL when debounced search value changes
   useEffect(() => {
@@ -51,22 +57,105 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
     }
   }, [currentSearch]);
 
-  const currentCompanies = searchParams.get("company")?.split("|").filter(Boolean) || [];
-  const currentLocations = searchParams.get("location")?.split("|").filter(Boolean) || [];
-  const currentCategories = searchParams.get("category")?.split("|").filter(Boolean) || [];
-  const currentJobTypes = searchParams.get("job_type")?.split("|").filter(Boolean) || [];
-  const currentWorkModes = searchParams.get("work_mode")?.split("|").filter(Boolean) || [];
+  // Use raw string params as primitive dependencies — avoids new array refs on every render
+  const companyStr = searchParams.get("company") || "";
+  const locationStr = searchParams.get("location") || "";
+  const categoryStr = searchParams.get("category") || "";
+  const jobTypeStr = searchParams.get("job_type") || "";
+  const workModeStr = searchParams.get("work_mode") || "";
   const currentPostedWithin = searchParams.get("posted_within") || "";
   const currentSavedOnly = searchParams.get("saved_only") === "1";
   const isMatched = searchParams.get("matched") === "true";
   const openResumeParam = searchParams.get("open_resume") === "1";
   const matchCount = isMatched ? 1 : 0;
 
+  // Derive split arrays from stable string primitives
+  const currentCompanies = useMemo(() => companyStr.split("|").filter(Boolean), [companyStr]);
+  const currentLocations = useMemo(() => locationStr.split("|").filter(Boolean), [locationStr]);
+  const currentCategories = useMemo(() => categoryStr.split("|").filter(Boolean), [categoryStr]);
+  const currentJobTypes = useMemo(() => jobTypeStr.split("|").filter(Boolean), [jobTypeStr]);
+  const currentWorkModes = useMemo(() => workModeStr.split("|").filter(Boolean), [workModeStr]);
+
+  // Memoize filter values — depends on primitives so only recomputes when URL actually changes
+  const filterValues = useMemo(() => ({
+    companies: companyStr.split("|").filter(Boolean),
+    locations: locationStr.split("|").filter(Boolean),
+    categories: categoryStr.split("|").filter(Boolean),
+    jobTypes: jobTypeStr.split("|").filter(Boolean),
+    workModes: workModeStr.split("|").filter(Boolean),
+    postedWithin: currentPostedWithin,
+    search: currentSearch,
+  }), [companyStr, locationStr, categoryStr, jobTypeStr, workModeStr, currentPostedWithin, currentSearch]);
+
+  // Debounce the memoized filter values
+  const [debouncedFilters] = useDebounce(filterValues, 300);
+
   useEffect(() => {
     if (isAuthenticated && openResumeParam) {
       setShowResume(true);
     }
   }, [isAuthenticated, openResumeParam]);
+
+  // Fetch dynamic facets when in matched mode
+  useEffect(() => {
+    if (!isMatched || !sessionId) {
+      setFacets(null);
+      lastFetchedFiltersRef.current = null;
+      return;
+    }
+
+    // Serialize current filters for stable comparison (prevents re-fetch when references
+    // change but values are identical)
+    const filterKey = JSON.stringify({
+      sessionId,
+      search: debouncedFilters.search,
+      company: debouncedFilters.companies.join("|"),
+      location: debouncedFilters.locations.join("|"),
+      category: debouncedFilters.categories.join("|"),
+      job_type: debouncedFilters.jobTypes.join("|"),
+      work_mode: debouncedFilters.workModes.join("|"),
+      posted_within: debouncedFilters.postedWithin,
+    });
+
+    // Skip if we already fetched with these exact filters
+    if (lastFetchedFiltersRef.current === filterKey) {
+      return;
+    }
+
+    // Prevent concurrent requests
+    if (isFetchingFacets.current) {
+      return;
+    }
+
+    const loadFacets = async () => {
+      isFetchingFacets.current = true;
+      lastFetchedFiltersRef.current = filterKey;
+      setIsLoadingFacets(true);
+      try {
+        const data = await fetchMatchFacets(
+          sessionId,
+          {
+            search: debouncedFilters.search,
+            company: debouncedFilters.companies.join("|"),
+            location: debouncedFilters.locations.join("|"),
+            category: debouncedFilters.categories.join("|"),
+            job_type: debouncedFilters.jobTypes.join("|"),
+            work_mode: debouncedFilters.workModes.join("|"),
+            posted_within: debouncedFilters.postedWithin,
+          }
+        );
+        setFacets(data);
+      } catch {
+        // Allow retry on error
+        lastFetchedFiltersRef.current = null;
+      } finally {
+        setIsLoadingFacets(false);
+        isFetchingFacets.current = false;
+      }
+    };
+
+    loadFacets();
+  }, [isMatched, sessionId, debouncedFilters]);
 
   const activeFilterCount = [
     currentCompanies.length > 0,
@@ -310,48 +399,68 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
       {/* Expanded Filters Panel */}
       {showFilters && (
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface">
+          {isLoadingFacets && (
+            <div className="mb-2 text-xs text-slate-500 dark:text-md-on-surface-variant">
+              Loading filter options...
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {/* Company */}
             <MultiSelect
-              options={[...companies].sort((a, b) => a.localeCompare(b))}
+              options={isMatched && facets 
+                ? facets.companies.map(f => f.value).sort((a, b) => a.localeCompare(b))
+                : [...companies].sort((a, b) => a.localeCompare(b))}
               selected={currentCompanies}
               onChange={(values) => updateMultiSelect("company", values)}
               placeholder="Company"
+              disabled={isMatched && isLoadingFacets}
             />
 
             {/* Location */}
             <LocationSelect
-              locations={locations}
+              locations={isMatched && facets ? facets.locations : locations}
               selected={currentLocations}
               onChange={(values: string[]) => updateMultiSelect("location", values)}
               placeholder="Location"
+              disabled={isMatched && isLoadingFacets}
             />
 
             {/* Category */}
             <MultiSelect
-              options={[...categories].sort((a, b) => formatCategoryLabel(a).localeCompare(formatCategoryLabel(b)))}
+              options={isMatched && facets
+                ? facets.categories.map(f => f.value).sort((a, b) => formatCategoryLabel(a).localeCompare(formatCategoryLabel(b)))
+                : [...categories].sort((a, b) => formatCategoryLabel(a).localeCompare(formatCategoryLabel(b)))}
               selected={currentCategories}
               onChange={(values) => updateMultiSelect("category", values)}
               placeholder="Category"
-              labelMap={Object.fromEntries(categories.map((c) => [c, formatCategoryLabel(c)]))}
+              labelMap={isMatched && facets
+                ? Object.fromEntries(facets.categories.map((c) => [c.value, formatCategoryLabel(c.value)]))
+                : Object.fromEntries(categories.map((c) => [c, formatCategoryLabel(c)]))}
+              disabled={isMatched && isLoadingFacets}
             />
 
             {/* Job Type */}
             <MultiSelect
-              options={jobTypes}
+              options={isMatched && facets
+                ? facets.job_types.map(f => f.value)
+                : jobTypes}
               selected={currentJobTypes}
               onChange={(values) => updateMultiSelect("job_type", values)}
               placeholder="Job Type"
               labelMap={jobTypeLabelMap}
+              disabled={isMatched && isLoadingFacets}
             />
 
             {/* Work Mode */}
             <MultiSelect
-              options={workModes}
+              options={isMatched && facets
+                ? facets.work_modes.map(f => f.value)
+                : workModes}
               selected={currentWorkModes}
               onChange={(values) => updateMultiSelect("work_mode", values)}
               placeholder="Work Mode"
               labelMap={workModeLabelMap}
+              disabled={isMatched && isLoadingFacets}
             />
 
             {/* Date Posted */}

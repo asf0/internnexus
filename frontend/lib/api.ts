@@ -1,5 +1,5 @@
 import { BACKEND_URL } from "./config";
-import type { Job, JobListResponse, JobFilters } from "./types/job";
+import type { Job, JobListResponse, JobFilters, MatchFacetsResponse } from "./types/job";
 import type { LocationItem } from "./types/job";
 
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
@@ -91,4 +91,31 @@ export async function fetchAllJobIds(): Promise<string[]> {
   }
   const data = (await response.json()) as JobListResponse;
   return data.items.map((job) => job.id);
+}
+
+export async function fetchMatchFacets(
+  sessionId: string,
+  filters: JobFilters = {},
+  backendToken?: string
+): Promise<MatchFacetsResponse | null> {
+  const params = new URLSearchParams();
+
+  if (filters.search) params.set("search", filters.search);
+  if (filters.company) params.set("company", filters.company);
+  if (filters.location) params.set("location", filters.location);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.job_type) params.set("job_type", filters.job_type);
+  if (filters.work_mode) params.set("work_mode", filters.work_mode);
+  if (filters.posted_within) params.set("posted_within", filters.posted_within);
+
+  const response = await fetch(
+    `${BACKEND_URL}/match/${sessionId}/facets?${params.toString()}`,
+    {
+      cache: "no-store",
+      headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
+    }
+  );
+
+  if (!response.ok) return null;
+  return (await response.json()) as MatchFacetsResponse;
 }

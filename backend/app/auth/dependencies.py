@@ -100,6 +100,13 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account has been deleted",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if not _validate_password_change(payload, user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -148,6 +155,9 @@ async def get_optional_user(
     user = result.scalar_one_or_none()
 
     if user is None:
+        return None
+
+    if user.is_deleted:
         return None
 
     if not _validate_password_change(payload, user):

@@ -97,3 +97,18 @@ export interface MatchPageRequest {
   work_mode?: string;
   posted_within?: string;
 }
+
+export interface FacetItem {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface MatchFacetsResponse {
+  companies: FacetItem[];
+  categories: FacetItem[];
+  job_types: FacetItem[];
+  work_modes: FacetItem[];
+  locations: LocationItem[];
+  total_matches: number;
+}

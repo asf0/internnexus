@@ -40,22 +40,32 @@ async def fetch_and_ingest(
     logger.info("=" * 60)
 
     logger.info("Fetching from API sources (Greenhouse, Lever, Ashby)...")
-    api_jobs = await fetch_api_jobs(
+    greenhouse_jobs, lever_jobs, ashby_jobs = await fetch_api_jobs(
         api_fetch_concurrency=api_fetch_concurrency,
         not_found_cooldown_hours=not_found_cooldown_hours,
         run_id=run_id,
     )
-    logger.info(f"Fetched {len(api_jobs)} jobs from APIs")
-
-    all_jobs = api_jobs
+    total_fetched = len(greenhouse_jobs) + len(lever_jobs) + len(ashby_jobs)
+    logger.info(f"Fetched {total_fetched} jobs from APIs")
 
     logger.info("Upserting to database (new jobs will be added, existing updated)...")
 
+    async def _upsert_all(db: AsyncSession) -> None:
+        # Upsert and free each source list before starting the next so only one
+        # source worth of JobSchema objects is alive during each upsert phase.
+        nonlocal greenhouse_jobs, lever_jobs, ashby_jobs
+        await upsert_jobs(db, greenhouse_jobs, deduplicate=False)
+        del greenhouse_jobs
+        await upsert_jobs(db, lever_jobs, deduplicate=False)
+        del lever_jobs
+        await upsert_jobs(db, ashby_jobs, deduplicate=False)
+        del ashby_jobs
+
     if session is None:
         async with AsyncSessionLocal() as db:
-            await upsert_jobs(db, all_jobs)
+            await _upsert_all(db)
     else:
-        await upsert_jobs(session, all_jobs)
+        await _upsert_all(session)
 
-    logger.info(f"Ingestion complete: {len(all_jobs)} jobs processed")
-    return len(all_jobs), batch_start_time
+    logger.info(f"Ingestion complete: {total_fetched} jobs processed")
+    return total_fetched, batch_start_time

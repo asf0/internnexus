@@ -6,3 +6,6 @@
 {"timestamp": "2026-02-28T17:45:36.632955+00:00", "reason": "no_mappable_token", "title": "Clinic Psychologist", "raw_output": "{\"category\":\"unknown\"}"}
 {"timestamp": "2026-03-01T04:47:38.542047+00:00", "reason": "no_mappable_token", "title": "Microbiology Manager", "raw_output": "{\"category\":\"unknown\"}"}
 {"timestamp": "2026-03-01T04:48:08.672164+00:00", "reason": "no_mappable_token", "title": "Clinic Psychologist", "raw_output": "{\"category\":\"unknown\"}"}
+{"timestamp": "2026-03-03T23:29:36.637973+00:00", "reason": "no_mappable_token", "title": "Microbiology Manager", "raw_output": "{\"category\":\"unknown\"}"}
+{"timestamp": "2026-03-03T23:30:43.704565+00:00", "reason": "no_mappable_token", "title": "Veterinarian", "raw_output": "{\"category\":\"none\"}"}
+{"timestamp": "2026-03-03T23:30:43.704884+00:00", "reason": "no_mappable_token", "title": "Clinic Psychologist", "raw_output": "{\"category\":\"unknown\"}"}

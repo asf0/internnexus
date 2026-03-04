@@ -82,7 +82,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
+      // Handle session update (after profile save)
+      if (trigger === "update" && session) {
+        if (session.name !== undefined) token.name = session.name
+        if (session.image !== undefined) token.picture = session.image
+      }
+
       // Handle OAuth sign-in
       if (account && profile) {
         // Exchange OAuth token for backend JWT

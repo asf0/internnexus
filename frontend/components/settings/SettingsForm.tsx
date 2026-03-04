@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { ArrowLeft, Save, Loader2 } from "lucide-react"
 import { updateUserProfile, changePassword, deleteAccount } from "@/app/actions/user"
 import { calculateStrength } from "@/components/common"
@@ -15,7 +16,9 @@ interface SettingsFormProps {
 
 export default function SettingsForm({ profile }: SettingsFormProps) {
   const router = useRouter()
+  const { update: updateSession } = useSession()
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const [personalForm, setPersonalForm] = useState({
@@ -90,6 +93,9 @@ export default function SettingsForm({ profile }: SettingsFormProps) {
       return
     }
 
+    // Patch the NextAuth JWT so the toolbar name/image updates immediately
+    await updateSession({ name: profileResult.name, image: profileResult.image })
+
     if (passwordForm.current_password) {
       const passwordResult = await changePassword({
         current_password: passwordForm.current_password,
@@ -111,15 +117,15 @@ export default function SettingsForm({ profile }: SettingsFormProps) {
   }
 
   const handleDeleteAccount = async () => {
-    setIsSaving(true)
+    setIsDeleting(true)
     const result = await deleteAccount()
 
     if (result.success) {
+      setIsDeleting(false)
       router.push("/")
-      router.refresh()
     } else {
       setMessage({ type: "error", text: result.error || "Failed to delete account" })
-      setIsSaving(false)
+      setIsDeleting(false)
     }
   }
 
@@ -216,7 +222,7 @@ export default function SettingsForm({ profile }: SettingsFormProps) {
             <DangerZone
               showDeleteModal={showDeleteModal}
               deleteConfirmText={deleteConfirmText}
-              isSaving={isSaving}
+              isDeleting={isDeleting}
               onDeleteModalOpen={() => setShowDeleteModal(true)}
               onDeleteModalClose={() => {
                 setShowDeleteModal(false)

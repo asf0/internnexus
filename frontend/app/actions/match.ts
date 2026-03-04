@@ -2,7 +2,7 @@
 
 import { getBackendToken } from "@/lib/auth.server";
 import { BACKEND_URL } from "@/lib/config";
-import type { MatchResponse } from "@/lib/types/job";
+import type { MatchResponse, MatchFacetsResponse } from "@/lib/types/job";
 
 const MATCH_REQUEST_TIMEOUT_MS = 90000;
 
@@ -195,4 +195,49 @@ export async function fetchMatchPage(
   }
 
   return response.json();
+}
+
+export async function fetchMatchFacets(
+  sessionId: string,
+  filters?: {
+    search?: string;
+    company?: string;
+    location?: string;
+    category?: string;
+    job_type?: string;
+    work_mode?: string;
+    posted_within?: string;
+  }
+): Promise<MatchFacetsResponse | null> {
+  const backendToken = await getBackendToken();
+
+  if (!backendToken) {
+    return null;
+  }
+
+  const params = new URLSearchParams();
+  if (filters?.search) params.set("search", filters.search);
+  if (filters?.company) params.set("company", filters.company);
+  if (filters?.location) params.set("location", filters.location);
+  if (filters?.category) params.set("category", filters.category);
+  if (filters?.job_type) params.set("job_type", filters.job_type);
+  if (filters?.work_mode) params.set("work_mode", filters.work_mode);
+  if (filters?.posted_within) params.set("posted_within", filters.posted_within);
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/match/${sessionId}/facets?${params.toString()}`,
+      {
+        headers: { "Authorization": `Bearer ${backendToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json() as MatchFacetsResponse;
+  } catch {
+    return null;
+  }
 }

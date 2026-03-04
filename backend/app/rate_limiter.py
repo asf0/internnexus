@@ -89,7 +89,7 @@ def get_real_client_ip(request):
 redis_url = os.getenv("REDIS_URL")
 
 RATE_LIMITS = {
-    "match": "5/minute",
+    "match": "60/minute",
     "jobs_list": "60/minute",
     "jobs_detail": "60/minute",
     "filters": "30/minute",
