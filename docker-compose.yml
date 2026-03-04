@@ -85,8 +85,11 @@ services:
       resources:
         limits:
           memory: 2.5G
+          cpus: '2.0'
         reservations:
           memory: 512M
+    mem_swappiness: 0
+    memswap_limit: 2560m
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -104,6 +107,7 @@ services:
       - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
       - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
       - DATA_DIR=/app/data
+      - PIPELINE_MODE_POOL=2
     volumes:
       - ./data:/app/data
     depends_on:

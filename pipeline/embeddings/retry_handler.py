@@ -24,13 +24,13 @@ MAX_RETRY_ATTEMPTS = 2
 
 
 async def _process_retry_queue(
-    retry_queue: list[tuple[int, BaseException, int]],
+    retry_queue: list[tuple[int, str, str, int]],
     embedder: EmbeddingService,
     db: AsyncSession,
     semaphore: asyncio.Semaphore,
     batch_size: int,
     parallel_batches: int = 2,
-) -> tuple[int, int, int, list[tuple[int, BaseException, int]]]:
+) -> tuple[int, int, int, list[tuple[int, str, str, int]]]:
     """Process all retry attempts for failed jobs.
 
     Args:
@@ -83,21 +83,21 @@ async def _process_retry_queue(
 
 def _collect_retry_items(
     failed: list[tuple[Job, BaseException]],
-    retry_queue: list[tuple[int, BaseException, int]],
+    retry_queue: list[tuple[int, str, str, int]],
     retry_attempt: int,
-) -> list[tuple[int, BaseException, int]]:
+) -> list[tuple[int, str, str, int]]:
     """Collect failed jobs for retry or log as permanently failed."""
     for job, error in failed:
+        error_type, _ = _classify_error(error)
         if retry_attempt < MAX_RETRY_ATTEMPTS:
-            retry_queue.append((int(job.id), error, retry_attempt))
+            retry_queue.append((int(job.id), error_type, str(error), retry_attempt))
         else:
-            error_type, _ = _classify_error(error)
             _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt)
     return retry_queue
 
 
 async def _log_exhausted_retries(
-    retry_queue: list[tuple[int, BaseException, int]],
+    retry_queue: list[tuple[int, str, str, int]],
     db: AsyncSession,
 ) -> int:
     """Log jobs that exhausted all retry attempts.
@@ -121,11 +121,10 @@ async def _log_exhausted_retries(
     job_id_to_job = {int(job.id): job for job in exhausted_jobs}
 
     error_count = 0
-    for job_id, error, attempts in retry_queue:
-        error_type, _ = _classify_error(error)
+    for job_id, error_type, error_msg, attempts in retry_queue:
         job = job_id_to_job.get(job_id)
         if job:
-            _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=attempts)
+            _log_failed_job(job, error_type, error_msg, will_retry=False, retry_attempt=attempts)
         error_count += 1
 
     return error_count

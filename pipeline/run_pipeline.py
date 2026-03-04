@@ -277,7 +277,7 @@ class PipelineRunner:
 
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
         from sqlalchemy import func, select
-        from pipeline.classification import get_classifier, reset_classifier
+        from pipeline.classification import get_classifier, reset_classifier, reset_classifier_async
 
         success, errors = 0, 0
 
@@ -332,13 +332,14 @@ class PipelineRunner:
                     failed_entries: list[tuple[object | None, str]] = []
                     for job, (category, reason) in zip(chunk, categories_with_reason):
                         job_id = getattr(job, "id", None)
-                        if job_id is not None:
-                            attempted_job_ids.add(job_id)
                         if category:
                             job.job_category = category
                             success += 1
                             batch_success += 1
                         else:
+                            # Only track failures — they stay NULL and could re-appear in the query
+                            if job_id is not None:
+                                attempted_job_ids.add(job_id)
                             failed_entries.append((job_id, reason))
                             errors += 1
                             batch_errors += 1
@@ -352,6 +353,7 @@ class PipelineRunner:
                         )
 
                     await session.commit()
+                    session.expunge_all()  # free Job ORM objects (incl. description_text) immediately
                     processed += len(chunk)
                     batch_success_rate = (batch_success / len(chunk)) * 100 if chunk else 0.0
                     cumulative_success_rate = (success / processed) * 100 if processed else 0.0
@@ -371,7 +373,7 @@ class PipelineRunner:
                         cumulative_success_rate,
                     )
             finally:
-                reset_classifier()
+                await reset_classifier_async()
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'classify' completed in {self.step_times[step_name]:.1f}s")

@@ -565,8 +565,21 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
             await upsert_greenhouse_metadata_batch(db, fp_to_id, greenhouse_jobs)
         if lever_jobs:
             await upsert_lever_metadata_batch(db, fp_to_id, lever_jobs)
+            # Free HTML/plain blobs — already persisted to lever_metadata table
+            _html_fields = (
+                "description_html", "description_plain", "description_body_html",
+                "description_body_plain", "opening_html", "opening_plain",
+                "additional_html", "additional_plain",
+                "requirements_html", "requirements_plain",
+            )
+            for j in lever_jobs:
+                for f in _html_fields:
+                    setattr(j, f, None)
         if ashby_jobs:
             await upsert_ashby_metadata_batch(db, fp_to_id, ashby_jobs)
+            for j in ashby_jobs:
+                j.description_html = None
+                j.description_plain = None
 
         await db.commit()
 

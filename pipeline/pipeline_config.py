@@ -22,6 +22,7 @@ class CleanupConfig(BaseModel):
 class EmbeddingsConfig(BaseModel):
     batch_size: int = 50
     parallel_batches: int = 2
+    api_batch_size: int = 16  # texts per embed_many() call; raise to reduce API round-trips
 
 
 class ApiConfig(BaseModel):
