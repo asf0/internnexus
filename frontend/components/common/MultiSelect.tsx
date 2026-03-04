@@ -9,9 +9,10 @@ interface MultiSelectProps {
   readonly onChange: (selected: string[]) => void;
   readonly placeholder: string;
   readonly labelMap?: Record<string, string>;
+  readonly disabled?: boolean;
 }
 
-export default function MultiSelect({ options, selected, onChange, placeholder, labelMap }: MultiSelectProps) {
+export default function MultiSelect({ options, selected, onChange, placeholder, labelMap, disabled = false }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -63,8 +64,11 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full min-h-[44px] cursor-pointer flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`flex w-full min-h-[44px] flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container ${
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+        }`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
