@@ -216,9 +216,6 @@ async def _process_batch(
     if not jobs_in_db:
         return 0, 0, skipped, []
 
-    # Free raw HTML blobs now that clean text strings are extracted
-    for j in jobs_in_db:
-        j.description_text = None
 
     success, errors, failed = await _embed_and_save(db, jobs_in_db, texts, embedder, batch_num, retry_attempt)
     return success, errors, skipped, failed
