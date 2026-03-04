@@ -52,13 +52,10 @@ async def _process_production_mode_chunked(
     parse_concurrency: int = 12,
     chunk_size: int = 5000,
 ) -> int:
-    from uuid import UUID
-
     repo = SQLAlchemyJobRepository(session)
     unique_locations: dict[str, dict] = {}
     total_processed = 0
     total_updated = 0
-    changed_job_ids: list[UUID] = []
 
     total_count = await _get_total_count(repo, since, process_all)
     logger.info(f"Found {total_count} jobs to process")
@@ -75,9 +72,13 @@ async def _process_production_mode_chunked(
             async with semaphore:
                 return location, await _parse_location_only(location)
 
-        parsed_pairs = await asyncio.gather(*[_parse_one(location) for location in locations])
-        for location, parsed in parsed_pairs:
-            unique_locations[location] = parsed
+        # Bound fan-out to avoid O(chunk_size) coroutines at once
+        WARM_BATCH = 500
+        for i in range(0, len(locations), WARM_BATCH):
+            batch = locations[i : i + WARM_BATCH]
+            parsed_pairs = await asyncio.gather(*[_parse_one(loc) for loc in batch])
+            for loc, parsed in parsed_pairs:
+                unique_locations[loc] = parsed
 
     last_id = None
     while True:
@@ -100,6 +101,11 @@ async def _process_production_mode_chunked(
             await _warm_location_cache(unknown_locations)
             if len(unique_locations) % 500 == 0:
                 logger.info(f"Normalized {len(unique_locations)} unique locations...")
+
+        # Prevent unbounded growth: keep latest 10k entries when over 20k
+        if len(unique_locations) > 20_000:
+            keep = list(unique_locations)[-10_000:]
+            unique_locations = {k: unique_locations[k] for k in keep}
 
         for row in rows:
             if limit and total_processed >= limit:
@@ -140,19 +146,17 @@ async def _process_production_mode_chunked(
 
         if batch_updates:
             await _apply_batch_updates(repo, batch_updates)
-            changed_job_ids.extend(update["id"] for update in batch_updates)
+            chunk_ids = [update["id"] for update in batch_updates]
+            await repo.refresh_search_vectors_for_job_ids(chunk_ids)
             total_updated += len(batch_updates)
+
+        session.expunge_all()  # clear identity map between chunks
 
         if total_processed % 5000 == 0:
             logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
 
     logger.info(f"Normalized {len(unique_locations)} unique locations")
     logger.info(f"Processed {total_processed} jobs, updated {total_updated}")
-
-    if changed_job_ids:
-        logger.info("Refreshing search vectors for cleanup-updated jobs...")
-        refreshed_count = await repo.refresh_search_vectors_for_job_ids(changed_job_ids)
-        logger.info(f"Refreshed search vectors for {refreshed_count} jobs")
 
     return total_updated
 

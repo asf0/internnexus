@@ -82,6 +82,14 @@ async def cleanup_resources() -> None:
 
     # Force garbage collection
     gc.collect()
+    # On Linux/Docker, return fragmented pymalloc heap arenas to the OS
+    import sys as _sys
+    import ctypes as _ctypes
+    if _sys.platform == "linux":
+        try:
+            _ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
     log_memory_usage("after cleanup")
     logger.debug("Resource cleanup completed")
 

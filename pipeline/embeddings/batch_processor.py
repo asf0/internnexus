@@ -19,6 +19,7 @@ from pipeline.backend_bridge import (
     RateLimitError,
     clean_text_for_embedding,
 )
+from pipeline.pipeline_config import get_config
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 LOGS_DIR = Path(__file__).parent.parent.parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
-EMBEDDING_BATCH_SIZE = 2
+EMBEDDING_BATCH_SIZE = 16  # default; get_config().embeddings.api_batch_size overrides at runtime
 LOG_FLUSH_BATCH_SIZE = 100
 
 
@@ -215,6 +216,10 @@ async def _process_batch(
     if not jobs_in_db:
         return 0, 0, skipped, []
 
+    # Free raw HTML blobs now that clean text strings are extracted
+    for j in jobs_in_db:
+        j.description_text = None
+
     success, errors, failed = await _embed_and_save(db, jobs_in_db, texts, embedder, batch_num, retry_attempt)
     return success, errors, skipped, failed
 
@@ -287,13 +292,15 @@ async def _embed_and_save(
     success = 0
     errors = 0
     failed: list[tuple[Job, BaseException]] = []
+    api_batch_size = get_config().embeddings.api_batch_size
+    embeddings = None  # ensure defined even if all sub-batches error
 
-    for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
-        batch_texts = texts[i : i + EMBEDDING_BATCH_SIZE]
-        batch_jobs = jobs[i : i + EMBEDDING_BATCH_SIZE]
+    for i in range(0, len(texts), api_batch_size):
+        batch_texts = texts[i : i + api_batch_size]
+        batch_jobs = jobs[i : i + api_batch_size]
 
         try:
-            embeddings = await embedder.embed_many(batch_texts, batch_size=EMBEDDING_BATCH_SIZE)
+            embeddings = await embedder.embed_many(batch_texts, batch_size=api_batch_size)
             for job, embedding in zip(batch_jobs, embeddings):
                 job.description_embedding = embedding
                 db.add(job)
@@ -308,6 +315,7 @@ async def _embed_and_save(
             failed.extend(batch_failed)
 
     await db.commit()
+    db.expunge_all()  # detach Job ORM objects so they can be GC'd immediately
 
     # Memory management: clear embedding references
     del embeddings
