@@ -277,7 +277,7 @@ class PipelineRunner:
 
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
         from sqlalchemy import func, select
-        from pipeline.classification import get_classifier, reset_classifier, reset_classifier_async
+        from pipeline.classification import get_classifier, reset_classifier_async
 
         success, errors = 0, 0
 
