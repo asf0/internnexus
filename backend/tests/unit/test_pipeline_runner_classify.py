@@ -118,6 +118,9 @@ class _FakeSession:
     async def commit(self):
         self.commit_calls += 1
 
+    def expunge_all(self):
+        pass
+
 
 @pytest.mark.asyncio
 async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
