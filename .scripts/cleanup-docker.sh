@@ -31,11 +31,11 @@ docker builder prune -f --filter "unused-for=24h"
 echo "   ✓ Build cache pruned (older than 24h)"
 echo ""
 
-# Remove unused volumes (older than 24h)
-echo "🗑️  Removing unused volumes (older than 24h)..."
+# Remove unused dangling volumes (safer for deployed systems)
+echo "🗑️  Removing unused dangling volumes..."
 VOLUME_COUNT=$(docker volume ls -f "dangling=true" -q | wc -l)
 if [ "$VOLUME_COUNT" -gt 0 ]; then
-  docker volume prune -f --filter "label!=keep" --filter "until=24h"
+  docker volume prune -f
   echo "   ✓ Removed $VOLUME_COUNT unused volume(s)"
 else
   echo "   ✓ No unused volumes to remove"
