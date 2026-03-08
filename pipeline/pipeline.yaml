@@ -1,5 +1,5 @@
 pipeline:
-  continuous_interval: 3600
+  continuous_interval: 21600
   backoff_on_error: 300
   max_backoff_multiplier: 5
 
