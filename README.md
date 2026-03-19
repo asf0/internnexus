@@ -9,7 +9,9 @@
 
 > Production-ready internship aggregator with AI-powered job matching
 
-**Live Demo:** [jobfinder.asf0.dev](https://jobfinder.asf0.dev) | **Documentation:** [docs/](docs/)
+**Live Demo:** [jobfinder.asf0.dev](https://jobfinder.asf0.dev)
+
+Try the live app to search internships, apply filters, and test resume-based job matching.
 
 InternNexus aggregates internship opportunities from multiple job boards (Greenhouse, Lever) and provides intelligent filtering, categorization, and AI-powered resume matching.
 
@@ -58,7 +60,7 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
+- Docker and `docker compose`
 - [bun](https://bun.sh/) (frontend package manager)
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.12+
@@ -74,7 +76,7 @@ cp .env.example .env
 
 ### 2. Start Infrastructure
 ```bash
-docker-compose up -d  # PostgreSQL + Redis
+docker compose up -d db redis
 ```
 
 ### 3. Install & Run Backend
@@ -86,7 +88,8 @@ uv pip install -e ".[dev]"
 uv run alembic -c backend/alembic.ini upgrade head
 
 # Start the backend server
-uv run uvicorn backend.app.main:app --reload
+cd backend
+uv run uvicorn app.main:app --reload
 ```
 
 > **Note**: pycountry will be installed automatically for location normalization.
@@ -101,7 +104,7 @@ bun dev
 ### 5. Ingest Jobs
 ```bash
 # Run pipeline from project root
-uv run python -m pipeline.run_pipeline --skip-discover
+uv run python pipeline/run_pipeline.py --skip-discover
 ```
 
 **Done!** Visit http://localhost:3000
@@ -110,15 +113,17 @@ uv run python -m pipeline.run_pipeline --skip-discover
 
 ## 📊 Data Pipeline
 
-The ingestion system runs 5 sequential steps:
+The ingestion system runs 7 sequential steps:
 
 | Step | Action | Description |
 |------|--------|-------------|
 | 1 | **Discover** | Verify companies have active job boards |
-| 2 | **Ingest** | Fetch jobs from APIs, deduplicate, enrich |
-| 3 | **Cleanup** | Normalize location data (city/state/country) |
-| 4 | **Embed** | Generate vector embeddings for matching |
-| 5 | **Delete old** | Remove jobs older than configured days |
+| 2 | **Sync inactive** | Mark existing jobs inactive before refresh |
+| 3 | **Ingest** | Fetch jobs from APIs, deduplicate, and upsert |
+| 4 | **Delete inactive** | Remove jobs no longer present upstream |
+| 5 | **Cleanup** | Normalize location data (city/state/country) |
+| 6 | **Classify** | Categorize jobs with the configured model |
+| 7 | **Embed** | Generate vector embeddings for matching |
 
 ```bash
 # Run full pipeline
@@ -153,7 +158,7 @@ uv run python -m pipeline.run_pipeline --step cleanup --all
 
 ## 📚 Documentation
 
-Documentation coming soon. See code comments and docstrings for detailed API documentation.
+Documentation is still lightweight. For now, use `README.md`, `backend/.env.example`, and the code in `backend/`, `frontend/`, and `pipeline/` as the primary reference.
 
 ---
 
