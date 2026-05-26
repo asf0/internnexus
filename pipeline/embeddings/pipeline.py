@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import TYPE_CHECKING
+from uuid import UUID
 
-from pipeline.backend_bridge import EmbeddingService
+from pipeline.embedding import QueryEmbeddingService as EmbeddingService
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
 from pipeline.embeddings.batch_processor import (
@@ -80,7 +81,7 @@ async def _run_embedding_pipeline(
     effective_parallel_batches = max(1, parallel_batches)
     semaphore = asyncio.Semaphore(effective_parallel_batches)
     total_success, total_errors, total_skipped = 0, 0, 0
-    retry_queue: list[tuple[int, str, str, int]] = []
+    retry_queue: list[tuple[UUID, str, str, int]] = []
 
     try:
         result = await _process_batches(
@@ -118,7 +119,7 @@ async def _run_embedding_pipeline(
 
 
 async def _handle_retries(
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     embedder: EmbeddingService,
     db: AsyncSession,
     semaphore: asyncio.Semaphore,
@@ -155,10 +156,10 @@ async def _process_batches(
     embedder: EmbeddingService,
     batch_size: int,
     parallel_batches: int,
-) -> tuple[int, int, int, list[tuple[int, str, str, int]], bool]:
+) -> tuple[int, int, int, list[tuple[UUID, str, str, int]], bool]:
     """Process all batches of jobs."""
     total_success, total_errors, total_skipped = 0, 0, 0
-    retry_queue: list[tuple[int, str, str, int]] = []
+    retry_queue: list[tuple[UUID, str, str, int]] = []
     cancelled = False
     batch_num = 0
     consecutive_empty = 0
@@ -233,7 +234,7 @@ async def _collect_pending_batches(
 
 def _process_results(
     results: list,
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     batch_size: int,
 ) -> bool:
     """Process batch results and return if cancelled."""
@@ -250,7 +251,7 @@ def _accumulate_results(
     total_success: int,
     total_errors: int,
     total_skipped: int,
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     batch_size: int,
 ) -> tuple[int, int, int]:
     """Accumulate results from batch processing."""
@@ -265,7 +266,7 @@ def _accumulate_results(
             total_skipped += skipped
             for job, error in failed:
                 error_type, _ = _classify_error(error)
-                retry_queue.append((int(job.id), error_type, str(error), 0))
+                retry_queue.append((job.id, error_type, str(error), 0))
     return total_success, total_errors, total_skipped
 
 

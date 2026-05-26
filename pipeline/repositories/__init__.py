@@ -33,15 +33,6 @@ class LocationUpdate:
     is_remote: bool
 
 
-@dataclass
-class MetadataBatch:
-    """Data class for batch metadata results."""
-
-    ashby: dict[UUID, dict]
-    greenhouse: dict[UUID, dict]
-    lever: dict[UUID, dict]
-
-
 class JobEmbeddingRecord(TypedDict):
     """Projected job payload used by embedding/classification steps."""
 
@@ -112,23 +103,6 @@ class JobRepository(Protocol):
 
         Returns:
             Number of jobs updated
-        """
-        ...
-
-    async def fetch_metadata_batch(
-        self,
-        job_ids: list[UUID],
-    ) -> MetadataBatch:
-        """Fetch metadata for a batch of jobs.
-
-        Uses JOIN query to fetch all metadata in a single query
-        instead of N+1 separate queries.
-
-        Args:
-            job_ids: List of job IDs to fetch metadata for
-
-        Returns:
-            MetadataBatch containing metadata from all sources
         """
         ...
 
@@ -220,7 +194,6 @@ class JobRepository(Protocol):
 __all__ = [
     "JobLocationData",
     "LocationUpdate",
-    "MetadataBatch",
     "JobEmbeddingRecord",
     "JobRepository",
 ]

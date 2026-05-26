@@ -10,8 +10,6 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.cleanup.metadata import (
-    _fetch_jobs_chunk,
-    _get_metadata_result,
     _merge_location_results,
 )
 from pipeline.cleanup.parser import _parse_location_only
@@ -84,21 +82,24 @@ async def _process_test_mode_chunked(session: AsyncSession, since, process_all, 
         if limit and total_processed >= limit:
             break
 
-        rows, ashby_map, greenhouse_map, lever_map = await _fetch_jobs_chunk(
-            repo, since, process_all, last_id, chunk_size
+        jobs = await repo.fetch_jobs_batch_keyset(
+            since=since,
+            process_all=process_all,
+            last_id=last_id,
+            limit=chunk_size,
         )
-        if not rows:
+        if not jobs:
             break
 
-        last_id = rows[-1]["id"]
+        last_id = jobs[-1].id
         batch_results = []
 
-        for row in rows:
+        for job in jobs:
             if limit and total_processed >= limit:
                 break
 
             total_processed += 1
-            location = row["location"]
+            location = job.location
 
             if not location:
                 continue
@@ -113,16 +114,14 @@ async def _process_test_mode_chunked(session: AsyncSession, since, process_all, 
             if parsed_result.get("state"):
                 parsed_result["state"] = normalize_state_name(parsed_result["state"])
 
-            metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
-
             final_result, source_used = _merge_location_results(
-                location, parsed_result, metadata_result, metadata_source
+                location, parsed_result, None, "fallback"
             )
 
             batch_results.append(
                 {
-                    "id": str(row["id"]),
-                    "source": str(row["source"]),
+                    "id": str(job.id),
+                    "source": str(job.source),
                     "original_location": location or "",
                     "city": final_result["city"] or "",
                     "state": final_result["state"] or "",

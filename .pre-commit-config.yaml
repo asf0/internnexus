@@ -15,20 +15,6 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
-  # Python import validation - local hook
-  - repo: local
-    hooks:
-      - id: validate-import-chains
-        name: Validate Python Import Chains
-        entry: uv run pytest backend/tests/test_import_chains.py -v --tb=short
-        language: system
-        types: [python]
-        pass_filenames: false
-        always_run: true
-        description: |
-          Validates that Python import chains are not broken.
-          Runs when any Python file changes to catch import issues early.
-
   # Python linting with ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0

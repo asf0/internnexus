@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import logging
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 
 from pipeline.embeddings.batch_processor import (
@@ -15,7 +17,7 @@ from pipeline.embeddings.batch_processor import (
 from pipeline.repositories.sqlalchemy_repo import Job
 
 if TYPE_CHECKING:
-    from pipeline.backend_bridge import EmbeddingService
+    from pipeline.embedding import QueryEmbeddingService as EmbeddingService
     from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -24,13 +26,13 @@ MAX_RETRY_ATTEMPTS = 2
 
 
 async def _process_retry_queue(
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     embedder: EmbeddingService,
     db: AsyncSession,
     semaphore: asyncio.Semaphore,
     batch_size: int,
     parallel_batches: int = 2,
-) -> tuple[int, int, int, list[tuple[int, str, str, int]]]:
+) -> tuple[int, int, int, list[tuple[UUID, str, str, int]]]:
     """Process all retry attempts for failed jobs.
 
     Args:
@@ -52,7 +54,7 @@ async def _process_retry_queue(
 
         logger.info(f"Retry attempt {retry_attempt}: {len(retry_queue)} failed jobs to retry")
 
-        backoff_delay = 2**retry_attempt
+        backoff_delay = (2**retry_attempt) + random.uniform(0, 0.5)
         logger.info(f"Waiting {backoff_delay}s before retry...")
         await asyncio.sleep(backoff_delay)
 
@@ -83,21 +85,21 @@ async def _process_retry_queue(
 
 def _collect_retry_items(
     failed: list[tuple[Job, BaseException]],
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     retry_attempt: int,
-) -> list[tuple[int, str, str, int]]:
+) -> list[tuple[UUID, str, str, int]]:
     """Collect failed jobs for retry or log as permanently failed."""
     for job, error in failed:
         error_type, _ = _classify_error(error)
         if retry_attempt < MAX_RETRY_ATTEMPTS:
-            retry_queue.append((int(job.id), error_type, str(error), retry_attempt))
+            retry_queue.append((job.id, error_type, str(error), retry_attempt))
         else:
             _log_failed_job(job, error_type, str(error), will_retry=False, retry_attempt=retry_attempt)
     return retry_queue
 
 
 async def _log_exhausted_retries(
-    retry_queue: list[tuple[int, str, str, int]],
+    retry_queue: list[tuple[UUID, str, str, int]],
     db: AsyncSession,
 ) -> int:
     """Log jobs that exhausted all retry attempts.
@@ -118,7 +120,7 @@ async def _log_exhausted_retries(
 
     exhausted_job_ids = [item[0] for item in retry_queue]
     exhausted_jobs = await _fetch_jobs_by_ids(db, exhausted_job_ids)
-    job_id_to_job = {int(job.id): job for job in exhausted_jobs}
+    job_id_to_job = {job.id: job for job in exhausted_jobs}
 
     error_count = 0
     for job_id, error_type, error_msg, attempts in retry_queue:

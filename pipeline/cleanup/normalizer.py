@@ -23,19 +23,12 @@ async def _normalize_existing_states(session: AsyncSession) -> int:
     await session.execute(text("UPDATE jobs SET city = TRIM(city) WHERE city IS NOT NULL"))
     await session.execute(text("UPDATE jobs SET country = TRIM(country) WHERE country IS NOT NULL"))
 
-    state_keys = list(COUNTRIES_AS_STATES.keys())
-    case_clauses = " WHEN ".join(
-        f"state = '{state}' THEN '{country}'" for state, country in COUNTRIES_AS_STATES.items()
-    )
-    case_clauses = f"CASE WHEN {case_clauses} END"
-    result = await session.execute(
-        text(f"""
-            UPDATE jobs SET country = {case_clauses}, state = NULL
-            WHERE state = ANY(:states)
-        """),
-        {"states": state_keys},
-    )
-    total_updated += result.rowcount or 0
+    for state, country in COUNTRIES_AS_STATES.items():
+        result = await session.execute(
+            text("UPDATE jobs SET country = :country, state = NULL WHERE state = :state"),
+            {"country": country, "state": state},
+        )
+        total_updated += result.rowcount or 0
 
     result = await session.execute(
         text("UPDATE jobs SET state = NULL WHERE state = ANY(:cities)"),
@@ -53,18 +46,12 @@ async def _normalize_existing_states(session: AsyncSession) -> int:
     state_mappings_null = [k for k, v in STATE_MAPPINGS.items() if v is None]
 
     if state_mappings_with_values:
-        case_clauses = " WHEN ".join(
-            f"state = '{state}' THEN '{new_state}'" for state, new_state in state_mappings_with_values.items()
-        )
-        case_clauses = f"CASE WHEN {case_clauses} END"
-        result = await session.execute(
-            text(f"""
-                UPDATE jobs SET state = {case_clauses}
-                WHERE state = ANY(:old_states)
-            """),
-            {"old_states": list(state_mappings_with_values.keys())},
-        )
-        total_updated += result.rowcount or 0
+        for old_state, new_state in state_mappings_with_values.items():
+            result = await session.execute(
+                text("UPDATE jobs SET state = :new_state WHERE state = :old_state"),
+                {"new_state": new_state, "old_state": old_state},
+            )
+            total_updated += result.rowcount or 0
 
     if state_mappings_null:
         result = await session.execute(

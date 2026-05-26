@@ -18,14 +18,8 @@ class Settings(BaseSettings):
     # Embedding configuration
     embedding_provider: str
     embedding_model: str
+    embedding_dimensions: int = 2560
     ollama_base_url: str
-
-    # Classification configuration
-    classification_model: str | None = None
-    classification_timeout_seconds: float = 90.0
-    classification_max_concurrent: int = 2
-    classification_keep_alive: str = "30m"
-    classification_num_predict: int = 64
 
     # Auth/JWT configuration
     auth_secret: str
@@ -41,17 +35,19 @@ class Settings(BaseSettings):
     # Redis configuration
     redis_url: str
 
-    # External API URLs (public endpoints)
-    greenhouse_api_url: str
-    lever_api_url: str
-    simplify_jobs_intern_url: str
-    simplify_jobs_new_grad_url: str
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("embedding_dimensions")
+    @classmethod
+    def validate_embedding_dimensions(cls, value: int) -> int:
+        if not 32 <= value <= 2560:
+            raise ValueError("embedding_dimensions must be between 32 and 2560")
+        return value
 
     @field_validator("auth_secret")
     @classmethod
@@ -67,14 +63,6 @@ class Settings(BaseSettings):
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
-
-    @property
-    def resolved_classification_model(self) -> str:
-        """Return configured classification model."""
-        model = self.classification_model
-        if not model:
-            raise ValueError("classification model not configured (set CLASSIFICATION_MODEL)")
-        return model
 
 
 @lru_cache

@@ -48,24 +48,19 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - REDIS_URL=redis://redis:6379/0
-      - AUTH_SECRET=${AUTH_SECRET}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
       - OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${OAUTH_ENCRYPTION_PUBLIC_KEY_B64}
       - OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${OAUTH_ENCRYPTION_PRIVATE_KEY_B64}
-      - GREENHOUSE_API_URL=${GREENHOUSE_API_URL}
-      - LEVER_API_URL=${LEVER_API_URL}
-      - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
-      - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
       - CORS_ORIGINS=${CORS_ORIGINS}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"]
+    command: ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -80,7 +75,7 @@ services:
       dockerfile: pipeline/Dockerfile
     container_name: internnexus-pipeline
     restart: unless-stopped
-    command: ["python", "-m", "pipeline.run_pipeline", "-c"]
+    command: ["internnexus-pipeline", "-c"]
     deploy:
       resources:
         limits:
@@ -96,12 +91,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
-      - REDIS_URL=redis://redis:6379/0
-      - AUTH_SECRET=${AUTH_SECRET}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - OLLAMA_CLASSIFICATION_URL=${OLLAMA_CLASSIFICATION_URL}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
       - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
+      - CLASSIFICATION_BATCH_SIZE=${CLASSIFICATION_BATCH_SIZE:-10}
       - GREENHOUSE_API_URL=${GREENHOUSE_API_URL}
       - LEVER_API_URL=${LEVER_API_URL}
       - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
@@ -112,8 +108,6 @@ services:
       - ./data:/app/data
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   frontend:

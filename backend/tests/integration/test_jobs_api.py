@@ -210,7 +210,7 @@ class TestJobsAPI:
         response = await client.get("/jobs/invalid-uuid")
 
         # Assert
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_get_job_inactive(self, client):

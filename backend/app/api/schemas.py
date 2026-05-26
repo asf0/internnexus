@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobResponse(BaseModel):
@@ -23,7 +23,7 @@ class JobResponse(BaseModel):
     posted_at: datetime | None
     is_active: bool
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class JobListResponse(BaseModel):

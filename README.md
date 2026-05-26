@@ -81,14 +81,13 @@ docker compose up -d db redis
 
 ### 3. Install & Run Backend
 ```bash
-# Install from project root
-uv pip install -e ".[dev]"
+cd backend
+uv sync --group dev
 
 # Run database migrations
-uv run alembic -c backend/alembic.ini upgrade head
+uv run alembic -c alembic.ini upgrade head
 
 # Start the backend server
-cd backend
 uv run uvicorn app.main:app --reload
 ```
 
@@ -103,8 +102,9 @@ bun dev
 
 ### 5. Ingest Jobs
 ```bash
-# Run pipeline from project root
-uv run python pipeline/run_pipeline.py --skip-discover
+cd pipeline
+uv sync --group dev
+uv run internnexus-pipeline --skip-discover
 ```
 
 **Done!** Visit http://localhost:3000
@@ -126,32 +126,33 @@ The ingestion system runs 7 sequential steps:
 | 7 | **Embed** | Generate vector embeddings for matching |
 
 ```bash
-# Run full pipeline
-uv run python -m pipeline.run_pipeline
+# Run from pipeline/
+cd pipeline
+uv run internnexus-pipeline
 
 # Skip discovery (faster, uses cached companies)
-uv run python -m pipeline.run_pipeline --skip-discover
+uv run internnexus-pipeline --skip-discover
 
 # Run continuously (interval from config)
-uv run python -m pipeline.run_pipeline -c
+uv run internnexus-pipeline -c
 
 # Run with custom interval
-uv run python -m pipeline.run_pipeline -c --interval 3600
+uv run internnexus-pipeline -c --interval 3600
 
 # Single step execution
-uv run python -m pipeline.run_pipeline --step discover
-uv run python -m pipeline.run_pipeline --step ingest
-uv run python -m pipeline.run_pipeline --step cleanup
-uv run python -m pipeline.run_pipeline --step embed
+uv run internnexus-pipeline --step discover
+uv run internnexus-pipeline --step ingest
+uv run internnexus-pipeline --step cleanup
+uv run internnexus-pipeline --step embed
 
 # Utility commands
-uv run python -m pipeline.run_pipeline --dry-run    # Preview without changes
-uv run python -m pipeline.run_pipeline --resume     # Resume failed run
-uv run python -m pipeline.run_pipeline --check      # Health checks only
-uv run python -m pipeline.run_pipeline --fresh      # Clear incomplete runs
+uv run internnexus-pipeline --dry-run    # Preview without changes
+uv run internnexus-pipeline --resume     # Resume failed run
+uv run internnexus-pipeline --check      # Health checks only
+uv run internnexus-pipeline --fresh      # Clear incomplete runs
 
 # Re-process ALL locations (careful!)
-uv run python -m pipeline.run_pipeline --step cleanup --all
+uv run internnexus-pipeline --step cleanup --all
 ```
 
 ---
@@ -165,10 +166,15 @@ Documentation is still lightweight. For now, use `README.md`, `backend/.env.exam
 ## 🧪 Testing
 
 ```bash
-# Run from project root
-uv run pytest backend/tests                    # Run all tests
-uv run pytest backend/tests --cov=backend/app  # With coverage
-uv run pytest backend/tests -v                 # Verbose output
+# Backend
+cd backend && uv run pytest tests
+cd backend && uv run pytest tests --cov=app
+
+# Pipeline
+cd pipeline && uv run pytest tests
+
+# Frontend
+cd frontend && bun run lint && bun test
 ```
 
 ---
@@ -230,8 +236,10 @@ git clone https://github.com/your-username/internjobs.git
 # 2. Create branch
 git checkout -b feature/your-feature
 
-# 3. Make changes and test
-uv run pytest backend/tests
+# 3. Make changes and run the checks for the surfaces you touched
+cd backend && uv run pytest tests
+cd pipeline && uv run pytest tests
+cd frontend && bun run lint && bun test
 
 # 4. Commit and push
 git commit -m "Add your feature"
@@ -257,6 +265,8 @@ MIT License - see [LICENSE](LICENSE) file
 ---
 
 ## 📞 Support
+
+Python services now have independent project roots: `backend/` and `pipeline/`. There is no shared Python package between them; the PostgreSQL schema and backend admin API are the integration contracts.
 
 - 📖 Documentation (coming soon)
 - 🐛 [Issue Tracker](../../issues)

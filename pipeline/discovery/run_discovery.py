@@ -1,10 +1,7 @@
 import asyncio
 import logging
-from .browser_discovery import (
-    discover_with_browser,
-    save_discovered_companies,
-    load_progress,
-)
+
+from .company_discovery import discover_companies, load_progress
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,9 +10,8 @@ logging.basicConfig(
 
 
 async def run():
-    print("Starting browser discovery...")
-    results = await discover_with_browser()
-    save_discovered_companies(results)
+    print("Starting SearxNG company discovery...")
+    results = await discover_companies()
 
     # Print summary
     print("\n" + "=" * 60)
@@ -30,8 +26,6 @@ async def run():
     progress = load_progress()
     if progress["metadata"]["status"] == "complete":
         print("\n✅ Discovery is COMPLETE")
-    elif progress["metadata"]["status"] == "blocked":
-        print("\n⚠️  Discovery was BLOCKED - run again to resume")
     else:
         print("\n⏸️  Discovery PAUSED - run again to resume")
 

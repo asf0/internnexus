@@ -78,7 +78,7 @@ class MatchCacheService:
             if result:
                 logger.debug(f"Cached {len(matches)} matches for user {user_id} session {session_id} (TTL: {ttl}s)")
             return result
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to cache matches for user {user_id} session {session_id}: {e}")
             return False
 
@@ -138,7 +138,7 @@ class MatchCacheService:
             )
             return (paginated, total_count)
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to retrieve matches for user {user_id} session {session_id}: {e}")
             return None
 
@@ -172,7 +172,7 @@ class MatchCacheService:
 
             return data
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to retrieve matches for user {user_id} session {session_id}: {e}")
             return None
 
@@ -200,7 +200,7 @@ class MatchCacheService:
 
             return len(data)
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to get match count for user {user_id} session {session_id}: {e}")
             return None
 
@@ -229,7 +229,7 @@ class MatchCacheService:
             else:
                 logger.debug(f"No cached matches to delete for user {user_id} session {session_id}")
             return result
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to delete matches for user {user_id} session {session_id}: {e}")
             return False
 
@@ -246,7 +246,7 @@ class MatchCacheService:
         key = self._make_resume_hash_key(user_id, resume_hash, min_score)
         try:
             return await redis.set(key, session_id, ttl=ttl)
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to cache resume hash mapping for user {user_id} session {session_id}: {e}")
             return False
 
@@ -264,7 +264,7 @@ class MatchCacheService:
             if isinstance(cached, str) and cached.strip():
                 return cached
             return None
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.warning(f"Failed to read resume hash mapping for user {user_id}, hash {resume_hash[:12]}: {e}")
             return None
 

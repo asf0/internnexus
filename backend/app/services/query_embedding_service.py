@@ -65,7 +65,18 @@ class QueryEmbeddingService:
         self._settings = get_settings()
         self._provider = self._settings.embedding_provider
         self._model = model or self._settings.embedding_model
+        self._dimensions = self._settings.embedding_dimensions
         self._base_url = self._settings.ollama_base_url.rstrip("/")
+
+    def _coerce_embedding_dimensions(self, embedding: list[float]) -> list[float]:
+        if len(embedding) == self._dimensions:
+            return embedding
+        if len(embedding) > self._dimensions:
+            return embedding[: self._dimensions]
+        raise EmbeddingError(
+            f"Embedding model returned {len(embedding)} dimensions, expected at least {self._dimensions}",
+            retryable=False,
+        )
 
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
@@ -74,21 +85,25 @@ class QueryEmbeddingService:
         try:
             if self._provider == "lmstudio":
                 return await self._embed_lmstudio(text)
-            else:
-                return await self._embed_ollama(text)
+            return await self._embed_ollama(text)
         except asyncio.CancelledError:
             logger.warning("Embedding request cancelled")
             raise
 
     async def embed_many(self, texts: Iterable[str], batch_size: int = 3) -> list[list[float]]:
-        """Generate embeddings for multiple texts with concurrent batching."""
-        texts_list = list(texts)
-        results = []
+        """Generate embeddings for multiple texts with provider-aware batching."""
+        texts_list = [clean_text_for_embedding(text) for text in texts]
+        if not texts_list:
+            return []
 
+        if self._provider == "lmstudio":
+            return await self._embed_many_lmstudio(texts_list, batch_size=batch_size)
+
+        results = []
         for i in range(0, len(texts_list), batch_size):
             batch = texts_list[i : i + batch_size]
             batch_results = await asyncio.gather(
-                *[self.embed(t) for t in batch], return_exceptions=True
+                *[self._embed_ollama(t) for t in batch], return_exceptions=True
             )
 
             for j, result in enumerate(batch_results):
@@ -152,18 +167,17 @@ class QueryEmbeddingService:
                     f"Ollama rate limited. Base URL: {self._base_url}. Retry-After: {retry_after}",
                     retry_after=retry_after,
                 ) from exc
-            elif status_code >= 500:
+            if status_code >= 500:
                 raise EmbeddingError(
                     f"Ollama server error. Status: {status_code}. "
                     f"Base URL: {self._base_url}. Response: {detail}",
                     retryable=True,
                 ) from exc
-            else:
-                raise EmbeddingError(
-                    f"Ollama request failed. Status: {status_code}. "
-                    f"Base URL: {self._base_url}. Response: {detail}",
-                    retryable=False,
-                ) from exc
+            raise EmbeddingError(
+                f"Ollama request failed. Status: {status_code}. "
+                f"Base URL: {self._base_url}. Response: {detail}",
+                retryable=False,
+            ) from exc
 
         data = response.json()
         if "embedding" not in data:
@@ -173,7 +187,7 @@ class QueryEmbeddingService:
                 retryable=False,
             )
 
-        return data["embedding"]
+        return self._coerce_embedding_dimensions(data["embedding"])
 
     async def _embed_lmstudio(self, text: str) -> list[float]:
         """Generate embedding using LM Studio OpenAI-compatible API."""
@@ -182,16 +196,111 @@ class QueryEmbeddingService:
         except asyncio.CancelledError:
             raise
 
+    def _parse_lmstudio_embeddings(self, data: dict, expected_count: int) -> list[list[float]]:
+        items = data.get("data")
+        if not isinstance(items, list) or len(items) != expected_count:
+            raise EmbeddingError(
+                f"LM Studio response returned {len(items) if isinstance(items, list) else 0} embeddings, "
+                f"expected {expected_count}. Base URL: {self._base_url}. Response keys: {list(data.keys())}",
+                retryable=False,
+            )
+
+        ordered: list[list[float] | None] = [None] * expected_count
+        for position, item in enumerate(items):
+            if not isinstance(item, dict) or "embedding" not in item:
+                raise EmbeddingError(
+                    f"LM Studio response missing embedding at position {position}. "
+                    f"Base URL: {self._base_url}",
+                    retryable=False,
+                )
+
+            raw_index = item.get("index", position)
+            if not isinstance(raw_index, int) or raw_index < 0 or raw_index >= expected_count:
+                raise EmbeddingError(
+                    f"LM Studio response returned invalid embedding index {raw_index}. "
+                    f"Base URL: {self._base_url}",
+                    retryable=False,
+                )
+            ordered[raw_index] = self._coerce_embedding_dimensions(item["embedding"])
+
+        missing = [index for index, embedding in enumerate(ordered) if embedding is None]
+        if missing:
+            raise EmbeddingError(
+                f"LM Studio response missing embedding indexes {missing}. Base URL: {self._base_url}",
+                retryable=False,
+            )
+        return [embedding for embedding in ordered if embedding is not None]
+
+    def _handle_lmstudio_http_status(self, exc: httpx.HTTPStatusError) -> None:
+        status_code = exc.response.status_code if exc.response else 0
+        detail = exc.response.text[:500] if exc.response is not None else ""
+
+        if status_code == 429:
+            retry_after = None
+            if exc.response and "retry-after" in exc.response.headers:
+                try:
+                    retry_after = float(exc.response.headers["retry-after"])
+                except (ValueError, TypeError):
+                    pass
+            raise RateLimitError(
+                f"LM Studio rate limited. Base URL: {self._base_url}. Retry-After: {retry_after}",
+                retry_after=retry_after,
+            ) from exc
+        if status_code >= 500:
+            raise EmbeddingError(
+                f"LM Studio server error. Status: {status_code}. "
+                f"Base URL: {self._base_url}. Response: {detail}",
+                retryable=True,
+            ) from exc
+        raise EmbeddingError(
+            f"LM Studio request failed. Status: {status_code}. "
+            f"Base URL: {self._base_url}. Response: {detail}",
+            retryable=False,
+        ) from exc
+
     @_retry_decorator
     async def _embed_lmstudio_impl(self, text: str) -> list[float]:
         """Generate embedding using LM Studio OpenAI-compatible API (with retry)."""
+        return (await self._embed_lmstudio_many_impl([text]))[0]
+
+    async def _embed_many_lmstudio(self, texts: list[str], batch_size: int) -> list[list[float]]:
+        results: list[list[float]] = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            try:
+                results.extend(await self._embed_lmstudio_many_impl(batch))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "LM Studio batch embedding failed for %d texts; retrying individually: %s",
+                    len(batch),
+                    exc,
+                )
+                for offset, text in enumerate(batch):
+                    try:
+                        results.append(await self._embed_lmstudio_impl(text))
+                    except Exception as item_exc:
+                        raise EmbeddingError(
+                            f"Failed to embed text at index {i + offset}: {item_exc}",
+                            retryable=_is_retryable_exception(item_exc),
+                        ) from item_exc
+        return results
+
+    @_retry_decorator
+    async def _embed_lmstudio_many_impl(self, texts: list[str]) -> list[list[float]]:
+        """Generate one or more embeddings in a single OpenAI-compatible API request."""
+        if not texts:
+            return []
+
         client = get_http_client()
         try:
             response = await client.post(
                 f"{self._base_url}/v1/embeddings",
                 json={
                     "model": self._model,
-                    "input": text,
+                    "input": texts if len(texts) > 1 else texts[0],
+                    "dimensions": self._dimensions,
                 },
                 timeout=60.0,
             )
@@ -209,39 +318,7 @@ class QueryEmbeddingService:
                 retryable=True,
             ) from exc
         except httpx.HTTPStatusError as exc:
-            status_code = exc.response.status_code if exc.response else 0
-            detail = exc.response.text[:500] if exc.response is not None else ""
-
-            if status_code == 429:
-                retry_after = None
-                if exc.response and "retry-after" in exc.response.headers:
-                    try:
-                        retry_after = float(exc.response.headers["retry-after"])
-                    except (ValueError, TypeError):
-                        pass
-                raise RateLimitError(
-                    f"LM Studio rate limited. Base URL: {self._base_url}. Retry-After: {retry_after}",
-                    retry_after=retry_after,
-                ) from exc
-            elif status_code >= 500:
-                raise EmbeddingError(
-                    f"LM Studio server error. Status: {status_code}. "
-                    f"Base URL: {self._base_url}. Response: {detail}",
-                    retryable=True,
-                ) from exc
-            else:
-                raise EmbeddingError(
-                    f"LM Studio request failed. Status: {status_code}. "
-                    f"Base URL: {self._base_url}. Response: {detail}",
-                    retryable=False,
-                ) from exc
+            self._handle_lmstudio_http_status(exc)
 
         data = response.json()
-        if "data" not in data or not data["data"] or "embedding" not in data["data"][0]:
-            raise EmbeddingError(
-                f"LM Studio response missing embedding data. "
-                f"Base URL: {self._base_url}. Response keys: {list(data.keys())}",
-                retryable=False,
-            )
-
-        return data["data"][0]["embedding"]
+        return self._parse_lmstudio_embeddings(data, len(texts))

@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import extract, func, or_, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,6 +33,8 @@ from app.api.admin_schemas import (
     HourlyClicks,
     JobClickResponse,
     PipelineRunResponse,
+    PipelineCommandResponse,
+    PipelineCommandTriggerRequest,
     TopJobByClicks,
     UserCreateRequest,
     UserNotesUpdateRequest,
@@ -42,6 +45,7 @@ from app.auth.jwt import get_password_hash
 from app.db import get_db
 from app.models import (
     Admin,
+    AdminAuditLog,
     AdminRole,
     Job,
     JobClick,
@@ -49,6 +53,8 @@ from app.models import (
     JobType,
     PipelineRun,
     PipelineRunStatus,
+    PipelineCommand,
+    PipelineCommandStatus,
     User,
     WorkMode,
 )
@@ -58,9 +64,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+VALID_PIPELINE_STEPS = {"discover", "sync_inactive", "ingest", "delete_inactive", "cleanup", "classify", "embed"}
+
+
+async def _commit_or_500(db: AsyncSession, operation: str) -> None:
+    try:
+        await db.commit()
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        logger.exception("Database mutation failed during %s", operation)
+        raise HTTPException(status_code=500, detail="Database operation failed") from exc
+
+
+async def _add_admin_audit_log(
+    db: AsyncSession,
+    *,
+    actor_user_id: UUID | None,
+    action: str,
+    target_type: str,
+    target_id: UUID | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    actor_email = None
+    if actor_user_id is not None:
+        actor = await db.get(User, actor_user_id)
+        actor_email = actor.email if actor else None
+    db.add(
+        AdminAuditLog(
+            actor_user_id=actor_user_id,
+            actor_email=actor_email,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            metadata_=metadata or {},
+        )
+    )
+
 
 @router.get("/jobs", response_model=AdminListResponse[AdminJobResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def list_jobs(
     request: Request,
     admin: AdminDep,
@@ -152,7 +194,7 @@ async def list_jobs(
 
 
 @router.get("/jobs/stats")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_job_stats(
     request: Request,
     admin: AdminDep,
@@ -203,7 +245,7 @@ async def get_job_stats(
 
 
 @router.get("/jobs/{job_id}", response_model=AdminJobResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_job(
     request: Request,
     job_id: UUID,
@@ -254,7 +296,7 @@ async def get_job(
 
 
 @router.patch("/jobs/{job_id}", response_model=AdminJobResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_write"])
 async def update_job(
     request: Request,
     job_id: UUID,
@@ -291,7 +333,15 @@ async def update_job(
     for field, value in update_fields.items():
         setattr(job, field, value)
 
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        action="job.update",
+        target_type="job",
+        target_id=job_id,
+        metadata={"fields": sorted(update_fields)},
+    )
+    await _commit_or_500(db, "update job")
     await db.refresh(job)
 
     # Get click count
@@ -304,7 +354,7 @@ async def update_job(
 
 
 @router.delete("/jobs/{job_id}")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_write"])
 async def delete_job(
     request: Request,
     job_id: UUID,
@@ -334,13 +384,20 @@ async def delete_job(
 
     # Soft delete
     job.is_active = False
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        action="job.deactivate",
+        target_type="job",
+        target_id=job_id,
+    )
+    await _commit_or_500(db, "deactivate job")
 
     return {"message": "Job deactivated"}
 
 
 @router.post("/jobs", response_model=AdminJobResponse, status_code=201)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_write"])
 async def create_job(
     request: Request,
     data: AdminJobCreateRequest,
@@ -415,14 +472,23 @@ async def create_job(
         is_active=True,
     )
     db.add(new_job)
-    await db.commit()
+    await db.flush()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        action="job.create",
+        target_type="job",
+        target_id=new_job.id,
+        metadata={"source": JobSource.manual.value},
+    )
+    await _commit_or_500(db, "create job")
     await db.refresh(new_job)
 
     return job_to_admin_response(new_job, click_count=0)
 
 
 @router.delete("/jobs/{job_id}/hard")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def hard_delete_job(
     request: Request,
     job_id: UUID,
@@ -461,14 +527,22 @@ async def hard_delete_job(
         )
 
     # Hard delete
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="job.hard_delete",
+        target_type="job",
+        target_id=job_id,
+        metadata={"title": job.title, "company": job.company},
+    )
     await db.delete(job)
-    await db.commit()
+    await _commit_or_500(db, "hard delete job")
 
     return {"message": "Job permanently deleted"}
 
 
 @router.post("/jobs/bulk")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_bulk"])
 async def bulk_job_action(
     request: Request,
     data: AdminJobBulkRequest,
@@ -510,7 +584,14 @@ async def bulk_job_action(
     for job in jobs:
         job.is_active = new_is_active
 
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action=f"job.bulk_{data.action}",
+        target_type="job",
+        metadata={"job_ids": [str(job_id) for job_id in data.job_ids], "affected_count": len(jobs)},
+    )
+    await _commit_or_500(db, "bulk job action")
 
     return {"affected_count": len(jobs), "action": data.action}
 
@@ -528,7 +609,7 @@ class GrantAdminRequest(BaseModel):
 
 
 @router.get("/users", response_model=AdminListResponse[AdminUserResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def list_users(
     request: Request,
     admin: AdminDep,
@@ -608,7 +689,7 @@ async def list_users(
 
 
 @router.get("/users/{user_id}", response_model=AdminUserResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_user(
     request: Request,
     user_id: UUID,
@@ -648,7 +729,7 @@ async def get_user(
 
 
 @router.post("/users/{user_id}/grant-admin")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def grant_admin(
     request: Request,
     user_id: UUID,
@@ -708,13 +789,21 @@ async def grant_admin(
         )
         db.add(new_admin)
 
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="admin.grant",
+        target_type="user",
+        target_id=user_id,
+        metadata={"role": role.value},
+    )
+    await _commit_or_500(db, "grant admin")
 
     return {"message": "Admin access granted", "role": role.value}
 
 
 @router.delete("/users/{user_id}/revoke-admin")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def revoke_admin(
     request: Request,
     user_id: UUID,
@@ -746,14 +835,21 @@ async def revoke_admin(
     if admin.user_id == super_admin.user_id:
         raise HTTPException(status_code=400, detail="Cannot revoke your own admin access")
 
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="admin.revoke",
+        target_type="user",
+        target_id=user_id,
+    )
     await db.delete(admin)
-    await db.commit()
+    await _commit_or_500(db, "revoke admin")
 
     return {"message": "Admin access revoked"}
 
 
 @router.post("/users/{user_id}/deactivate")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def deactivate_user(
     request: Request,
     user_id: UUID,
@@ -789,13 +885,21 @@ async def deactivate_user(
     user.is_deleted = True
     user.deleted_at = datetime.now(timezone.utc)
 
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.deactivate",
+        target_type="user",
+        target_id=user_id,
+        metadata={"email": user.email},
+    )
+    await _commit_or_500(db, "deactivate user")
 
     return {"message": "User deactivated"}
 
 
 @router.post("/users/{user_id}/reactivate")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_write"])
 async def reactivate_user(
     request: Request,
     user_id: UUID,
@@ -827,13 +931,21 @@ async def reactivate_user(
     user.is_deleted = False
     user.deleted_at = None
 
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.reactivate",
+        target_type="user",
+        target_id=user_id,
+        metadata={"email": user.email},
+    )
+    await _commit_or_500(db, "reactivate user")
 
     return {"message": "User reactivated"}
 
 
 @router.post("/users", response_model=AdminUserResponse, status_code=201)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def create_user(
     request: Request,
     data: UserCreateRequest,
@@ -870,14 +982,23 @@ async def create_user(
         email_verified=False,
     )
     db.add(new_user)
-    await db.commit()
+    await db.flush()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.create",
+        target_type="user",
+        target_id=new_user.id,
+        metadata={"email": new_user.email},
+    )
+    await _commit_or_500(db, "create user")
     await db.refresh(new_user)
 
     return user_to_admin_response(new_user)
 
 
 @router.delete("/users/{user_id}/hard")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def hard_delete_user(
     request: Request,
     user_id: UUID,
@@ -910,14 +1031,22 @@ async def hard_delete_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     # Hard delete user
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.hard_delete",
+        target_type="user",
+        target_id=user_id,
+        metadata={"email": user.email},
+    )
     await db.delete(user)
-    await db.commit()
+    await _commit_or_500(db, "hard delete user")
 
     return {"message": "User permanently deleted"}
 
 
 @router.post("/users/{user_id}/reset-password")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_destructive"])
 async def reset_user_password(
     request: Request,
     user_id: UUID,
@@ -947,12 +1076,21 @@ async def reset_user_password(
 
     # TODO: Implement email sending for password reset
     logger.info(f"Password reset requested for user {user_id} by super admin {super_admin.user_id}")
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.password_reset_requested",
+        target_type="user",
+        target_id=user_id,
+        metadata={"email": user.email},
+    )
+    await _commit_or_500(db, "request password reset")
 
     return {"message": "Password reset email sent (placeholder)"}
 
 
 @router.get("/users/{user_id}/clicks", response_model=AdminListResponse[JobClickResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_user_clicks(
     request: Request,
     user_id: UUID,
@@ -1035,7 +1173,7 @@ async def get_user_clicks(
 
 
 @router.patch("/users/{user_id}/notes")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_write"])
 async def update_user_notes(
     request: Request,
     user_id: UUID,
@@ -1070,13 +1208,20 @@ async def update_user_notes(
         text("UPDATE users SET notes = :notes WHERE id = :user_id"),
         {"notes": data.notes, "user_id": user_id},
     )
-    await db.commit()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=super_admin.user_id,
+        action="user.notes_update",
+        target_type="user",
+        target_id=user_id,
+    )
+    await _commit_or_500(db, "update user notes")
 
     return {"message": "User notes updated"}
 
 
 @router.get("/users/export")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def export_users_csv(
     request: Request,
     admin: AdminDep,
@@ -1168,7 +1313,7 @@ async def export_users_csv(
 
 
 @router.get("/pipeline-runs/stats")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_pipeline_stats(
     request: Request,
     admin: AdminDep,
@@ -1241,7 +1386,7 @@ async def get_pipeline_stats(
 
 
 @router.get("/pipeline-runs/latest", response_model=PipelineRunResponse | None)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_latest_pipeline_run(
     request: Request,
     admin: AdminDep,
@@ -1267,7 +1412,7 @@ async def get_latest_pipeline_run(
 
 
 @router.get("/pipeline-runs", response_model=AdminListResponse[PipelineRunResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def list_pipeline_runs(
     request: Request,
     admin: AdminDep,
@@ -1327,8 +1472,53 @@ async def list_pipeline_runs(
     )
 
 
+
+
+@router.post("/pipeline-runs/trigger", response_model=PipelineCommandResponse, status_code=202)
+@limiter.limit(RATE_LIMITS["admin_write"])
+async def trigger_pipeline_run(
+    request: Request,
+    data: PipelineCommandTriggerRequest,
+    admin: AdminDep,
+    db: AsyncSession = Depends(get_db),
+) -> PipelineCommandResponse:
+    """Enqueue a pipeline command for the pipeline process to claim.
+
+    The backend records intent only; it does not import or execute pipeline code.
+    """
+    if data.step is not None and data.step not in VALID_PIPELINE_STEPS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid step. Must be one of: {sorted(VALID_PIPELINE_STEPS)}",
+        )
+
+    command = PipelineCommand(
+        status=PipelineCommandStatus.pending,
+        step=data.step,
+        skip_discover=data.skip_discover,
+        dry_run=data.dry_run,
+        process_all=data.process_all,
+        test_mode=data.test_mode,
+        limit=data.limit,
+        requested_by=admin.user_id,
+    )
+    db.add(command)
+    await db.flush()
+    await _add_admin_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        action="pipeline_command.create",
+        target_type="pipeline_command",
+        target_id=command.id,
+        metadata={"step": command.step, "dry_run": command.dry_run, "limit": command.limit},
+    )
+    await _commit_or_500(db, "trigger pipeline run")
+    await db.refresh(command)
+    return PipelineCommandResponse.model_validate(command)
+
+
 @router.get("/pipeline-runs/{run_id}", response_model=PipelineRunResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_pipeline_run(
     request: Request,
     admin: AdminDep,
@@ -1364,7 +1554,7 @@ async def get_pipeline_run(
 
 
 @router.get("/clicks/by-user", response_model=list[ClicksByUserResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_clicks_by_user(
     request: Request,
     _admin: AdminDep,
@@ -1412,7 +1602,7 @@ async def get_clicks_by_user(
 
 
 @router.get("/clicks/stats", response_model=ClickStatsResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_click_stats(
     request: Request,
     _admin: AdminDep,
@@ -1612,7 +1802,7 @@ async def get_click_stats(
 
 
 @router.get("/clicks", response_model=AdminListResponse[JobClickResponse])
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def list_clicks(
     request: Request,
     _admin: AdminDep,
@@ -1689,7 +1879,7 @@ async def list_clicks(
 
 
 @router.get("/clicks/by-day")
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_clicks_by_day(
     request: Request,
     _admin: AdminDep,
@@ -1748,7 +1938,7 @@ async def get_clicks_by_day(
 
 
 @router.get("/clicks/date/{date}", response_model=DayClickStatsResponse)
-@limiter.limit(RATE_LIMITS["admin"])
+@limiter.limit(RATE_LIMITS["admin_read"])
 async def get_clicks_by_date(
     request: Request,
     date: str,  # Format: YYYY-MM-DD

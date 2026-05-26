@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from slowapi.errors import RateLimitExceeded
 
 from app.api.auth import router as auth_router
@@ -14,7 +15,8 @@ from app.api.admin import router as admin_router
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
 from app.api.users import router as users_router
-from app.cache.redis_pool import close_redis_pool
+from app.cache.redis_pool import close_redis_pool, get_redis
+from app.config import get_settings
 from app.db import async_engine
 from app.http_client.client import close_http_client
 from app.middleware.logging import RequestLoggingMiddleware
@@ -23,7 +25,11 @@ from app.middleware.security import SecurityHeadersMiddleware
 from app.rate_limiter import RATE_LIMITS, limiter
 from app.services.errors import APIError
 
-logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[logging.StreamHandler()])
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 
 
 @asynccontextmanager
@@ -80,3 +86,31 @@ app.include_router(admin_router, tags=["admin"])
 @limiter.limit(RATE_LIMITS["health"])
 def health_check(request: Request) -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/ready")
+@limiter.limit(RATE_LIMITS["health"])
+async def readiness_check(request: Request) -> dict[str, str | dict[str, str]]:
+    checks: dict[str, str] = {}
+    try:
+        async with async_engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = "error"
+        raise APIError(error="DATABASE_UNAVAILABLE", message="Database unavailable", status_code=503, details=checks) from exc
+
+    settings = get_settings()
+    if settings.redis_url:
+        try:
+            client = await get_redis()
+            await client.ping()
+            await client.aclose()
+            checks["redis"] = "ok"
+        except Exception as exc:
+            checks["redis"] = "error"
+            raise APIError(error="REDIS_UNAVAILABLE", message="Redis unavailable", status_code=503, details=checks) from exc
+    else:
+        checks["redis"] = "not_configured"
+
+    return {"status": "ready", "checks": checks}

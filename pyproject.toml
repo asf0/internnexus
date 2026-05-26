@@ -1,3 +1,6 @@
+# Transitional root project kept for repo-wide compatibility during the split.
+# Service-local project metadata in backend/ and pipeline/
+# is now the authoritative setup for Python development.
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -44,8 +47,10 @@ dev = [
     "pyright>=1.1.400",
 ]
 
-[tool.setuptools.package-dir]
-"" = "backend"
+[tool.setuptools.packages.find]
+where = ["backend", "."]
+include = ["app*"]
+namespaces = true
 
 [tool.ruff]
 line-length = 120

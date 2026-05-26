@@ -597,7 +597,7 @@ async def match_profile_resume(
     settings = get_settings()
     if user_resume.embedding_model != settings.embedding_model:
         needs_reembed = True
-    if user_resume.embedding_dim and user_resume.embedding_dim != 1024:
+    if user_resume.embedding_dim and user_resume.embedding_dim != settings.embedding_dimensions:
         needs_reembed = True
     if user_resume.resume_embedding is None:
         needs_reembed = True

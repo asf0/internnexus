@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mappers import job_to_response
@@ -53,6 +54,28 @@ async def _get_cache_service_dependency() -> RedisService:
     return await get_redis_service()
 
 
+
+
+async def _get_saved_job_ids(db: AsyncSession, user: User | None, saved_only: bool) -> list[UUID] | None:
+    if not saved_only:
+        return None
+    if not user:
+        return []
+    saved_ids_result = await db.execute(
+        select(SavedJob.job_id)
+        .where(SavedJob.user_id == user.id)
+        .order_by(SavedJob.created_at.desc())
+    )
+    return list(saved_ids_result.scalars().all())
+
+
+async def _commit_or_500(db: AsyncSession, operation: str) -> None:
+    try:
+        await db.commit()
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to {operation}") from exc
+
 async def _get_job_search_service_dependency(
     db: AsyncSession = Depends(get_db),
     cache: RedisService = Depends(_get_cache_service_dependency),
@@ -80,16 +103,9 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
 ) -> JobListResponse:
     """List jobs with optional filters and search."""
-    saved_job_ids = None
-    if saved_only:
-        if not user:
-            return JobListResponse(items=[], total=0, page=page, page_size=page_size)
-        saved_ids_result = await db.execute(
-            select(SavedJob.job_id)
-            .where(SavedJob.user_id == user.id)
-            .order_by(SavedJob.created_at.desc())
-        )
-        saved_job_ids = list(saved_ids_result.scalars().all())
+    saved_job_ids = await _get_saved_job_ids(db, user, saved_only)
+    if saved_only and not saved_job_ids:
+        return JobListResponse(items=[], total=0, page=page, page_size=page_size)
 
     params = JobSearchParams(
         page=page,
@@ -149,16 +165,9 @@ async def get_locations(
     Facet behavior: location counts ignore current location selection while applying
     all other active filters.
     """
-    saved_job_ids = None
-    if saved_only:
-        if not user:
-            return []
-        saved_ids_result = await db.execute(
-            select(SavedJob.job_id)
-            .where(SavedJob.user_id == user.id)
-            .order_by(SavedJob.created_at.desc())
-        )
-        saved_job_ids = list(saved_ids_result.scalars().all())
+    saved_job_ids = await _get_saved_job_ids(db, user, saved_only)
+    if saved_only and not saved_job_ids:
+        return []
 
     params = JobSearchParams(
         page=1,
@@ -227,18 +236,11 @@ async def get_categories(
 @limiter.limit(RATE_LIMITS["jobs_detail"])
 async def get_job(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     db: AsyncSession = Depends(get_db),
     cache: RedisService = Depends(_get_cache_service_dependency),
 ) -> JobResponse:
     """Get a single job by ID (cached 5 min)."""
-    from uuid import UUID
-
-    try:
-        uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
     # Try cache first
     cache_key = f"job:{job_id}"
     cached = await cache.get(cache_key)
@@ -247,7 +249,7 @@ async def get_job(
 
     # Cache miss - fetch from DB
     repo = JobRepository(db)
-    job = await repo.get_by_id(uuid)
+    job = await repo.get_by_id(job_id)
 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -308,7 +310,7 @@ async def track_job_click(
     )
     db.add(click)
 
-    await db.commit()
+    await _commit_or_500(db, "track job click")
 
     # Add UTM params to apply URL
     apply_url = add_utm_params(

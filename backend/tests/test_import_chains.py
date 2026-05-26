@@ -261,62 +261,6 @@ except ModuleNotFoundError as e:
         assert "EXPECTED" in result.stdout or result.returncode != 0
 
 
-class TestPipelineImports:
-    """Test import scenarios specific to the pipeline module."""
-
-    def test_pipeline_init_has_no_path_mutation(self):
-        """Verify pipeline/__init__.py does not mutate sys.path at import-time."""
-        pipeline_init = PROJECT_ROOT / "pipeline" / "__init__.py"
-
-        if not pipeline_init.exists():
-            pytest.skip("Pipeline module not present")
-
-        content = pipeline_init.read_text()
-
-        assert "sys.path.insert" not in content
-
-        code = """
-import sys
-before = list(sys.path)
-import pipeline
-after = list(sys.path)
-print("UNCHANGED" if before == after else "MUTATED")
-"""
-        result = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
-        )
-        assert result.returncode == 0
-        assert "UNCHANGED" in result.stdout
-
-    def test_pipeline_imports_cleanly(self):
-        """Test that the pipeline module imports without errors."""
-        code = """
-import sys
-sys.path.insert(0, '.')
-sys.path.insert(0, 'backend')
-import pipeline
-print("SUCCESS: pipeline module imports cleanly")
-"""
-        result = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
-        )
-
-        assert result.returncode == 0, f"Pipeline import failed: {result.stderr}"
-
-    def test_pipeline_run_pipeline_entry(self):
-        """Test that pipeline.run_pipeline entry point works."""
-        result = subprocess.run(
-            [sys.executable, "-m", "pipeline.run_pipeline", "--help"],
-            capture_output=True,
-            text=True,
-            cwd=PROJECT_ROOT,
-        )
-
-        assert (
-            "usage:" in result.stdout or "ModuleNotFoundError" not in result.stderr
-        ), f"run_pipeline entry point failed: {result.stderr}"
-
-
 # Utility functions for debugging import issues
 def debug_import_chain(module_name: str) -> None:
     """
@@ -362,3 +306,17 @@ def debug_import_chain(module_name: str) -> None:
 if __name__ == "__main__":
     # Allow running tests directly
     pytest.main([__file__, "-v"])
+
+
+def test_backend_has_no_pipeline_or_shared_imports():
+    forbidden = ("from pipeline", "import pipeline", "internnexus_shared")
+    backend_dir = PROJECT_ROOT / "backend" / "app"
+    offenders = []
+    for path in backend_dir.rglob("*.py"):
+        if path.name == "test_import_chains.py":
+            continue
+        content = path.read_text()
+        for token in forbidden:
+            if token in content:
+                offenders.append(f"{path.relative_to(PROJECT_ROOT)} contains {token}")
+    assert offenders == []

@@ -1,6 +1,6 @@
 """SQLAlchemy implementation of JobRepository.
 
-This is the ONLY file in the pipeline module that imports from backend.app.models.
+This is the pipeline-local SQLAlchemy projection over the shared database schema.
 All other pipeline modules should use the repository protocol for database access.
 """
 
@@ -13,17 +13,15 @@ from uuid import UUID
 
 from sqlalchemy import delete, func, select, text, update
 
-from backend.app.db import AsyncSessionLocal
-from backend.app.models import (
-    AshbyJobMetadata,
-    GreenhouseJobMetadata,
+from pipeline.db import AsyncSessionLocal
+from pipeline.models import (
     Job,
     JobSource,
-    LeverJobMetadata,
     PipelineRun,
     PipelineRunStatus,
 )
-from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate, MetadataBatch
+from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate
+from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
 
 __all__ = [
     "AsyncSessionLocal",
@@ -31,9 +29,6 @@ __all__ = [
     "JobSource",
     "PipelineRun",
     "PipelineRunStatus",
-    "AshbyJobMetadata",
-    "GreenhouseJobMetadata",
-    "LeverJobMetadata",
     "SQLAlchemyJobRepository",
     "get_repository",
 ]
@@ -254,96 +249,22 @@ class SQLAlchemyJobRepository:
         if not job_ids:
             return 0
 
-        job_id_strs = [f"('{str(uuid)}')" for uuid in job_ids]
-        values_clause = ", ".join(job_id_strs)
-        refresh_stmt = text(
-            f"""
-            UPDATE jobs AS j
-            SET search_vector =
-                setweight(to_tsvector('english', COALESCE(j.title, '')), 'A') ||
-                setweight(to_tsvector('english', COALESCE(j.company, '')), 'B') ||
-                setweight(to_tsvector('english', COALESCE(j.location, '')), 'C') ||
-                setweight(to_tsvector('english', COALESCE(j.city, '')), 'C') ||
-                setweight(to_tsvector('english', COALESCE(j.state, '')), 'C') ||
-                setweight(to_tsvector('english', get_country_search_terms(j.country)), 'C') ||
-                setweight(to_tsvector('english', get_region_from_country(j.country)), 'C') ||
-                setweight(to_tsvector('english', COALESCE(j.description_text, '')), 'D')
-            FROM (VALUES {values_clause}) AS t(job_id)
-            WHERE j.id = t.job_id::uuid
+        search_vector_expr = text(
+            """
+            setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
+            setweight(to_tsvector('english', COALESCE(company, '')), 'B') ||
+            setweight(to_tsvector('english', COALESCE(location, '')), 'C') ||
+            setweight(to_tsvector('english', COALESCE(city, '')), 'C') ||
+            setweight(to_tsvector('english', COALESCE(state, '')), 'C') ||
+            setweight(to_tsvector('english', get_country_search_terms(country)), 'C') ||
+            setweight(to_tsvector('english', get_region_from_country(country)), 'C') ||
+            setweight(to_tsvector('english', COALESCE(description_text, '')), 'D')
             """
         )
+        refresh_stmt = update(Job).where(Job.id.in_(job_ids)).values(search_vector=search_vector_expr)
         result = await self._session.execute(refresh_stmt)
         await self._session.commit()
         return _rowcount(result)
-
-    async def fetch_metadata_batch(
-        self,
-        job_ids: list[UUID],
-    ) -> MetadataBatch:
-        """Fetch metadata for a batch of jobs using JOIN query.
-
-        This method uses a single JOIN query to fetch all metadata at once,
-        eliminating the N+1 query problem that would occur with separate
-        queries for each metadata type.
-
-        Args:
-            job_ids: List of job IDs to fetch metadata for
-
-        Returns:
-            MetadataBatch containing metadata from all sources
-        """
-        if not job_ids:
-            return MetadataBatch(ashby={}, greenhouse={}, lever={})
-
-        # Single JOIN query to fetch all metadata at once
-        # This is much more efficient than 4 separate queries
-        stmt = (
-            select(
-                Job.id,
-                AshbyJobMetadata.address_locality,
-                AshbyJobMetadata.address_region,
-                AshbyJobMetadata.address_country,
-                GreenhouseJobMetadata.offices,
-                LeverJobMetadata.all_locations,
-            )
-            .outerjoin(AshbyJobMetadata, AshbyJobMetadata.job_id == Job.id)
-            .outerjoin(GreenhouseJobMetadata, GreenhouseJobMetadata.job_id == Job.id)
-            .outerjoin(LeverJobMetadata, LeverJobMetadata.job_id == Job.id)
-            .where(Job.id.in_(job_ids))
-        )
-
-        result = await self._session.execute(stmt)
-        rows = result.all()
-
-        # Organize results by source
-        ashby_map: dict[UUID, dict] = {}
-        greenhouse_map: dict[UUID, dict] = {}
-        lever_map: dict[UUID, dict] = {}
-
-        for row in rows:
-            job_id = row.id
-
-            # Ashby metadata
-            if row.address_locality:
-                ashby_map[job_id] = {
-                    "address_locality": row.address_locality,
-                    "address_region": row.address_region,
-                    "address_country": row.address_country,
-                }
-
-            # Greenhouse metadata
-            if row.offices:
-                greenhouse_map[job_id] = {"offices": row.offices}
-
-            # Lever metadata
-            if row.all_locations:
-                lever_map[job_id] = {"all_locations": row.all_locations}
-
-        return MetadataBatch(
-            ashby=ashby_map,
-            greenhouse=greenhouse_map,
-            lever=lever_map,
-        )
 
     async def get_jobs_without_embeddings(
         self,
@@ -360,23 +281,12 @@ class SQLAlchemyJobRepository:
         Returns:
             List of job IDs (UUID primary keys)
         """
-        # Clean HTML and entities from description_text
-        cleaned_text = func.regexp_replace(
-            func.regexp_replace(
-                func.regexp_replace(Job.description_text, r"<[^\u003e]+>", " ", "g"),
-                r"&[a-zA-Z]+;",
-                " ",
-                "g",
-            ),
-            r"\s+",
-            " ",
-            "g",
-        )
+        cleaned_text = embedding_candidate_text_sql()
 
         stmt = (
             select(Job.id)
             .where(Job.description_embedding.is_(None))
-            .where(func.length(func.trim(cleaned_text)) >= 30)
+            .where(func.length(cleaned_text) >= 30)
             .order_by(Job.id)
             .limit(batch_size)
         )
@@ -449,7 +359,7 @@ class SQLAlchemyJobRepository:
         Returns:
             Number of jobs marked inactive
         """
-        stmt = update(Job).where(Job.is_active.is_(True)).values(is_active=False)
+        stmt = update(Job).where(Job.is_active.is_(True), Job.source != JobSource.manual).values(is_active=False)
         result = await self._session.execute(stmt)
         await self._session.commit()
         return _rowcount(result)
@@ -464,7 +374,7 @@ class SQLAlchemyJobRepository:
         Returns:
             Number of jobs deleted
         """
-        stmt = delete(Job).where(Job.is_active.is_(False))
+        stmt = delete(Job).where(Job.is_active.is_(False), Job.source != JobSource.manual)
         result = await self._session.execute(stmt)
         await self._session.commit()
         return _rowcount(result)

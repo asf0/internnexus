@@ -7,11 +7,9 @@ from typing import ClassVar
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    BigInteger,
     Boolean,
     DateTime,
     Enum,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -22,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from sqlalchemy.sql import func
 
-from .db import Base
+from app.db import Base
 
 JOBS_ID_FK = "jobs.id"
 USERS_ID_FK = "users.id"
@@ -66,7 +64,7 @@ class Job(Base):
     country: Mapped[str | None] = mapped_column(String, nullable=True)
     apply_url: Mapped[str] = mapped_column(String, nullable=False)
     description_text: Mapped[str] = mapped_column(Text, nullable=False)
-    description_embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
+    description_embedding: Mapped[list[float] | None] = mapped_column(Vector(2560), nullable=True)
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True)
     job_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     job_type: Mapped[JobType | None] = mapped_column(Enum(JobType, name="job_type"), nullable=True)
@@ -79,15 +77,6 @@ class Job(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    greenhouse_metadata: Mapped[GreenhouseJobMetadata] = relationship(
-        "GreenhouseJobMetadata", back_populates="job", uselist=False, cascade="all, delete-orphan"
-    )
-    lever_metadata: Mapped[LeverJobMetadata] = relationship(
-        "LeverJobMetadata", back_populates="job", uselist=False, cascade="all, delete-orphan"
-    )
-    ashby_metadata: Mapped[AshbyJobMetadata] = relationship(
-        "AshbyJobMetadata", back_populates="job", uselist=False, cascade="all, delete-orphan"
-    )
     clicks: Mapped[list[JobClick]] = relationship(
         "JobClick", back_populates="job", cascade="all, delete-orphan"
     )
@@ -97,79 +86,6 @@ class Job(Base):
     applied_by_users: Mapped[list[AppliedJob]] = relationship(
         "AppliedJob", back_populates="job", cascade="all, delete-orphan"
     )
-
-
-class GreenhouseJobMetadata(Base):
-    __tablename__ = "greenhouse_job_metadata"
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
-    )
-    external_id: Mapped[str] = mapped_column(String, nullable=False)
-    internal_job_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    requisition_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    education: Mapped[str | None] = mapped_column(String, nullable=True)
-    language: Mapped[str] = mapped_column(String, nullable=False, server_default="en")
-    first_published: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    departments: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-    offices: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-    data_compliance: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-    hosted_url: Mapped[str] = mapped_column(String, nullable=False)
-
-    job: Mapped[Job] = relationship("Job", back_populates="greenhouse_metadata")
-
-
-class LeverJobMetadata(Base):
-    __tablename__ = "lever_job_metadata"
-
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
-    )
-    external_id: Mapped[str] = mapped_column(String, nullable=False)
-    commitment: Mapped[str | None] = mapped_column(String, nullable=True)
-    department: Mapped[str | None] = mapped_column(String, nullable=True)
-    team: Mapped[str | None] = mapped_column(String, nullable=True)
-    all_locations: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-    workplace_type: Mapped[str] = mapped_column(String, nullable=False)
-    salary_min: Mapped[float | None] = mapped_column(Float, nullable=True)
-    salary_max: Mapped[float | None] = mapped_column(Float, nullable=True)
-    salary_currency: Mapped[str | None] = mapped_column(String, nullable=True)
-    salary_interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    salary_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    description_html: Mapped[str] = mapped_column(Text, nullable=False)
-    description_plain: Mapped[str] = mapped_column(Text, nullable=False)
-    requirements: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-    requirements_html: Mapped[str | None] = mapped_column(Text, nullable=True)
-    requirements_plain: Mapped[str | None] = mapped_column(Text, nullable=True)
-    has_requirements: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    hosted_url: Mapped[str] = mapped_column(String, nullable=False)
-    created_at_raw: Mapped[int] = mapped_column(BigInteger, nullable=False)
-
-    job: Mapped[Job] = relationship("Job", back_populates="lever_metadata")
-
-
-class AshbyJobMetadata(Base):
-    __tablename__ = "ashby_job_metadata"
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), primary_key=True
-    )
-    external_id: Mapped[str] = mapped_column(String, nullable=False)
-    department: Mapped[str | None] = mapped_column(String, nullable=True)
-    team: Mapped[str | None] = mapped_column(String, nullable=True)
-    employment_type: Mapped[str | None] = mapped_column(String, nullable=True)
-    location_raw: Mapped[str | None] = mapped_column(String, nullable=True)
-    address_locality: Mapped[str | None] = mapped_column(String, nullable=True)
-    address_region: Mapped[str | None] = mapped_column(String, nullable=True)
-    address_country: Mapped[str | None] = mapped_column(String, nullable=True)
-    is_remote: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    description_html: Mapped[str | None] = mapped_column(Text, nullable=True)
-    description_plain: Mapped[str | None] = mapped_column(Text, nullable=True)
-    job_url: Mapped[str] = mapped_column(String, nullable=False)
-    compensation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    is_listed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    job: Mapped[Job] = relationship("Job", back_populates="ashby_metadata")
 
 
 class User(Base):
@@ -278,7 +194,7 @@ class UserResume(Base):
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, server_default="ready")
     encrypted_resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    resume_embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
+    resume_embedding: Mapped[list[float] | None] = mapped_column(Vector(2560), nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
     embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_embedded_at: Mapped[datetime | None] = mapped_column(
@@ -356,6 +272,25 @@ class Admin(Base):
 
     user: Mapped[User] = relationship(
         "User", back_populates="admin", foreign_keys="[Admin.user_id]"
+    )
+
+
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    action: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
 
 
@@ -483,3 +418,38 @@ class PipelineRun(Base):
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     results: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PipelineCommandStatus(enum.Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class PipelineCommand(Base):
+    __tablename__ = "pipeline_commands"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[PipelineCommandStatus] = mapped_column(
+        Enum(PipelineCommandStatus, name="pipeline_command_status"),
+        nullable=False,
+        server_default=PipelineCommandStatus.pending.value,
+    )
+    step: Mapped[str | None] = mapped_column(String, nullable=True)
+    skip_discover: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    process_all: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    test_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="SET NULL"), nullable=True
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pipeline_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

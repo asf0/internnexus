@@ -1,17 +1,11 @@
-"""Browser discovery module for finding companies via Google search."""
+"""Company discovery helpers."""
 
-from .browser_discovery import (
-    discover_with_browser,
-    save_discovered_companies,
+from .company_discovery import (
+    discover_companies,
     extract_company_slug,
-    DiscoveryBrowser,
+    load_progress,
+    save_discovered_companies,
     main,
 )
 
-__all__ = [
-    "discover_with_browser",
-    "save_discovered_companies",
-    "extract_company_slug",
-    "DiscoveryBrowser",
-    "main",
-]
+__all__ = ["discover_companies", "extract_company_slug", "load_progress", "save_discovered_companies", "main"]

@@ -68,7 +68,7 @@ jobs:
           REBUILD_FRONTEND="false"
           REBUILD_PIPELINE="false"
           
-          if echo "$CHANGED_FILES" | grep -qE "^(backend/|pyproject\.toml|\.gitea/workflows/deploy\.yml)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^(backend/|\.gitea/workflows/deploy\.yml)"; then
             REBUILD_BACKEND="true"
           fi
           
@@ -76,7 +76,7 @@ jobs:
             REBUILD_FRONTEND="true"
           fi
           
-          if echo "$CHANGED_FILES" | grep -qE "^(pipeline/|pyproject\.toml|\.gitea/workflows/deploy\.yml)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^(pipeline/|\.gitea/workflows/deploy\.yml)"; then
             REBUILD_PIPELINE="true"
           fi
           
@@ -119,18 +119,6 @@ jobs:
           sleep 20
           docker exec internnexus-backend curl -f http://localhost:8000/health
           docker exec internnexus-frontend curl -f http://localhost:3000/
-
-      - name: Copy cleanup script
-        if: success()
-        run: |
-          cp .scripts/cleanup-docker.sh .
-
-      - name: Docker Cleanup (images, cache, volumes)
-        if: success()
-        run: |
-          set -e
-          chmod +x cleanup-docker.sh
-          ./cleanup-docker.sh
 
       - name: Dump container logs on failure
         if: failure()

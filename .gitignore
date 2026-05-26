@@ -5,6 +5,8 @@
 
 # Dependencies
 node_modules/
+.venv/
+venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -38,10 +40,13 @@ Thumbs.db
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
 # Pipeline runtime artifacts
 pipeline/output/
 pipeline/discovery/output/
+pipeline/discovery/queries.txt
 pipeline/apis/*.old
 pipeline/telemetry-id
 qdrant_storage/
@@ -69,6 +74,12 @@ tests/
 !backend/tests/**
 !frontend/tests/
 !frontend/tests/**
+!pipeline/tests/
+!pipeline/tests/**
+pipeline/tests/**/__pycache__/
+pipeline/tests/**/*.py[cod]
+!docs/
+!docs/**
 AGENTS.md
 .test/
 .opencode/

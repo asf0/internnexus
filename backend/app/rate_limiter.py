@@ -103,6 +103,10 @@ RATE_LIMITS = {
     "user_delete": "5/hour",
     "job_click": "30/minute",
     "admin": "30/minute",
+    "admin_read": "60/minute",
+    "admin_write": "20/minute",
+    "admin_destructive": "5/minute",
+    "admin_bulk": "3/minute",
 }
 if redis_url:
     limiter = Limiter(key_func=get_real_client_ip, storage_uri=redis_url)

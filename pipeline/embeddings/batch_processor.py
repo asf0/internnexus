@@ -7,28 +7,33 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from uuid import UUID
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from pipeline.backend_bridge import (
+from pipeline.embedding import (
     EmbeddingError,
-    EmbeddingService,
+    QueryEmbeddingService as EmbeddingService,
     RateLimitError,
-    clean_text_for_embedding,
 )
-from pipeline.pipeline_config import get_config
+from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
+from pipeline.text import clean_text_for_embedding
+from pipeline.runtime.config import get_config
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
 
 logger = logging.getLogger(__name__)
 
 LOGS_DIR = Path(__file__).parent.parent.parent.parent / "logs"
-LOGS_DIR.mkdir(exist_ok=True)
-
 EMBEDDING_BATCH_SIZE = 16  # default; get_config().embeddings.api_batch_size overrides at runtime
 LOG_FLUSH_BATCH_SIZE = 100
+MIN_EMBEDDABLE_TEXT_LENGTH = 30
+
+
+def _embedding_candidate_text_sql():
+    return embedding_candidate_text_sql()
 
 
 def _get_skipped_jobs_log_path() -> Path:
@@ -71,6 +76,7 @@ def _log_skipped_job(job: Job, reason: str, text_length: int) -> None:
     try:
         _rotate_old_logs()
         log_path = _get_skipped_jobs_log_path()
+        LOGS_DIR.mkdir(exist_ok=True)
 
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -94,6 +100,7 @@ def _append_jsonl_batch(path: Path, entries: list[dict[str, Any]]) -> None:
         return
     try:
         _rotate_old_logs()
+        LOGS_DIR.mkdir(exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.writelines(json.dumps(entry) + "\n" for entry in entries)
     except Exception as e:
@@ -111,6 +118,7 @@ def _log_failed_job(
     try:
         _rotate_old_logs()
         log_path = _get_failed_jobs_log_path()
+        LOGS_DIR.mkdir(exist_ok=True)
 
         entry: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -144,23 +152,13 @@ def _classify_error(error: BaseException) -> tuple[str, bool]:
     return "unknown", True
 
 
-async def _fetch_job_ids_batch(db: AsyncSession, batch_size: int) -> list[int]:
+async def _fetch_job_ids_batch(db: AsyncSession, batch_size: int) -> list[UUID]:
     """Fetch a batch of job IDs without embeddings."""
-    cleaned_text = func.regexp_replace(
-        func.regexp_replace(
-            func.regexp_replace(Job.description_text, r"<[^>]+>", " ", "g"),
-            r"&[a-zA-Z]+;",
-            " ",
-            "g",
-        ),
-        r"\s+",
-        " ",
-        "g",
-    )
+    cleaned_text = embedding_candidate_text_sql()
     result = await db.execute(
         select(Job.id)
         .where(Job.description_embedding.is_(None))
-        .where(func.length(func.trim(cleaned_text)) >= 30)
+        .where(func.length(cleaned_text) >= MIN_EMBEDDABLE_TEXT_LENGTH)
         .order_by(Job.id)
         .limit(batch_size)
     )
@@ -168,7 +166,7 @@ async def _fetch_job_ids_batch(db: AsyncSession, batch_size: int) -> list[int]:
     return list(job_ids)
 
 
-async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[int]) -> list[Job]:
+async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[UUID]) -> list[Job]:
     """Fetch specific jobs by ID for retry."""
     if not job_ids:
         return []
@@ -179,22 +177,12 @@ async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[int]) -> list[Job]:
 
 async def _get_remaining_count(db: AsyncSession) -> int:
     """Get the current count of jobs without embeddings."""
-    cleaned_text = func.regexp_replace(
-        func.regexp_replace(
-            func.regexp_replace(Job.description_text, r"<[^>]+>", " ", "g"),
-            r"&[a-zA-Z]+;",
-            " ",
-            "g",
-        ),
-        r"\s+",
-        " ",
-        "g",
-    )
+    cleaned_text = embedding_candidate_text_sql()
     result = await db.execute(
         select(func.count())
         .select_from(Job)
         .where(Job.description_embedding.is_(None))
-        .where(func.length(func.trim(cleaned_text)) >= 30)
+        .where(func.length(cleaned_text) >= MIN_EMBEDDABLE_TEXT_LENGTH)
     )
     return result.scalar() or 0
 
@@ -251,7 +239,7 @@ def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
                 _append_jsonl_batch(log_path, skipped_entries)
                 skipped_entries.clear()
             continue
-        if text_length < 30:
+        if text_length < MIN_EMBEDDABLE_TEXT_LENGTH:
             skipped_entries.append(
                 {
                     "timestamp": timestamp,
@@ -344,14 +332,14 @@ def _handle_batch_error(
 
 async def _process_with_semaphore(
     semaphore: asyncio.Semaphore,
-    job_ids: list[int],
+    job_ids: list[UUID],
     embedder: EmbeddingService,
     batch_num: int,
     retry_attempt: int = 0,
 ) -> tuple[int, int, int, list[tuple[Job, BaseException]]]:
     """Process a batch with semaphore-controlled concurrency."""
     import gc
-    from pipeline.enrichment import reset_embedder
+    from pipeline.embeddings.enrichment import reset_embedder
 
     async with semaphore:
         async with AsyncSessionLocal() as db:

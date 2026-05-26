@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdminUserResponse(BaseModel):
@@ -19,7 +19,7 @@ class AdminUserResponse(BaseModel):
     provider: str | None = None
     notes: str | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreateRequest(BaseModel):
@@ -57,7 +57,7 @@ class AdminJobResponse(BaseModel):
     click_count: int = 0
     created_at: datetime | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AdminJobUpdateRequest(BaseModel):
@@ -148,7 +148,7 @@ class JobClickResponse(BaseModel):
     utm_medium: str | None = None
     utm_campaign: str | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PipelineRunResponse(BaseModel):
@@ -163,7 +163,42 @@ class PipelineRunResponse(BaseModel):
     completed_at: datetime | None = None
     results: str | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
+
+
+
+
+class PipelineCommandTriggerRequest(BaseModel):
+    """Request to enqueue a pipeline run command."""
+
+    step: str | None = None
+    skip_discover: bool = False
+    dry_run: bool = False
+    process_all: bool = False
+    test_mode: bool = False
+    limit: int | None = Field(None, ge=1)
+
+
+class PipelineCommandResponse(BaseModel):
+    """Schema for pipeline command response."""
+
+    id: UUID
+    status: str
+    step: str | None = None
+    skip_discover: bool
+    dry_run: bool
+    process_all: bool
+    test_mode: bool
+    limit: int | None = None
+    requested_by: UUID | None = None
+    run_id: UUID | None = None
+    error_message: str | None = None
+    result: dict | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClicksByUserResponse(BaseModel):
@@ -192,5 +227,5 @@ class AdminJobCreateRequest(BaseModel):
 class AdminJobBulkRequest(BaseModel):
     """Schema for bulk job actions request."""
 
-    job_ids: list[UUID] = Field(..., min_length=1)
+    job_ids: list[UUID] = Field(..., min_length=1, max_length=500)
     action: str  # "activate", "deactivate", "delete"

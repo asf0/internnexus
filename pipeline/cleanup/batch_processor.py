@@ -10,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.cleanup.exporter import _process_test_mode_chunked
 from pipeline.cleanup.metadata import (
-    _fetch_jobs_chunk,
-    _get_metadata_result,
     _merge_location_results,
 )
 from pipeline.cleanup.normalizer import _normalize_existing_states
@@ -72,7 +70,6 @@ async def _process_production_mode_chunked(
             async with semaphore:
                 return location, await _parse_location_only(location)
 
-        # Bound fan-out to avoid O(chunk_size) coroutines at once
         WARM_BATCH = 500
         for i in range(0, len(locations), WARM_BATCH):
             batch = locations[i : i + WARM_BATCH]
@@ -85,34 +82,36 @@ async def _process_production_mode_chunked(
         if limit and total_processed >= limit:
             break
 
-        rows, ashby_map, greenhouse_map, lever_map = await _fetch_jobs_chunk(
-            repo, since, process_all, last_id, chunk_size
+        jobs = await repo.fetch_jobs_batch_keyset(
+            since=since,
+            process_all=process_all,
+            last_id=last_id,
+            limit=chunk_size,
         )
-        if not rows:
+        if not jobs:
             break
 
-        last_id = rows[-1]["id"]
+        last_id = jobs[-1].id
         batch_updates = []
 
         unknown_locations = sorted(
-            {row["location"] for row in rows if row["location"] and row["location"] not in unique_locations}
+            {job.location for job in jobs if job.location and job.location not in unique_locations}
         )
         if unknown_locations:
             await _warm_location_cache(unknown_locations)
             if len(unique_locations) % 500 == 0:
                 logger.info(f"Normalized {len(unique_locations)} unique locations...")
 
-        # Prevent unbounded growth: keep latest 10k entries when over 20k
         if len(unique_locations) > 20_000:
             keep = list(unique_locations)[-10_000:]
             unique_locations = {k: unique_locations[k] for k in keep}
 
-        for row in rows:
+        for job in jobs:
             if limit and total_processed >= limit:
                 break
 
             total_processed += 1
-            location = row["location"]
+            location = job.location
 
             if not location:
                 continue
@@ -122,22 +121,20 @@ async def _process_production_mode_chunked(
             if parsed_result.get("state"):
                 parsed_result["state"] = normalize_state_name(parsed_result["state"])
 
-            metadata_result, metadata_source = _get_metadata_result(row, ashby_map, greenhouse_map, lever_map)
-
             final_result, source_used = _merge_location_results(
-                location, parsed_result, metadata_result, metadata_source
+                location, parsed_result, None, "fallback"
             )
 
             changed = (
-                final_result["city"] != row["city"]
-                or final_result["state"] != row["state"]
-                or final_result["country"] != row["country"]
+                final_result["city"] != job.city
+                or final_result["state"] != job.state
+                or final_result["country"] != job.country
             )
 
             if changed:
                 batch_updates.append(
                     {
-                        "id": row["id"],
+                        "id": job.id,
                         "city": final_result["city"],
                         "state": final_result["state"],
                         "country": final_result["country"],
@@ -150,7 +147,7 @@ async def _process_production_mode_chunked(
             await repo.refresh_search_vectors_for_job_ids(chunk_ids)
             total_updated += len(batch_updates)
 
-        session.expunge_all()  # clear identity map between chunks
+        session.expunge_all()
 
         if total_processed % 5000 == 0:
             logger.info(f"Processed {total_processed}/{min(total_count, limit or total_count)} jobs...")
