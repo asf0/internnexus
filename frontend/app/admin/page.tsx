@@ -1,6 +1,6 @@
-import { getBackendToken } from "@/lib/auth.server";
-import { BACKEND_URL } from "@/lib/config";
-import AdminDashboardClient from "./AdminDashboardClient";
+import { getBackendToken } from '@/lib/auth.server';
+import { BACKEND_URL } from '@/lib/config';
+import AdminDashboardClient from './AdminDashboardClient';
 
 interface JobStats {
   total_jobs: number;
@@ -42,17 +42,14 @@ interface PipelineRun {
   results: string | null;
 }
 
-async function fetchAdminEndpoint<T>(
-  endpoint: string,
-  token: string
-): Promise<T | null> {
+async function fetchAdminEndpoint<T>(endpoint: string, token: string): Promise<T | null> {
   try {
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -76,10 +73,10 @@ export default async function AdminDashboardPage() {
   }
 
   const [jobStats, clickStats, pipelineStats, latestRun] = await Promise.all([
-    fetchAdminEndpoint<JobStats>("/admin/jobs/stats", token),
-    fetchAdminEndpoint<ClickStats>("/admin/clicks/stats", token),
-    fetchAdminEndpoint<PipelineStats>("/admin/pipeline-runs/stats", token),
-    fetchAdminEndpoint<PipelineRun | null>("/admin/pipeline-runs/latest", token),
+    fetchAdminEndpoint<JobStats>('/admin/jobs/stats', token),
+    fetchAdminEndpoint<ClickStats>('/admin/clicks/stats', token),
+    fetchAdminEndpoint<PipelineStats>('/admin/pipeline-runs/stats', token),
+    fetchAdminEndpoint<PipelineRun | null>('/admin/pipeline-runs/latest', token),
   ]);
 
   if (!jobStats || !clickStats || !pipelineStats) {

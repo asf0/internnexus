@@ -1,6 +1,6 @@
-import { getBackendToken } from "@/lib/auth.server";
-import { BACKEND_URL } from "@/lib/config";
-import PipelineRunsClient from "./PipelineRunsClient";
+import { getBackendToken } from '@/lib/auth.server';
+import { BACKEND_URL } from '@/lib/config';
+import PipelineRunsClient from './PipelineRunsClient';
 
 // Types for API responses
 interface PipelineStats {
@@ -32,17 +32,14 @@ interface PipelineRunsListResponse {
 }
 
 // Fetch helper with auth
-async function fetchAdminEndpoint<T>(
-  endpoint: string,
-  token: string
-): Promise<T | null> {
+async function fetchAdminEndpoint<T>(endpoint: string, token: string): Promise<T | null> {
   try {
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -71,13 +68,13 @@ export default async function PipelineRunsPage({
 
   // Get query params
   const params = await searchParams;
-  const statusFilter = params.status || "";
-  const currentPage = parseInt(params.page || "1", 10);
+  const statusFilter = params.status || '';
+  const currentPage = parseInt(params.page || '1', 10);
 
   // Fetch all data in parallel
   const [pipelineStats, latestRun, pipelineRuns] = await Promise.all([
-    fetchAdminEndpoint<PipelineStats>("/admin/pipeline-runs/stats", token),
-    fetchAdminEndpoint<PipelineRun | null>("/admin/pipeline-runs/latest", token),
+    fetchAdminEndpoint<PipelineStats>('/admin/pipeline-runs/stats', token),
+    fetchAdminEndpoint<PipelineRun | null>('/admin/pipeline-runs/latest', token),
     fetchAdminEndpoint<PipelineRunsListResponse>(
       `/admin/pipeline-runs?page=${currentPage}&page_size=20&status=${statusFilter}`,
       token

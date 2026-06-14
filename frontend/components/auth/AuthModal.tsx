@@ -1,38 +1,38 @@
-"use client";
+'use client';
 
-import { signIn } from "next-auth/react";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Modal } from "@/components/modals";
-import { Alert } from "@/components/ui";
-import { loginSchema, registrationSchema } from "@/lib/validation";
-import { registerUser } from "@/app/actions/auth";
-import { OAuthButtons } from "./OAuthButtons";
-import { LoginForm } from "./LoginForm";
-import { RegisterForm } from "./RegisterForm";
+import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Modal } from '@/components/modals';
+import { Alert } from '@/components/ui';
+import { loginSchema, registrationSchema } from '@/lib/validation';
+import { registerUser } from '@/app/actions/auth';
+import { OAuthButtons } from './OAuthButtons';
+import { LoginForm } from './LoginForm';
+import { RegisterForm } from './RegisterForm';
 
 interface AuthModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly defaultMode?: "login" | "register";
+  readonly defaultMode?: 'login' | 'register';
   readonly onAuthSuccess?: (applyWindow?: Window | null) => void;
-  readonly intent?: "default" | "apply";
+  readonly intent?: 'default' | 'apply';
   readonly callbackUrl?: string;
 }
 
 export default function AuthModal({
   isOpen,
   onClose,
-  defaultMode = "login",
+  defaultMode = 'login',
   onAuthSuccess,
-  intent = "default",
+  intent = 'default',
   callbackUrl,
 }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "register">(defaultMode);
+  const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -40,18 +40,18 @@ export default function AuthModal({
       setMode(defaultMode);
       setError(null);
       setIsLoading(false);
-      setPassword("");
-      setConfirmPassword("");
+      setPassword('');
+      setConfirmPassword('');
     }
   }, [isOpen, defaultMode]);
 
-  const handleOAuthSignIn = async (provider: "github" | "google") => {
+  const handleOAuthSignIn = async (provider: 'github' | 'google') => {
     setIsLoading(true);
     setError(null);
     try {
       await signIn(provider, callbackUrl ? { callbackUrl } : undefined);
     } catch {
-      setError("Failed to sign in. Please try again.");
+      setError('Failed to sign in. Please try again.');
       setIsLoading(false);
     }
   };
@@ -60,14 +60,13 @@ export default function AuthModal({
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    const continuationWindow = intent === "apply"
-      ? window.open("", "_blank", "noopener,noreferrer")
-      : null;
+    const continuationWindow =
+      intent === 'apply' ? window.open('', '_blank', 'noopener,noreferrer') : null;
 
     const formData = new FormData(e.currentTarget);
     const data = {
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
     };
 
     const result = loginSchema.safeParse(data);
@@ -79,7 +78,7 @@ export default function AuthModal({
     }
 
     try {
-      const authResult = await signIn("credentials", {
+      const authResult = await signIn('credentials', {
         email: result.data.email,
         password: result.data.password,
         redirect: false,
@@ -87,7 +86,7 @@ export default function AuthModal({
 
       if (authResult?.error) {
         continuationWindow?.close();
-        setError("Invalid email or password");
+        setError('Invalid email or password');
         setIsLoading(false);
         return;
       }
@@ -97,7 +96,7 @@ export default function AuthModal({
       onClose();
     } catch {
       continuationWindow?.close();
-      setError("An unexpected error occurred. Please try again.");
+      setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -105,14 +104,13 @@ export default function AuthModal({
   const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    const continuationWindow = intent === "apply"
-      ? window.open("", "_blank", "noopener,noreferrer")
-      : null;
+    const continuationWindow =
+      intent === 'apply' ? window.open('', '_blank', 'noopener,noreferrer') : null;
 
     const formData = new FormData(e.currentTarget);
     const data = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
       password: password,
       confirm_password: confirmPassword,
     };
@@ -135,18 +133,18 @@ export default function AuthModal({
 
       if (!registerResult.success) {
         continuationWindow?.close();
-        if (registerResult.errorType === "EMAIL_REGISTERED_WITH_OAUTH") {
+        if (registerResult.errorType === 'EMAIL_REGISTERED_WITH_OAUTH') {
           setError(
             `${registerResult.error} Please sign in with your OAuth provider or go to Settings to set a password.`
           );
         } else {
-          setError(registerResult.error || "Registration failed. Please try again.");
+          setError(registerResult.error || 'Registration failed. Please try again.');
         }
         setIsLoading(false);
         return;
       }
 
-      const authResult = await signIn("credentials", {
+      const authResult = await signIn('credentials', {
         email: validationResult.data.email,
         password: validationResult.data.password,
         redirect: false,
@@ -154,7 +152,7 @@ export default function AuthModal({
 
       if (authResult?.error) {
         continuationWindow?.close();
-        setError("Account created but sign in failed. Please try signing in.");
+        setError('Account created but sign in failed. Please try signing in.');
         setIsLoading(false);
         return;
       }
@@ -164,37 +162,44 @@ export default function AuthModal({
       onClose();
     } catch {
       continuationWindow?.close();
-      setError("An unexpected error occurred. Please try again.");
+      setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
 
   const toggleMode = () => {
     if (isLoading) return;
-    setMode(mode === "login" ? "register" : "login");
+    setMode(mode === 'login' ? 'register' : 'login');
     setError(null);
   };
 
-  const isApplyIntent = intent === "apply";
-  const title = mode === "login"
-    ? (isApplyIntent ? "Sign in to apply" : "Welcome to InternNexus")
-    : (isApplyIntent ? "Create an account to apply" : "Create your account");
+  const isApplyIntent = intent === 'apply';
+  const title =
+    mode === 'login'
+      ? isApplyIntent
+        ? 'Sign in to apply'
+        : 'Welcome to InternNexus'
+      : isApplyIntent
+        ? 'Create an account to apply'
+        : 'Create your account';
   const subtitle = isApplyIntent
-    ? "We will open the job application in a new tab right after sign in."
-    : "Sign in to find your dream internship";
-  const loginSubmitLabel = isApplyIntent ? "Sign in and continue" : "Sign in with Email";
-  const registerSubmitLabel = isApplyIntent ? "Create account and continue" : "Create account";
+    ? 'We will open the job application in a new tab right after sign in.'
+    : 'Sign in to find your dream internship';
+  const loginSubmitLabel = isApplyIntent ? 'Sign in and continue' : 'Sign in with Email';
+  const registerSubmitLabel = isApplyIntent ? 'Create account and continue' : 'Create account';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={<>
-        {title}
-        <p className="mt-1 text-sm font-normal text-slate-600 dark:text-md-on-surface-variant">
-          {subtitle}
-        </p>
-      </>}
+      title={
+        <>
+          {title}
+          <p className="dark:text-md-on-surface-variant mt-1 text-sm font-normal text-slate-600">
+            {subtitle}
+          </p>
+        </>
+      }
       size="md"
     >
       {error && (
@@ -207,16 +212,16 @@ export default function AuthModal({
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-300 dark:border-md-outline-variant" />
+          <div className="dark:border-md-outline-variant w-full border-t border-slate-300" />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white dark:bg-md-surface-container text-slate-500 dark:text-md-on-surface-variant">
+          <span className="dark:bg-md-surface-container dark:text-md-on-surface-variant bg-white px-2 text-slate-500">
             Or continue with email
           </span>
         </div>
       </div>
 
-      {mode === "login" ? (
+      {mode === 'login' ? (
         <LoginForm
           isLoading={isLoading}
           onSubmit={handleLoginSubmit}
@@ -237,25 +242,25 @@ export default function AuthModal({
       )}
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-slate-600 dark:text-md-on-surface-variant">
-          {mode === "login" ? (
+        <p className="dark:text-md-on-surface-variant text-sm text-slate-600">
+          {mode === 'login' ? (
             <>
-              Don&apos;t have an account?{" "}
+              Don&apos;t have an account?{' '}
               <button
                 onClick={toggleMode}
                 disabled={isLoading}
-                className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
+                className="text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container font-medium transition-colors"
               >
                 Sign up
               </button>
             </>
           ) : (
             <>
-              Already have an account?{" "}
+              Already have an account?{' '}
               <button
                 onClick={toggleMode}
                 disabled={isLoading}
-                className="font-medium text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container transition-colors"
+                className="text-md-primary hover:text-md-on-primary-container dark:text-md-primary dark:hover:text-md-primary-container font-medium transition-colors"
               >
                 Sign in
               </button>

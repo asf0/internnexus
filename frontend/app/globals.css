@@ -1,22 +1,22 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Material Design Colors */
   --color-md-surface: #121212;
-  --color-md-surface-variant: #49454F;
-  --color-md-surface-container-lowest: #0F0F0F;
-  --color-md-surface-container-low: #1C1B1F;
-  --color-md-surface-container: #211F26;
-  --color-md-surface-container-high: #2B2930;
-  --color-md-surface-container-highest: #36343B;
-  --color-md-on-surface: #E6E1E5;
-  --color-md-on-surface-variant: #CAC4D0;
-  --color-md-outline: #938F99;
-  --color-md-outline-variant: #49454F;
-  --color-md-primary: #005AC1;
-  --color-md-on-primary: #FFFFFF;
-  --color-md-primary-container: #D3E3FC;
-  --color-md-on-primary-container: #001B3F;
+  --color-md-surface-variant: #49454f;
+  --color-md-surface-container-lowest: #0f0f0f;
+  --color-md-surface-container-low: #1c1b1f;
+  --color-md-surface-container: #211f26;
+  --color-md-surface-container-high: #2b2930;
+  --color-md-surface-container-highest: #36343b;
+  --color-md-on-surface: #e6e1e5;
+  --color-md-on-surface-variant: #cac4d0;
+  --color-md-outline: #938f99;
+  --color-md-outline-variant: #49454f;
+  --color-md-primary: #005ac1;
+  --color-md-on-primary: #ffffff;
+  --color-md-primary-container: #d3e3fc;
+  --color-md-on-primary-container: #001b3f;
 }
 :root {
   color-scheme: light dark;

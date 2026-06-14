@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
-import { JobDetailPanelContainer } from "./JobDetailPanelContainer";
-import { JobCard } from "./JobCard";
-import { AuthModal } from "@/components/auth";
-import Pagination from "@/components/ui/Pagination";
-import { LoadingSpinner, Toast } from "@/components/ui";
-import { trackJobClick } from "@/app/actions/jobs";
-import { fetchMatchPage } from "@/app/actions/match";
-import { markApplied, saveJob, unmarkApplied, unsaveJob } from "@/app/actions/user";
-import { fetchJobs } from "@/lib/api";
-import { useMatchState } from "@/lib/hooks/useMatchState";
-import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS, DEFAULT_PAGE_SIZE } from "@/lib/constants";
-import { SHOW_JOB_COUNT } from "@/lib/config";
-import { generateJobSlug, findJobBySlug, toSafeHttpUrl } from "@/lib/utils";
-import type { Job } from "@/lib/types/job";
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { JobDetailPanelContainer } from './JobDetailPanelContainer';
+import { JobCard } from './JobCard';
+import { AuthModal } from '@/components/auth';
+import Pagination from '@/components/ui/Pagination';
+import { LoadingSpinner, Toast } from '@/components/ui';
+import { trackJobClick } from '@/app/actions/jobs';
+import { fetchMatchPage } from '@/app/actions/match';
+import { markApplied, saveJob, unmarkApplied, unsaveJob } from '@/app/actions/user';
+import { fetchJobs } from '@/lib/api';
+import { useMatchState } from '@/lib/hooks/useMatchState';
+import { SESSION_STORAGE_KEYS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { SHOW_JOB_COUNT } from '@/lib/config';
+import { generateJobSlug, findJobBySlug, toSafeHttpUrl } from '@/lib/utils';
+import type { Job } from '@/lib/types/job';
 
 interface JobListProps {
   readonly jobs?: Job[];
@@ -43,7 +43,12 @@ export default function JobList({
   const router = useRouter();
   const pathname = usePathname();
 
-  const { sessionId, matchScores: matchScoresMap, clearMatches, isLoading: isMatchStateLoading } = useMatchState();
+  const {
+    sessionId,
+    matchScores: matchScoresMap,
+    clearMatches,
+    isLoading: isMatchStateLoading,
+  } = useMatchState();
 
   const [clientJobs, setClientJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(matched);
@@ -62,19 +67,21 @@ export default function JobList({
   const [pendingSaveState, setPendingSaveState] = useState<boolean | null>(null);
   const [pendingAppliedConfirmJobId, setPendingAppliedConfirmJobId] = useState<string | null>(null);
 
-  const selectedSlug = searchParams.get("selected");
-  const searchQuery = searchParams.get("search") || "";
-  const company = searchParams.get("company") || "";
-  const location = searchParams.get("location") || "";
-  const category = searchParams.get("category") || "";
-  const jobType = searchParams.get("job_type") || "";
-  const workMode = searchParams.get("work_mode") || "";
-  const postedWithin = searchParams.get("posted_within") || "";
-  const savedOnly = searchParams.get("saved_only") === "1";
+  const selectedSlug = searchParams.get('selected');
+  const searchQuery = searchParams.get('search') || '';
+  const company = searchParams.get('company') || '';
+  const location = searchParams.get('location') || '';
+  const category = searchParams.get('category') || '';
+  const jobType = searchParams.get('job_type') || '';
+  const workMode = searchParams.get('work_mode') || '';
+  const postedWithin = searchParams.get('posted_within') || '';
+  const savedOnly = searchParams.get('saved_only') === '1';
 
   const jobs = matched ? clientJobs : [...(serverJobs || []), ...appendedJobs];
-  const total = matched ? clientTotal : (serverTotal || 0);
-  const totalPagesComputed = matched ? Math.ceil(clientTotal / DEFAULT_PAGE_SIZE) : (serverTotalPages || 1);
+  const total = matched ? clientTotal : serverTotal || 0;
+  const totalPagesComputed = matched
+    ? Math.ceil(clientTotal / DEFAULT_PAGE_SIZE)
+    : serverTotalPages || 1;
 
   const selectedJob = useMemo(() => {
     if (!selectedSlug) return null;
@@ -94,24 +101,19 @@ export default function JobList({
           return;
         }
 
-        const data = await fetchMatchPage(
-          sessionId,
-          currentPage,
-          DEFAULT_PAGE_SIZE,
-          {
-            search: searchQuery,
-            company,
-            location,
-            category,
-            job_type: jobType,
-            work_mode: workMode,
-            posted_within: postedWithin,
-          }
-        );
+        const data = await fetchMatchPage(sessionId, currentPage, DEFAULT_PAGE_SIZE, {
+          search: searchQuery,
+          company,
+          location,
+          category,
+          job_type: jobType,
+          work_mode: workMode,
+          posted_within: postedWithin,
+        });
 
         if (data.error) {
           // Handle error - especially 404 (session expired)
-          if (data.error.includes("session expired")) {
+          if (data.error.includes('session expired')) {
             // Clear the expired session
             clearMatches();
           }
@@ -120,7 +122,7 @@ export default function JobList({
         } else {
           const jobsFromMatches: Job[] = data.matches.map((match) => ({
             id: match.job_id,
-            source: "",
+            source: '',
             title: match.title,
             company: match.company,
             location: match.location,
@@ -200,11 +202,14 @@ export default function JobList({
         job_type: jobType,
         work_mode: workMode,
         posted_within: postedWithin,
-        saved_only: savedOnly ? "1" : undefined,
+        saved_only: savedOnly ? '1' : undefined,
       });
 
       setAppendedJobs((prev) => {
-        const existingIds = new Set([...(serverJobs || []).map((job) => job.id), ...prev.map((job) => job.id)]);
+        const existingIds = new Set([
+          ...(serverJobs || []).map((job) => job.id),
+          ...prev.map((job) => job.id),
+        ]);
         const fresh = data.items.filter((job) => !existingIds.has(job.id));
         return [...prev, ...fresh];
       });
@@ -232,7 +237,7 @@ export default function JobList({
     (job: Job) => {
       const slug = generateJobSlug(job.title, job.company, job.id);
       const params = new URLSearchParams(searchParams.toString());
-      params.set("selected", slug);
+      params.set('selected', slug);
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [searchParams, router, pathname]
@@ -240,7 +245,7 @@ export default function JobList({
 
   const handleClose = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("selected");
+    params.delete('selected');
     const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
     router.push(newUrl, { scroll: false });
   }, [searchParams, router, pathname]);
@@ -291,7 +296,7 @@ export default function JobList({
   const handleRequireAuthForApply = useCallback((applyUrl: string, jobId: string) => {
     const safeApplyUrl = toSafeHttpUrl(applyUrl);
     if (!safeApplyUrl) {
-      setApplyToastMessage("This apply link is invalid or unsupported.");
+      setApplyToastMessage('This apply link is invalid or unsupported.');
       return;
     }
 
@@ -305,7 +310,7 @@ export default function JobList({
   const openApplyUrl = useCallback((url: string, targetWindow?: Window | null) => {
     const safeUrl = toSafeHttpUrl(url);
     if (!safeUrl) {
-      setApplyToastMessage("This apply link is invalid or unsupported.");
+      setApplyToastMessage('This apply link is invalid or unsupported.');
       return false;
     }
 
@@ -314,50 +319,57 @@ export default function JobList({
       return true;
     }
 
-    const openedWindow = window.open(safeUrl, "_blank", "noopener,noreferrer");
+    const openedWindow = window.open(safeUrl, '_blank', 'noopener,noreferrer');
     if (!openedWindow) {
-      setApplyToastMessage("Popup blocked. Please allow popups for this site, then try Apply again.");
+      setApplyToastMessage(
+        'Popup blocked. Please allow popups for this site, then try Apply again.'
+      );
       return false;
     }
     return true;
   }, []);
 
-  const handleApplyAfterAuth = useCallback(async (applyWindow?: Window | null) => {
-    const urlToOpen = pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-    const jobIdToTrack = pendingApplyJobId || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+  const handleApplyAfterAuth = useCallback(
+    async (applyWindow?: Window | null) => {
+      const urlToOpen =
+        pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+      const jobIdToTrack =
+        pendingApplyJobId || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
 
-    if (!urlToOpen) {
-      setIsAuthModalOpen(false);
-      return;
-    }
-
-    // Track the click after auth
-    if (jobIdToTrack) {
-      try {
-        const result = await trackJobClick(jobIdToTrack);
-        if (!("error" in result)) {
-          openApplyUrl(result.apply_url, applyWindow);
-          promptAppliedConfirmation(jobIdToTrack);
-          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-          setPendingApplyUrl(null);
-          setPendingApplyJobId(null);
-          setIsAuthModalOpen(false);
-          return;
-        }
-      } catch {
-        // Fall through to use original URL
+      if (!urlToOpen) {
+        setIsAuthModalOpen(false);
+        return;
       }
-    }
 
-    openApplyUrl(urlToOpen, applyWindow);
+      // Track the click after auth
+      if (jobIdToTrack) {
+        try {
+          const result = await trackJobClick(jobIdToTrack);
+          if (!('error' in result)) {
+            openApplyUrl(result.apply_url, applyWindow);
+            promptAppliedConfirmation(jobIdToTrack);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+            setPendingApplyUrl(null);
+            setPendingApplyJobId(null);
+            setIsAuthModalOpen(false);
+            return;
+          }
+        } catch {
+          // Fall through to use original URL
+        }
+      }
 
-    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-    setPendingApplyUrl(null);
-    setPendingApplyJobId(null);
-    setIsAuthModalOpen(false);
-  }, [openApplyUrl, pendingApplyUrl, pendingApplyJobId, promptAppliedConfirmation]);
+      openApplyUrl(urlToOpen, applyWindow);
+
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+      setPendingApplyUrl(null);
+      setPendingApplyJobId(null);
+      setIsAuthModalOpen(false);
+    },
+    [openApplyUrl, pendingApplyUrl, pendingApplyJobId, promptAppliedConfirmation]
+  );
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -371,7 +383,7 @@ export default function JobList({
       if (storedJobId) {
         try {
           const result = await trackJobClick(storedJobId);
-          if (!("error" in result)) {
+          if (!('error' in result)) {
             openApplyUrl(result.apply_url);
             promptAppliedConfirmation(storedJobId);
             sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
@@ -405,7 +417,7 @@ export default function JobList({
       }
       try {
         const result = await trackJobClick(jobId);
-        if (!("error" in result)) {
+        if (!('error' in result)) {
           openApplyUrl(result.apply_url);
           promptAppliedConfirmation(jobId);
           return;
@@ -427,8 +439,8 @@ export default function JobList({
 
   const buildPageUrl = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("page", page.toString());
-    params.delete("selected");
+    params.set('page', page.toString());
+    params.delete('selected');
     return `/?${params.toString()}`;
   };
 
@@ -436,8 +448,8 @@ export default function JobList({
     return (
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold dark:text-md-on-surface">
-            {matched ? "Matched roles" : "Latest roles"}
+          <h2 className="dark:text-md-on-surface text-xl font-semibold">
+            {matched ? 'Matched roles' : 'Latest roles'}
           </h2>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -450,18 +462,20 @@ export default function JobList({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold dark:text-md-on-surface">
-          {matched ? "Matched roles" : "Latest roles"}
+        <h2 className="dark:text-md-on-surface text-xl font-semibold">
+          {matched ? 'Matched roles' : 'Latest roles'}
         </h2>
         {SHOW_JOB_COUNT && (
-          <span className="text-sm text-slate-500 dark:text-md-on-surface-variant">
-            {total} {matched ? "matches" : "openings"}
+          <span className="dark:text-md-on-surface-variant text-sm text-slate-500">
+            {total} {matched ? 'matches' : 'openings'}
           </span>
         )}
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <div className={`transition-all duration-300 ${selectedJob ? "w-full lg:w-1/2" : "w-full"}`}>
+        <div
+          className={`transition-all duration-300 ${selectedJob ? 'w-full lg:w-1/2' : 'w-full'}`}
+        >
           {jobs.map((job) => {
             const matchPercentage = matched ? matchScoresMap.get(job.id) : undefined;
             return (
@@ -480,9 +494,9 @@ export default function JobList({
           })}
 
           {jobs.length === 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-md-outline-variant dark:bg-md-surface-container-low">
-              <p className="text-slate-500 dark:text-md-on-surface-variant">
-                {matched ? "No matched jobs found." : "No jobs found."}
+            <div className="dark:border-md-outline-variant dark:bg-md-surface-container-low rounded-2xl border border-slate-200 bg-white p-8 text-center">
+              <p className="dark:text-md-on-surface-variant text-slate-500">
+                {matched ? 'No matched jobs found.' : 'No jobs found.'}
               </p>
             </div>
           )}
@@ -493,11 +507,11 @@ export default function JobList({
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+                className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoadingMore ? "Loading..." : `Load ${DEFAULT_PAGE_SIZE} more`}
+                {isLoadingMore ? 'Loading...' : `Load ${DEFAULT_PAGE_SIZE} more`}
               </button>
-              <span className="text-xs text-slate-500 dark:text-md-on-surface-variant">
+              <span className="dark:text-md-on-surface-variant text-xs text-slate-500">
                 Showing {jobs.length} of {total}
               </span>
             </div>
@@ -508,20 +522,20 @@ export default function JobList({
               {currentPage > 1 && (
                 <Link
                   href={buildPageUrl(currentPage - 1)}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+                  className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Previous
                 </Link>
               )}
 
-              <span className="px-4 py-2 text-sm text-slate-600 dark:text-md-on-surface-variant">
+              <span className="dark:text-md-on-surface-variant px-4 py-2 text-sm text-slate-600">
                 Page {currentPage} of {totalPagesComputed}
               </span>
 
               {currentPage < totalPagesComputed && (
                 <Link
                   href={buildPageUrl(currentPage + 1)}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+                  className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Next
                 </Link>
@@ -574,8 +588,8 @@ export default function JobList({
         />
       )}
       {pendingAppliedConfirmJobId && (
-        <div className="fixed bottom-4 right-4 z-[70] w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
-          <p className="text-sm font-medium text-slate-900 dark:text-md-on-surface">
+        <div className="dark:border-md-outline-variant dark:bg-md-surface-container fixed right-4 bottom-4 z-[70] w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+          <p className="dark:text-md-on-surface text-sm font-medium text-slate-900">
             Did you apply to this job?
           </p>
           <div className="mt-3 flex items-center gap-2">
@@ -603,7 +617,7 @@ export default function JobList({
             </button>
             <button
               type="button"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+              className="dark:border-md-outline-variant dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               onClick={() => setPendingAppliedConfirmJobId(null)}
             >
               No

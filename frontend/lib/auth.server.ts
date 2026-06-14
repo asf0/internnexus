@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
-import { decode } from "next-auth/jwt";
+import { cookies } from 'next/headers';
+import { decode } from 'next-auth/jwt';
 
 async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -14,16 +14,16 @@ export async function getBackendToken(maxRetries = 3): Promise<string | undefine
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const cookieStore = await cookies();
 
-    const secureAuthjsCookie = cookieStore.get("__Secure-authjs.session-token")?.value;
-    const authjsCookie = cookieStore.get("authjs.session-token")?.value;
-    const legacyCookie = cookieStore.get("next-auth.session-token")?.value;
+    const secureAuthjsCookie = cookieStore.get('__Secure-authjs.session-token')?.value;
+    const authjsCookie = cookieStore.get('authjs.session-token')?.value;
+    const legacyCookie = cookieStore.get('next-auth.session-token')?.value;
 
     const authCookie = secureAuthjsCookie || authjsCookie || legacyCookie;
     const cookieName = secureAuthjsCookie
-      ? "__Secure-authjs.session-token"
+      ? '__Secure-authjs.session-token'
       : authjsCookie
-        ? "authjs.session-token"
-        : "next-auth.session-token";
+        ? 'authjs.session-token'
+        : 'next-auth.session-token';
 
     if (authCookie) {
       try {

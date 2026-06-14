@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { User, Phone, MapPin } from "lucide-react";
-import { Card, CardContent, IconContainer, FormField } from "@/components/ui";
+import { User, Phone, MapPin } from 'lucide-react';
+import { Card, CardContent, IconContainer, FormField } from '@/components/ui';
 
 interface PersonalSectionProps {
   readonly name: string;
@@ -15,11 +15,15 @@ export function PersonalSection({ name, bio, phone, location, onChange }: Person
   return (
     <Card>
       <CardContent>
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-6 flex items-center gap-3">
           <IconContainer icon={User} color="blue" />
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Personal</h2>
-            <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your basic info</p>
+            <h2 className="dark:text-md-on-surface text-xl font-semibold text-slate-900">
+              Personal
+            </h2>
+            <p className="dark:text-md-on-surface-variant text-sm text-slate-500">
+              Your basic info
+            </p>
           </div>
         </div>
 
@@ -27,17 +31,19 @@ export function PersonalSection({ name, bio, phone, location, onChange }: Person
           <FormField
             label="Full Name"
             value={name}
-            onChange={(value) => onChange("name", value)}
+            onChange={(value) => onChange('name', value)}
             placeholder="John Doe"
           />
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1">Bio / About</label>
+            <label className="dark:text-md-on-surface-variant mb-1 block text-sm font-medium text-slate-700">
+              Bio / About
+            </label>
             <textarea
               value={bio}
-              onChange={(e) => onChange("bio", e.target.value)}
+              onChange={(e) => onChange('bio', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-md-outline-variant rounded-lg focus:ring-2 focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container-high dark:text-md-on-surface"
+              className="dark:border-md-outline-variant focus:ring-md-primary focus:border-md-primary dark:bg-md-surface-container-high dark:text-md-on-surface w-full rounded-lg border border-slate-300 px-3 py-2 focus:ring-2"
               placeholder="Tell us about yourself..."
             />
           </div>
@@ -45,7 +51,7 @@ export function PersonalSection({ name, bio, phone, location, onChange }: Person
           <FormField
             label="Phone"
             value={phone}
-            onChange={(value) => onChange("phone", value)}
+            onChange={(value) => onChange('phone', value)}
             icon={Phone}
             placeholder="+1 (555) 123-4567"
           />
@@ -53,7 +59,7 @@ export function PersonalSection({ name, bio, phone, location, onChange }: Person
           <FormField
             label="Location"
             value={location}
-            onChange={(value) => onChange("location", value)}
+            onChange={(value) => onChange('location', value)}
             icon={MapPin}
             placeholder="San Francisco, CA"
           />

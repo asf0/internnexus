@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, Check } from 'lucide-react';
 
 interface SingleSelectProps {
   readonly options: { value: string; label: string }[];
@@ -21,8 +21,8 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const selectedOption = options.find((opt) => opt.value === value);
@@ -32,39 +32,37 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full min-h-[44px] cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container"
+        className="dark:border-md-outline-variant dark:bg-md-surface-container flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
         <span
           className={
             selectedOption
-              ? "text-slate-900 dark:text-md-on-surface"
-              : "text-slate-400 dark:text-md-on-surface"
+              ? 'dark:text-md-on-surface text-slate-900'
+              : 'dark:text-md-on-surface text-slate-400'
           }
         >
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
           size={16}
-          className={`ml-2 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`ml-2 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
+        <div className="dark:border-md-outline-variant dark:bg-md-surface-container absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg">
           <div className="max-h-52 overflow-y-auto">
             <button
               type="button"
               onClick={() => {
-                onChange("");
+                onChange('');
               }}
-              className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+              className="dark:hover:bg-md-surface-container-high flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50"
             >
-              <span className="text-slate-900 dark:text-md-on-surface">{placeholder}</span>
-              {!value && (
-                <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
-              )}
+              <span className="dark:text-md-on-surface text-slate-900">{placeholder}</span>
+              {!value && <Check size={16} className="dark:text-md-on-surface text-slate-900" />}
             </button>
             {options.map((option) => (
               <button
@@ -73,24 +71,24 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
                 onClick={() => {
                   onChange(option.value);
                 }}
-                className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+                className="dark:hover:bg-md-surface-container-high flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50"
               >
-                <span className="text-slate-900 dark:text-md-on-surface">{option.label}</span>
+                <span className="dark:text-md-on-surface text-slate-900">{option.label}</span>
                 {value === option.value && (
-                  <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
+                  <Check size={16} className="dark:text-md-on-surface text-slate-900" />
                 )}
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between border-t border-slate-200 bg-white p-2 dark:border-md-outline-variant dark:bg-md-surface-container">
+          <div className="dark:border-md-outline-variant dark:bg-md-surface-container flex items-center justify-between border-t border-slate-200 bg-white p-2">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onChange("");
+                onChange('');
               }}
               disabled={!value}
-              className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+              className="dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Clear
             </button>
@@ -100,7 +98,7 @@ export function SingleSelect({ options, value, onChange, placeholder }: SingleSe
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="rounded bg-md-primary px-2 py-1 text-xs font-medium text-white hover:opacity-90"
+              className="bg-md-primary rounded px-2 py-1 text-xs font-medium text-white hover:opacity-90"
             >
               Done
             </button>

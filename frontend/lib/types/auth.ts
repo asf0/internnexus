@@ -23,7 +23,7 @@ export interface RegisterRequest {
 }
 
 export interface OAuthCallbackRequest {
-  provider: "google" | "github";
+  provider: 'google' | 'github';
   provider_account_id: string;
   email: string;
   name: string | null;

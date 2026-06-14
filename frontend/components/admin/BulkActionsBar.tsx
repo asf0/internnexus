@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui";
-import { X, Check, XCircle, Trash2 } from "lucide-react";
-import { Popconfirm } from "antd";
+import { Button } from '@/components/ui';
+import { X, Check, XCircle, Trash2 } from 'lucide-react';
+import { Popconfirm } from 'antd';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -24,19 +24,17 @@ export function BulkActionsBar({
   }
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up"
-    >
-      <div className="bg-md-surface-container-high dark:bg-md-surface-container-high border-t border-md-outline-variant shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+    <div className="animate-slide-up fixed right-0 bottom-0 left-0 z-50">
+      <div className="bg-md-surface-container-high dark:bg-md-surface-container-high border-md-outline-variant border-t shadow-2xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
             {/* Selected count */}
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-md-primary text-white text-sm font-semibold">
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="bg-md-primary inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white">
                 {selectedCount}
               </span>
-              <span className="text-sm font-medium text-md-on-surface">
-                {selectedCount === 1 ? "item" : "items"} selected
+              <span className="text-md-on-surface text-sm font-medium">
+                {selectedCount === 1 ? 'item' : 'items'} selected
               </span>
             </div>
 
@@ -46,9 +44,9 @@ export function BulkActionsBar({
                 variant="outline"
                 size="sm"
                 onClick={onActivate}
-                className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                className="border-green-300 text-green-600 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-900/20"
               >
-                <Check className="w-4 h-4" />
+                <Check className="h-4 w-4" />
                 <span className="hidden sm:inline">Activate</span>
               </Button>
 
@@ -56,14 +54,14 @@ export function BulkActionsBar({
                 variant="outline"
                 size="sm"
                 onClick={onDeactivate}
-                className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                className="border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
               >
-                <XCircle className="w-4 h-4" />
+                <XCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">Deactivate</span>
               </Button>
 
               <Popconfirm
-                title={`Delete ${selectedCount} ${selectedCount === 1 ? "item" : "items"}?`}
+                title={`Delete ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}?`}
                 description="This action cannot be undone."
                 onConfirm={onDelete}
                 okText="Yes, delete"
@@ -73,15 +71,15 @@ export function BulkActionsBar({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </Button>
               </Popconfirm>
 
               {/* Divider */}
-              <div className="w-px h-8 bg-md-outline-variant mx-1" />
+              <div className="bg-md-outline-variant mx-1 h-8 w-px" />
 
               {/* Clear selection */}
               <Button
@@ -91,7 +89,7 @@ export function BulkActionsBar({
                 className="text-md-on-surface-variant hover:text-md-on-surface"
                 aria-label="Clear selection"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
           </div>

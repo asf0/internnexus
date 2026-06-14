@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useCallback, useRef } from "react";
-import JobDetailPanel from "./JobDetailPanel";
-import type { Job } from "@/lib/types";
+import { useEffect, useCallback, useRef } from 'react';
+import JobDetailPanel from './JobDetailPanel';
+import type { Job } from '@/lib/types';
 
 interface JobDetailPanelContainerProps {
   readonly job: Job | null;
@@ -38,13 +38,13 @@ export function JobDetailPanelContainer({
     previousActiveElement.current = document.activeElement as HTMLElement;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         handleClose();
       }
     };
 
     const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab" || !modalRef.current) return;
+      if (e.key !== 'Tab' || !modalRef.current) return;
 
       const focusableElements = modalRef.current.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -61,13 +61,13 @@ export function JobDetailPanelContainer({
       }
     };
 
-    document.addEventListener("keydown", handleEscape);
-    document.addEventListener("keydown", handleTab);
+    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleTab);
 
     // Only lock scroll on mobile
     const isMobile = window.innerWidth < 1024;
     if (isMobile) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     }
 
     setTimeout(() => {
@@ -78,10 +78,10 @@ export function JobDetailPanelContainer({
     }, 0);
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.removeEventListener("keydown", handleTab);
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleTab);
       if (isMobile) {
-        document.body.style.overflow = "";
+        document.body.style.overflow = '';
       }
       previousActiveElement.current?.focus();
       triggerRef?.current?.focus();
@@ -106,7 +106,7 @@ export function JobDetailPanelContainer({
         aria-modal="true"
         aria-labelledby="job-detail-title"
       >
-        <div className="w-full rounded-2xl bg-white dark:bg-md-surface-container-low">
+        <div className="dark:bg-md-surface-container-low w-full rounded-2xl bg-white">
           <JobDetailPanel
             job={job}
             isLoading={isLoading}
@@ -120,7 +120,7 @@ export function JobDetailPanelContainer({
         </div>
       </div>
 
-      <div className="hidden sticky top-20 h-[calc(100vh-7rem)] w-1/2 min-w-[400px] lg:block">
+      <div className="sticky top-20 hidden h-[calc(100vh-7rem)] w-1/2 min-w-[400px] lg:block">
         <JobDetailPanel
           job={job}
           isLoading={isLoading}

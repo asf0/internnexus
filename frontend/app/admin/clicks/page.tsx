@@ -1,6 +1,6 @@
-import { getBackendToken } from "@/lib/auth.server";
-import { BACKEND_URL } from "@/lib/config";
-import { ClicksClient } from "./ClicksClient";
+import { getBackendToken } from '@/lib/auth.server';
+import { BACKEND_URL } from '@/lib/config';
+import { ClicksClient } from './ClicksClient';
 
 // Types for API responses
 interface ClickStats {
@@ -58,17 +58,14 @@ interface ClicksListResponse {
 }
 
 // Fetch helper with auth
-async function fetchAdminEndpoint<T>(
-  endpoint: string,
-  token: string
-): Promise<T | null> {
+async function fetchAdminEndpoint<T>(endpoint: string, token: string): Promise<T | null> {
   try {
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -93,9 +90,9 @@ export default async function AdminClicksPage() {
 
   // Fetch all data in parallel
   const [clickStats, clicksByDay, recentClicks] = await Promise.all([
-    fetchAdminEndpoint<ClickStats>("/admin/clicks/stats", token),
-    fetchAdminEndpoint<ClickByDay[]>("/admin/clicks/by-day?days=30", token),
-    fetchAdminEndpoint<ClicksListResponse>("/admin/clicks?page=1&page_size=50", token),
+    fetchAdminEndpoint<ClickStats>('/admin/clicks/stats', token),
+    fetchAdminEndpoint<ClickByDay[]>('/admin/clicks/by-day?days=30', token),
+    fetchAdminEndpoint<ClicksListResponse>('/admin/clicks?page=1&page_size=50', token),
   ]);
 
   if (!clickStats) {
@@ -107,10 +104,6 @@ export default async function AdminClicksPage() {
   }
 
   return (
-    <ClicksClient
-      clickStats={clickStats}
-      clicksByDay={clicksByDay}
-      recentClicks={recentClicks}
-    />
+    <ClicksClient clickStats={clickStats} clicksByDay={clicksByDay} recentClicks={recentClicks} />
   );
 }

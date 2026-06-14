@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationProps {
   readonly currentPage: number;
@@ -43,7 +43,7 @@ export default function Pagination({
           <Link
             href={buildPageUrl(currentPage - 1)}
             aria-label={`Go to page ${currentPage - 1}`}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+            className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <span className="flex items-center gap-1.5">
               <ChevronLeft className="h-4 w-4" />
@@ -53,7 +53,7 @@ export default function Pagination({
         ) : (
           <span
             aria-disabled="true"
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
+            className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400"
           >
             <span className="flex items-center gap-1.5">
               <ChevronLeft className="h-4 w-4" />
@@ -62,7 +62,7 @@ export default function Pagination({
           </span>
         )}
 
-        <span className="px-2 text-sm font-medium text-slate-500 dark:text-md-on-surface-variant">
+        <span className="dark:text-md-on-surface-variant px-2 text-sm font-medium text-slate-500">
           Page {currentPage} of {totalPages}
         </span>
 
@@ -70,7 +70,7 @@ export default function Pagination({
           <Link
             href={buildPageUrl(currentPage + 1)}
             aria-label={`Go to page ${currentPage + 1}`}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+            className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <span className="flex items-center gap-1.5">
               <span>Next</span>
@@ -80,7 +80,7 @@ export default function Pagination({
         ) : (
           <span
             aria-disabled="true"
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant"
+            className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400"
           >
             <span className="flex items-center gap-1.5">
               <span>Next</span>
@@ -91,7 +91,7 @@ export default function Pagination({
       </div>
 
       {totalItems && startItem && endItem && (
-        <div className="text-sm text-slate-500 dark:text-md-on-surface-variant">
+        <div className="dark:text-md-on-surface-variant text-sm text-slate-500">
           Showing {startItem}-{endItem} of {totalItems}
         </div>
       )}

@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
-import { AuthModal } from "@/components/auth";
-import { Toast } from "@/components/ui";
-import { SESSION_STORAGE_KEYS } from "@/lib/constants";
-import { toSafeHttpUrl } from "@/lib/utils";
-import { trackJobClick } from "@/app/actions/jobs";
+import { useCallback, useEffect, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
+import { AuthModal } from '@/components/auth';
+import { Toast } from '@/components/ui';
+import { SESSION_STORAGE_KEYS } from '@/lib/constants';
+import { toSafeHttpUrl } from '@/lib/utils';
+import { trackJobClick } from '@/app/actions/jobs';
 
 interface ApplyNowAuthButtonProps {
   readonly jobId: string;
@@ -14,7 +14,11 @@ interface ApplyNowAuthButtonProps {
   readonly isAuthenticated: boolean;
 }
 
-export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }: ApplyNowAuthButtonProps) {
+export default function ApplyNowAuthButton({
+  jobId,
+  applyUrl,
+  isAuthenticated,
+}: ApplyNowAuthButtonProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingApplyUrl, setPendingApplyUrl] = useState<string | null>(null);
   const [applyToastMessage, setApplyToastMessage] = useState<string | null>(null);
@@ -23,7 +27,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
   const openApplyUrl = useCallback((url: string, targetWindow?: Window | null) => {
     const safeUrl = toSafeHttpUrl(url);
     if (!safeUrl) {
-      setApplyToastMessage("This apply link is invalid or unsupported.");
+      setApplyToastMessage('This apply link is invalid or unsupported.');
       return false;
     }
 
@@ -32,9 +36,11 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
       return true;
     }
 
-    const openedWindow = window.open(safeUrl, "_blank", "noopener,noreferrer");
+    const openedWindow = window.open(safeUrl, '_blank', 'noopener,noreferrer');
     if (!openedWindow) {
-      setApplyToastMessage("Popup blocked. Please allow popups for this site, then try Apply again.");
+      setApplyToastMessage(
+        'Popup blocked. Please allow popups for this site, then try Apply again.'
+      );
       return false;
     }
     return true;
@@ -47,7 +53,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
     try {
       const result = await trackJobClick(jobId);
 
-      if ("error" in result) {
+      if ('error' in result) {
         // Fallback to original URL on error
         openApplyUrl(applyUrl);
         return;
@@ -67,7 +73,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
 
     const safeApplyUrl = toSafeHttpUrl(applyUrl);
     if (!safeApplyUrl) {
-      setApplyToastMessage("This apply link is invalid or unsupported.");
+      setApplyToastMessage('This apply link is invalid or unsupported.');
       return;
     }
 
@@ -77,38 +83,42 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
     setIsAuthModalOpen(true);
   }, [applyUrl, jobId, isAuthenticated, handleAuthenticatedClick]);
 
-  const handleAuthSuccess = useCallback(async (applyWindow?: Window | null) => {
-    const urlToOpen = pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-    const storedJobId = sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+  const handleAuthSuccess = useCallback(
+    async (applyWindow?: Window | null) => {
+      const urlToOpen =
+        pendingApplyUrl || sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+      const storedJobId = sessionStorage.getItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
 
-    if (!urlToOpen) {
-      setIsAuthModalOpen(false);
-      return;
-    }
-
-    // Track the click after auth
-    if (storedJobId) {
-      try {
-        const result = await trackJobClick(storedJobId);
-        if (!("error" in result)) {
-          openApplyUrl(result.apply_url, applyWindow);
-          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-          sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-          setPendingApplyUrl(null);
-          setIsAuthModalOpen(false);
-          return;
-        }
-      } catch {
-        // Fall through to use original URL
+      if (!urlToOpen) {
+        setIsAuthModalOpen(false);
+        return;
       }
-    }
 
-    openApplyUrl(urlToOpen, applyWindow);
-    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
-    sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
-    setPendingApplyUrl(null);
-    setIsAuthModalOpen(false);
-  }, [openApplyUrl, pendingApplyUrl]);
+      // Track the click after auth
+      if (storedJobId) {
+        try {
+          const result = await trackJobClick(storedJobId);
+          if (!('error' in result)) {
+            openApplyUrl(result.apply_url, applyWindow);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+            sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+            setPendingApplyUrl(null);
+            setIsAuthModalOpen(false);
+            return;
+          }
+        } catch {
+          // Fall through to use original URL
+        }
+      }
+
+      openApplyUrl(urlToOpen, applyWindow);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
+      setPendingApplyUrl(null);
+      setIsAuthModalOpen(false);
+    },
+    [openApplyUrl, pendingApplyUrl]
+  );
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -122,7 +132,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
       if (storedJobId) {
         try {
           const result = await trackJobClick(storedJobId);
-          if (!("error" in result)) {
+          if (!('error' in result)) {
             openApplyUrl(result.apply_url);
             sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL);
             sessionStorage.removeItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID);
@@ -160,7 +170,7 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
           disabled={isLoading}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isLoading ? "Loading..." : "Apply Now"}
+          {isLoading ? 'Loading...' : 'Apply Now'}
           <ExternalLink className="h-4 w-4" />
         </button>
       ) : (

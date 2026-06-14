@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Lock } from "lucide-react";
-import { Card, CardContent, IconContainer, FormField } from "@/components/ui";
-import { PasswordInput } from "@/components/common";
+import { Lock } from 'lucide-react';
+import { Card, CardContent, IconContainer, FormField } from '@/components/ui';
+import { PasswordInput } from '@/components/common';
 
 interface PasswordSectionProps {
   hasPassword: boolean;
@@ -26,12 +26,14 @@ export function PasswordSection({
   return (
     <Card>
       <CardContent>
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-6 flex items-center gap-3">
           <IconContainer icon={Lock} color="purple" />
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Password</h2>
-            <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">
-              {hasPassword ? "Change password" : "Set password"}
+            <h2 className="dark:text-md-on-surface text-xl font-semibold text-slate-900">
+              Password
+            </h2>
+            <p className="dark:text-md-on-surface-variant text-sm text-slate-500">
+              {hasPassword ? 'Change password' : 'Set password'}
             </p>
           </div>
         </div>

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { UserPlus, Loader2 } from "lucide-react";
-import { Button, Input } from "@/components/ui";
-import { PasswordInput, calculateStrength } from "@/components/common";
+import { UserPlus, Loader2 } from 'lucide-react';
+import { Button, Input } from '@/components/ui';
+import { PasswordInput, calculateStrength } from '@/components/common';
 
 interface RegisterFormProps {
   readonly isLoading: boolean;
@@ -22,20 +22,18 @@ export function RegisterForm({
   onPasswordChange,
   onConfirmPasswordChange,
   onSubmit,
-  submitLabel = "Create account",
+  submitLabel = 'Create account',
   autoFocusFirstField = false,
 }: RegisterFormProps) {
   const isSubmitDisabled =
-    isLoading ||
-    calculateStrength(password).score < 100 ||
-    password !== confirmPassword;
+    isLoading || calculateStrength(password).score < 100 || password !== confirmPassword;
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <label
           htmlFor="name"
-          className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+          className="dark:text-md-on-surface-variant mb-1 block text-sm font-medium text-slate-700"
         >
           Full name
         </label>
@@ -53,7 +51,7 @@ export function RegisterForm({
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+          className="dark:text-md-on-surface-variant mb-1 block text-sm font-medium text-slate-700"
         >
           Email address
         </label>
@@ -76,17 +74,13 @@ export function RegisterForm({
         disabled={isLoading}
       />
 
-      <Button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="w-full"
-      >
+      <Button type="submit" disabled={isSubmitDisabled} className="w-full">
         {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <UserPlus className="w-4 h-4" />
+          <UserPlus className="h-4 w-4" />
         )}
-        {isLoading ? "Creating account..." : submitLabel}
+        {isLoading ? 'Creating account...' : submitLabel}
       </Button>
     </form>
   );

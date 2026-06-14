@@ -1,7 +1,7 @@
-"use server";
+'use server';
 
-import { getBackendToken } from "@/lib/auth.server";
-import { BACKEND_URL } from "@/lib/config";
+import { getBackendToken } from '@/lib/auth.server';
+import { BACKEND_URL } from '@/lib/config';
 
 // ============================================================================
 // Types
@@ -55,7 +55,7 @@ export interface JobsListParams {
   category?: string;
   isActive?: boolean;
   sortBy?: string;
-  sortOrder?: "asc" | "desc";
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface UsersListParams {
@@ -64,7 +64,7 @@ export interface UsersListParams {
   search?: string;
   isAdmin?: boolean;
   sortBy?: string;
-  sortOrder?: "asc" | "desc";
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface UserClick {
@@ -129,38 +129,35 @@ export async function fetchJobs(params: JobsListParams = {}) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const searchParams = new URLSearchParams();
-    searchParams.set("page", String(params.page || 1));
-    searchParams.set("page_size", String(params.pageSize || 20));
+    searchParams.set('page', String(params.page || 1));
+    searchParams.set('page_size', String(params.pageSize || 20));
 
-    if (params.search) searchParams.set("search", params.search);
-    if (params.company) searchParams.set("company", params.company);
-    if (params.category) searchParams.set("category", params.category);
-    if (params.isActive !== undefined) searchParams.set("is_active", String(params.isActive));
+    if (params.search) searchParams.set('search', params.search);
+    if (params.company) searchParams.set('company', params.company);
+    if (params.category) searchParams.set('category', params.category);
+    if (params.isActive !== undefined) searchParams.set('is_active', String(params.isActive));
     if (params.sortBy) {
-      searchParams.set("sort_by", params.sortBy);
-      searchParams.set("sort_order", params.sortOrder || "desc");
+      searchParams.set('sort_by', params.sortBy);
+      searchParams.set('sort_order', params.sortOrder || 'desc');
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/jobs?${searchParams.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/jobs?${searchParams.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
 
     if (!response.ok) {
-      return { error: "Failed to fetch jobs" };
+      return { error: 'Failed to fetch jobs' };
     }
 
     const data: PaginatedResponse<AdminJob> = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to fetch jobs" };
+    return { error: 'Failed to fetch jobs' };
   }
 }
 
@@ -168,21 +165,21 @@ export async function fetchJob(jobId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs/${jobId}`, {
       headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      return { error: "Failed to fetch job" };
+      return { error: 'Failed to fetch job' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to fetch job" };
+    return { error: 'Failed to fetch job' };
   }
 }
 
@@ -190,25 +187,25 @@ export async function updateJob(jobId: string, data: Record<string, unknown>) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs/${jobId}`, {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      return { error: "Failed to update job" };
+      return { error: 'Failed to update job' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to update job" };
+    return { error: 'Failed to update job' };
   }
 }
 
@@ -216,21 +213,21 @@ export async function deactivateJob(jobId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs/${jobId}`, {
-      method: "DELETE",
+      method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
-      return { error: "Failed to deactivate job" };
+      return { error: 'Failed to deactivate job' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to deactivate job" };
+    return { error: 'Failed to deactivate job' };
   }
 }
 
@@ -240,83 +237,81 @@ export async function createJob(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs`, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(jobData),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to create job" };
+      return { error: error.detail || 'Failed to create job' };
     }
 
     const data: AdminJob = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to create job" };
+    return { error: 'Failed to create job' };
   }
 }
 
-export async function hardDeleteJob(
-  jobId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function hardDeleteJob(jobId: string): Promise<{ success?: boolean; error?: string }> {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs/${jobId}/hard`, {
-      method: "DELETE",
+      method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to delete job" };
+      return { error: error.detail || 'Failed to delete job' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to delete job" };
+    return { error: 'Failed to delete job' };
   }
 }
 
 export async function bulkJobAction(
   jobIds: string[],
-  action: "activate" | "deactivate" | "delete"
+  action: 'activate' | 'deactivate' | 'delete'
 ): Promise<{ data?: { affected: number }; error?: string }> {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs/bulk`, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ job_ids: jobIds, action }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to perform bulk action" };
+      return { error: error.detail || 'Failed to perform bulk action' };
     }
 
     const data = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to perform bulk action" };
+    return { error: 'Failed to perform bulk action' };
   }
 }
 
@@ -328,36 +323,33 @@ export async function fetchUsers(params: UsersListParams = {}) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const searchParams = new URLSearchParams();
-    searchParams.set("page", String(params.page || 1));
-    searchParams.set("page_size", String(params.pageSize || 20));
+    searchParams.set('page', String(params.page || 1));
+    searchParams.set('page_size', String(params.pageSize || 20));
 
-    if (params.search) searchParams.set("search", params.search);
-    if (params.isAdmin !== undefined) searchParams.set("is_admin", String(params.isAdmin));
+    if (params.search) searchParams.set('search', params.search);
+    if (params.isAdmin !== undefined) searchParams.set('is_admin', String(params.isAdmin));
     if (params.sortBy) {
-      searchParams.set("sort_by", params.sortBy);
-      searchParams.set("sort_order", params.sortOrder || "desc");
+      searchParams.set('sort_by', params.sortBy);
+      searchParams.set('sort_order', params.sortOrder || 'desc');
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users?${searchParams.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users?${searchParams.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
 
     if (!response.ok) {
-      return { error: "Failed to fetch users" };
+      return { error: 'Failed to fetch users' };
     }
 
     const data: PaginatedResponse<AdminUser> = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to fetch users" };
+    return { error: 'Failed to fetch users' };
   }
 }
 
@@ -365,55 +357,48 @@ export async function fetchUser(userId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/users/${userId}`, {
       headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      return { error: "Failed to fetch user" };
+      return { error: 'Failed to fetch user' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to fetch user" };
+    return { error: 'Failed to fetch user' };
   }
 }
 
-export async function grantAdmin(
-  userId: string,
-  role: "admin" | "super_admin",
-  notes?: string
-) {
+export async function grantAdmin(userId: string, role: 'admin' | 'super_admin', notes?: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/grant-admin`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role, notes }),
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/grant-admin`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role, notes }),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to grant admin access" };
+      return { error: error.detail || 'Failed to grant admin access' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to grant admin access" };
+    return { error: 'Failed to grant admin access' };
   }
 }
 
@@ -421,25 +406,22 @@ export async function revokeAdmin(userId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/revoke-admin`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/revoke-admin`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to revoke admin access" };
+      return { error: error.detail || 'Failed to revoke admin access' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to revoke admin access" };
+    return { error: 'Failed to revoke admin access' };
   }
 }
 
@@ -447,25 +429,22 @@ export async function deactivateUser(userId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/deactivate`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/deactivate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to deactivate user" };
+      return { error: error.detail || 'Failed to deactivate user' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to deactivate user" };
+    return { error: 'Failed to deactivate user' };
   }
 }
 
@@ -473,25 +452,22 @@ export async function reactivateUser(userId: string) {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/reactivate`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/reactivate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to reactivate user" };
+      return { error: error.detail || 'Failed to reactivate user' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to reactivate user" };
+    return { error: 'Failed to reactivate user' };
   }
 }
 
@@ -499,21 +475,21 @@ export async function fetchCurrentAdmin() {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/me`, {
       headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      return { error: "Failed to fetch admin info" };
+      return { error: 'Failed to fetch admin info' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to fetch admin info" };
+    return { error: 'Failed to fetch admin info' };
   }
 }
 
@@ -525,55 +501,50 @@ export async function createUser(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/users`, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ email, password, name }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to create user" };
+      return { error: error.detail || 'Failed to create user' };
     }
 
     const data: AdminUser = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to create user" };
+    return { error: 'Failed to create user' };
   }
 }
 
-export async function deleteUser(
-  userId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function deleteUser(userId: string): Promise<{ success?: boolean; error?: string }> {
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/hard`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/hard`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to delete user" };
+      return { error: error.detail || 'Failed to delete user' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to delete user" };
+    return { error: 'Failed to delete user' };
   }
 }
 
@@ -583,30 +554,26 @@ export async function resetUserPassword(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/reset-password`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/reset-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!response.ok) {
       const error = await response.json();
       const detail = error.detail;
-      const message = typeof detail === "string"
-        ? detail
-        : detail?.message || "Failed to reset password";
+      const message =
+        typeof detail === 'string' ? detail : detail?.message || 'Failed to reset password';
       return { error: message };
     }
 
     const data = await response.json();
     return { success: true, message: data.message };
   } catch {
-    return { error: "Failed to reset password" };
+    return { error: 'Failed to reset password' };
   }
 }
 
@@ -618,29 +585,29 @@ export async function getUserClicks(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const searchParams = new URLSearchParams();
-    searchParams.set("page", String(page || 1));
-    searchParams.set("page_size", String(pageSize || 20));
+    searchParams.set('page', String(page || 1));
+    searchParams.set('page_size', String(pageSize || 20));
 
     const response = await fetch(
       `${BACKEND_URL}/admin/users/${userId}/clicks?${searchParams.toString()}`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
+        cache: 'no-store',
       }
     );
 
     if (!response.ok) {
-      return { error: "Failed to fetch user clicks" };
+      return { error: 'Failed to fetch user clicks' };
     }
 
     const data: PaginatedResponse<UserClick> = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to fetch user clicks" };
+    return { error: 'Failed to fetch user clicks' };
   }
 }
 
@@ -651,29 +618,26 @@ export async function updateUserNotes(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/users/${userId}/notes`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ notes }),
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/users/${userId}/notes`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notes }),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to update notes" };
+      return { error: error.detail || 'Failed to update notes' };
     }
 
     return { success: true };
   } catch {
-    return { error: "Failed to update notes" };
+    return { error: 'Failed to update notes' };
   }
 }
 
@@ -681,22 +645,22 @@ export async function exportUsers(): Promise<{ data?: string; error?: string }> 
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/users/export`, {
       headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      return { error: "Failed to export users" };
+      return { error: 'Failed to export users' };
     }
 
     const data = await response.text();
     return { data };
   } catch {
-    return { error: "Failed to export users" };
+    return { error: 'Failed to export users' };
   }
 }
 
@@ -710,28 +674,25 @@ export async function fetchClicksByUser(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const searchParams = new URLSearchParams();
-    if (limit) searchParams.set("limit", String(limit));
+    if (limit) searchParams.set('limit', String(limit));
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/clicks/by-user?${searchParams.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/admin/clicks/by-user?${searchParams.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
 
     if (!response.ok) {
-      return { error: "Failed to fetch clicks by user" };
+      return { error: 'Failed to fetch clicks by user' };
     }
 
     const data: ClicksByUser[] = await response.json();
     return { data };
   } catch {
-    return { error: "Failed to fetch clicks by user" };
+    return { error: 'Failed to fetch clicks by user' };
   }
 }
 
@@ -741,20 +702,20 @@ export async function fetchDayClickStats(
   try {
     const token = await getBackendToken();
     if (!token) {
-      return { error: "Not authenticated" };
+      return { error: 'Not authenticated' };
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/clicks/date/${date}`, {
       headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      return { error: "Failed to fetch day click stats" };
+      return { error: 'Failed to fetch day click stats' };
     }
 
     return { data: await response.json() };
   } catch {
-    return { error: "Failed to fetch day click stats" };
+    return { error: 'Failed to fetch day click stats' };
   }
 }

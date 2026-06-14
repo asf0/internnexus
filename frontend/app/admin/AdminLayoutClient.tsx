@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useRouter, usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { Avatar, Button, ConfigProvider, Dropdown, Layout, Menu, Result, theme } from "antd";
+import { useRouter, usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
+import { Avatar, Button, ConfigProvider, Dropdown, Layout, Menu, Result, theme } from 'antd';
 import {
   BarChartOutlined,
   DashboardOutlined,
@@ -10,8 +10,8 @@ import {
   SyncOutlined,
   UnorderedListOutlined,
   UserOutlined,
-} from "@ant-design/icons";
-import type { MenuProps } from "antd";
+} from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 
 const { Header, Content } = Layout;
 
@@ -29,83 +29,79 @@ interface AdminLayoutClientProps {
 const adminTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorBgBase: "#121212",
-    colorBgContainer: "#211F26",
-    colorBgElevated: "#2B2930",
-    colorText: "#E6E1E5",
-    colorTextSecondary: "#CAC4D0",
-    colorPrimary: "#005AC1",
-    colorBorder: "#49454F",
-    colorBorderSecondary: "#938F99",
+    colorBgBase: '#121212',
+    colorBgContainer: '#211F26',
+    colorBgElevated: '#2B2930',
+    colorText: '#E6E1E5',
+    colorTextSecondary: '#CAC4D0',
+    colorPrimary: '#005AC1',
+    colorBorder: '#49454F',
+    colorBorderSecondary: '#938F99',
   },
 };
 
-const menuItems: MenuProps["items"] = [
+const menuItems: MenuProps['items'] = [
   {
-    key: "/admin",
+    key: '/admin',
     icon: <DashboardOutlined />,
-    label: "Dashboard",
+    label: 'Dashboard',
   },
   {
-    key: "/admin/jobs",
+    key: '/admin/jobs',
     icon: <UnorderedListOutlined />,
-    label: "Jobs",
+    label: 'Jobs',
   },
   {
-    key: "/admin/users",
+    key: '/admin/users',
     icon: <UserOutlined />,
-    label: "Users",
+    label: 'Users',
   },
   {
-    key: "/admin/clicks",
+    key: '/admin/clicks',
     icon: <BarChartOutlined />,
-    label: "Clicks",
+    label: 'Clicks',
   },
   {
-    key: "/admin/pipeline",
+    key: '/admin/pipeline',
     icon: <SyncOutlined />,
-    label: "Pipeline",
+    label: 'Pipeline',
   },
 ];
 
 function getSelectedKey(pathname: string): string {
-  if (pathname.startsWith("/admin/jobs")) return "/admin/jobs";
-  if (pathname.startsWith("/admin/users")) return "/admin/users";
-  if (pathname.startsWith("/admin/clicks")) return "/admin/clicks";
-  if (pathname.startsWith("/admin/pipeline")) return "/admin/pipeline";
-  return "/admin";
+  if (pathname.startsWith('/admin/jobs')) return '/admin/jobs';
+  if (pathname.startsWith('/admin/users')) return '/admin/users';
+  if (pathname.startsWith('/admin/clicks')) return '/admin/clicks';
+  if (pathname.startsWith('/admin/pipeline')) return '/admin/pipeline';
+  return '/admin';
 }
 
-export default function AdminLayoutClient({
-  user,
-  isAdmin,
-  children,
-}: AdminLayoutClientProps) {
+export default function AdminLayoutClient({ user, isAdmin, children }: AdminLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const selectedKey = getSelectedKey(pathname);
 
-  const handleMenuClick: MenuProps["onClick"] = (event) => {
+  const handleMenuClick: MenuProps['onClick'] = (event) => {
     router.push(event.key);
   };
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    await signOut({ callbackUrl: '/' });
   };
 
-  const userMenuItems: MenuProps["items"] = [
+  const userMenuItems: MenuProps['items'] = [
     {
-      key: "profile",
-      label: user?.email || "Admin",
+      key: 'profile',
+      label: user?.email || 'Admin',
       disabled: true,
     },
     {
-      type: "divider",
+      type: 'divider',
     },
     {
-      key: "logout",
+      key: 'logout',
       icon: <LogoutOutlined />,
-      label: "Logout",
+      label: 'Logout',
       onClick: handleLogout,
     },
   ];
@@ -115,11 +111,11 @@ export default function AdminLayoutClient({
       <ConfigProvider theme={adminTheme}>
         <div
           style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            minHeight: "100vh",
-            background: "#121212",
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '100vh',
+            background: '#121212',
           }}
         >
           <Result
@@ -139,7 +135,7 @@ export default function AdminLayoutClient({
 
   return (
     <ConfigProvider theme={adminTheme}>
-      <Layout style={{ minHeight: "100vh", background: "#121212" }}>
+      <Layout style={{ minHeight: '100vh', background: '#121212' }}>
         <div className="admin-shell">
           <aside className="admin-sidebar" aria-label="Admin navigation">
             <div className="admin-brand">InternNexus</div>
@@ -148,16 +144,16 @@ export default function AdminLayoutClient({
               selectedKeys={[selectedKey]}
               items={menuItems}
               onClick={handleMenuClick}
-              style={{ background: "transparent", borderInlineEnd: 0 }}
+              style={{ background: 'transparent', borderInlineEnd: 0 }}
             />
           </aside>
 
-          <Layout className="admin-main" style={{ background: "#121212" }}>
+          <Layout className="admin-main" style={{ background: '#121212' }}>
             <Header
               className="admin-header"
               style={{
-                background: "#121212",
-                borderBottom: "1px solid #49454F",
+                background: '#121212',
+                borderBottom: '1px solid #49454F',
               }}
             >
               <div className="admin-header-title">InternNexus Admin</div>
@@ -166,9 +162,9 @@ export default function AdminLayoutClient({
                   <Avatar
                     src={user?.image}
                     icon={!user?.image && <UserOutlined />}
-                    style={{ backgroundColor: "#1890ff" }}
+                    style={{ backgroundColor: '#1890ff' }}
                   />
-                  <span className="admin-user-name">{user?.name || user?.email || "Admin"}</span>
+                  <span className="admin-user-name">{user?.name || user?.email || 'Admin'}</span>
                 </button>
               </Dropdown>
             </Header>
@@ -179,7 +175,7 @@ export default function AdminLayoutClient({
                 selectedKeys={[selectedKey]}
                 items={menuItems}
                 onClick={handleMenuClick}
-                style={{ background: "transparent", borderBottom: 0, minWidth: 0 }}
+                style={{ background: 'transparent', borderBottom: 0, minWidth: 0 }}
               />
             </nav>
 

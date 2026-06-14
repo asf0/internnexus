@@ -1,21 +1,25 @@
-"use client"
+'use client';
 
-import { signOut } from "next-auth/react"
-import { User, LogOut, ChevronDown, Settings, UserCircle, Sparkles, Bell } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import Link from "next/link"
-import { AuthModal } from "@/components/auth"
-import { useRouter } from "next/navigation"
+import { signOut } from 'next-auth/react';
+import { User, LogOut, ChevronDown, Settings, UserCircle, Sparkles, Bell } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { AuthModal } from '@/components/auth';
+import { useRouter } from 'next/navigation';
 
 interface UserMenuProps {
-  readonly user?: { readonly name?: string | null; readonly email?: string | null; readonly image?: string | null } | null;
+  readonly user?: {
+    readonly name?: string | null;
+    readonly email?: string | null;
+    readonly image?: string | null;
+  } | null;
   readonly autoOpenAuthModal?: boolean;
   readonly postAuthRedirectPath?: string;
   readonly unreadCount?: number;
 }
 
 function isSafeInternalPath(path: string | undefined): path is string {
-  return !!path && path.startsWith("/") && !path.startsWith("//");
+  return !!path && path.startsWith('/') && !path.startsWith('//');
 }
 
 export default function UserMenu({
@@ -24,29 +28,29 @@ export default function UserMenu({
   postAuthRedirectPath,
   unreadCount = 0,
 }: UserMenuProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login")
-  const hasAutoOpened = useRef(false)
-  const router = useRouter()
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const hasAutoOpened = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!user && autoOpenAuthModal && !hasAutoOpened.current) {
-      hasAutoOpened.current = true
-      setAuthModalMode("login")
-      setIsAuthModalOpen(true)
+      hasAutoOpened.current = true;
+      setAuthModalMode('login');
+      setIsAuthModalOpen(true);
     }
-  }, [user, autoOpenAuthModal])
+  }, [user, autoOpenAuthModal]);
 
   if (!user) {
     return (
       <>
         <button
           onClick={() => {
-            setAuthModalMode("login")
-            setIsAuthModalOpen(true)
+            setAuthModalMode('login');
+            setIsAuthModalOpen(true);
           }}
-          className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
           Sign in
         </button>
@@ -56,33 +60,29 @@ export default function UserMenu({
           defaultMode={authModalMode}
           onAuthSuccess={() => {
             if (isSafeInternalPath(postAuthRedirectPath)) {
-              router.push(postAuthRedirectPath)
+              router.push(postAuthRedirectPath);
             }
           }}
           callbackUrl={isSafeInternalPath(postAuthRedirectPath) ? postAuthRedirectPath : undefined}
         />
       </>
-    )
+    );
   }
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+        className="dark:hover:bg-md-surface-container-high flex items-center gap-2 rounded-md px-3 py-1.5 transition-colors hover:bg-slate-100"
       >
         {user.image ? (
-          <img
-            src={user.image}
-            alt={user.name || "User"}
-            className="h-8 w-8 rounded-full"
-          />
+          <img src={user.image} alt={user.name || 'User'} className="h-8 w-8 rounded-full" />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-md-primary flex items-center justify-center">
+          <div className="bg-md-primary flex h-8 w-8 items-center justify-center rounded-full">
             <User className="h-5 w-5 text-white" />
           </div>
         )}
-        <span className="text-sm font-medium text-slate-700 dark:text-md-on-surface hidden sm:block">
+        <span className="dark:text-md-on-surface hidden text-sm font-medium text-slate-700 sm:block">
           {user.name || user.email}
         </span>
         <ChevronDown className="h-4 w-4 text-slate-500" />
@@ -96,13 +96,13 @@ export default function UserMenu({
             onClick={() => setIsOpen(false)}
             aria-label="Close user menu"
           />
-          <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-md-surface-container border border-slate-200 dark:border-md-outline-variant ring-1 ring-black ring-opacity-5 z-60">
+          <div className="dark:bg-md-surface-container dark:border-md-outline-variant ring-opacity-5 absolute right-0 z-60 mt-2 w-56 rounded-md border border-slate-200 bg-white shadow-lg ring-1 ring-black">
             {/* User Info Header */}
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-md-outline-variant">
-              <p className="text-sm font-medium text-slate-900 dark:text-md-on-surface">
-                {user.name || "User"}
+            <div className="dark:border-md-outline-variant border-b border-slate-200 px-4 py-3">
+              <p className="dark:text-md-on-surface text-sm font-medium text-slate-900">
+                {user.name || 'User'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-md-on-surface-variant truncate">
+              <p className="dark:text-md-on-surface-variant truncate text-xs text-slate-500">
                 {user.email}
               </p>
             </div>
@@ -112,7 +112,7 @@ export default function UserMenu({
               <Link
                 href="/profile"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+                className="dark:text-md-on-surface dark:hover:bg-md-surface-container-high flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100"
               >
                 <UserCircle className="h-4 w-4" />
                 My Profile
@@ -121,7 +121,7 @@ export default function UserMenu({
               <Link
                 href="/settings"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+                className="dark:text-md-on-surface dark:hover:bg-md-surface-container-high flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100"
               >
                 <Settings className="h-4 w-4" />
                 Account Settings
@@ -130,7 +130,7 @@ export default function UserMenu({
               <Link
                 href="/?matched=true"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+                className="dark:text-md-on-surface dark:hover:bg-md-surface-container-high flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100"
               >
                 <Sparkles className="h-4 w-4" />
                 My Matches
@@ -139,29 +139,29 @@ export default function UserMenu({
               <Link
                 href="/profile#notifications"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+                className="dark:text-md-on-surface dark:hover:bg-md-surface-container-high flex items-center gap-3 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100"
               >
                 <Bell className="h-4 w-4" />
                 Notifications
                 {unreadCount > 0 && (
                   <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {unreadCount > 99 ? "99+" : unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </Link>
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-200 dark:border-md-outline-variant" />
+            <div className="dark:border-md-outline-variant border-t border-slate-200" />
 
             {/* Sign Out */}
             <div className="py-1">
               <button
                 onClick={() => {
-                  setIsOpen(false)
-                  signOut({ callbackUrl: "/" })
+                  setIsOpen(false);
+                  signOut({ callbackUrl: '/' });
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors"
+                className="dark:hover:bg-md-surface-container-high flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-slate-100 dark:text-red-400"
               >
                 <LogOut className="h-4 w-4" />
                 Sign out
@@ -171,5 +171,5 @@ export default function UserMenu({
         </>
       )}
     </div>
-  )
+  );
 }

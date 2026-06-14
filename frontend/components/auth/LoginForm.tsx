@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Mail, Loader2 } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Mail, Loader2 } from 'lucide-react';
+import { Button, Input } from '@/components/ui';
 
 interface LoginFormProps {
   readonly isLoading: boolean;
@@ -13,7 +13,7 @@ interface LoginFormProps {
 export function LoginForm({
   isLoading,
   onSubmit,
-  submitLabel = "Sign in with Email",
+  submitLabel = 'Sign in with Email',
   autoFocusFirstField = false,
 }: LoginFormProps) {
   return (
@@ -21,7 +21,7 @@ export function LoginForm({
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+          className="dark:text-md-on-surface-variant mb-1 block text-sm font-medium text-slate-700"
         >
           Email address
         </label>
@@ -39,7 +39,7 @@ export function LoginForm({
       <div>
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-1"
+          className="dark:text-md-on-surface-variant mb-1 block text-sm font-medium text-slate-700"
         >
           Password
         </label>
@@ -53,17 +53,9 @@ export function LoginForm({
         />
       </div>
 
-      <Button
-        type="submit"
-        disabled={isLoading}
-        className="w-full"
-      >
-        {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Mail className="w-4 h-4" />
-        )}
-        {isLoading ? "Signing in..." : submitLabel}
+      <Button type="submit" disabled={isLoading} className="w-full">
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+        {isLoading ? 'Signing in...' : submitLabel}
       </Button>
     </form>
   );

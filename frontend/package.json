@@ -6,7 +6,10 @@
     "dev": "dotenv -e ../.env -- next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next typegen && tsc --noEmit",
+    "lint": "next typegen && tsc --noEmit && eslint .",
+    "lint:fix": "next typegen && tsc --noEmit && eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -25,7 +28,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^10.0.1",
     "@happy-dom/global-registrator": "^20.6.1",
+    "@next/eslint-plugin-next": "^16.2.9",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
@@ -35,9 +41,18 @@
     "@types/react": "^19.2.14",
     "dotenv": "^17.3.1",
     "dotenv-cli": "^11.0.0",
+    "eslint": "^10.5.0",
+    "eslint-config-next": "^16.2.9",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-prettier": "^5.5.6",
+    "globals": "^17.6.0",
     "postcss": "^8.5.6",
+    "prettier": "^3.8.4",
+    "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.0",
     "vitest": "^4.0.15"
   },
   "packageManager": "pnpm@11.3.0"

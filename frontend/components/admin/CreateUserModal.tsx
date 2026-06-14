@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Modal from "@/components/modals/Modal";
-import { Button, Input } from "@/components/ui";
-import { createUser } from "@/app/actions/admin";
+import { useState, useEffect } from 'react';
+import Modal from '@/components/modals/Modal';
+import { Button, Input } from '@/components/ui';
+import { createUser } from '@/app/actions/admin';
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -17,15 +17,11 @@ interface FormState {
   name: string;
 }
 
-export default function CreateUserModal({
-  isOpen,
-  onClose,
-  onSuccess,
-}: CreateUserModalProps) {
+export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
   const [form, setForm] = useState<FormState>({
-    email: "",
-    password: "",
-    name: "",
+    email: '',
+    password: '',
+    name: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +29,7 @@ export default function CreateUserModal({
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setForm({ email: "", password: "", name: "" });
+      setForm({ email: '', password: '', name: '' });
       setError(null);
       setIsLoading(false);
     }
@@ -46,19 +42,19 @@ export default function CreateUserModal({
 
     // Client-side validation
     if (!form.email.trim()) {
-      setError("Email is required");
+      setError('Email is required');
       setIsLoading(false);
       return;
     }
 
     if (!form.password) {
-      setError("Password is required");
+      setError('Password is required');
       setIsLoading(false);
       return;
     }
 
     if (form.password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError('Password must be at least 8 characters');
       setIsLoading(false);
       return;
     }
@@ -80,14 +76,12 @@ export default function CreateUserModal({
       onClose();
       onSuccess();
     } catch {
-      setError("An unexpected error occurred");
+      setError('An unexpected error occurred');
       setIsLoading(false);
     }
   };
 
-  const handleChange = (field: keyof FormState) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleChange = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
     if (error) setError(null);
   };
@@ -96,7 +90,7 @@ export default function CreateUserModal({
     <Modal isOpen={isOpen} onClose={onClose} title="Create User" size="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
@@ -104,7 +98,7 @@ export default function CreateUserModal({
         <div className="space-y-1">
           <label
             htmlFor="email"
-            className="text-sm font-medium text-slate-700 dark:text-md-on-surface"
+            className="dark:text-md-on-surface text-sm font-medium text-slate-700"
           >
             Email <span className="text-red-500">*</span>
           </label>
@@ -112,7 +106,7 @@ export default function CreateUserModal({
             id="email"
             type="email"
             value={form.email}
-            onChange={handleChange("email")}
+            onChange={handleChange('email')}
             placeholder="user@example.com"
             disabled={isLoading}
             required
@@ -122,7 +116,7 @@ export default function CreateUserModal({
         <div className="space-y-1">
           <label
             htmlFor="password"
-            className="text-sm font-medium text-slate-700 dark:text-md-on-surface"
+            className="dark:text-md-on-surface text-sm font-medium text-slate-700"
           >
             Password <span className="text-red-500">*</span>
           </label>
@@ -130,7 +124,7 @@ export default function CreateUserModal({
             id="password"
             type="password"
             value={form.password}
-            onChange={handleChange("password")}
+            onChange={handleChange('password')}
             placeholder="Min 8 characters"
             disabled={isLoading}
             required
@@ -140,7 +134,7 @@ export default function CreateUserModal({
         <div className="space-y-1">
           <label
             htmlFor="name"
-            className="text-sm font-medium text-slate-700 dark:text-md-on-surface"
+            className="dark:text-md-on-surface text-sm font-medium text-slate-700"
           >
             Name <span className="text-slate-400">(optional)</span>
           </label>
@@ -148,23 +142,18 @@ export default function CreateUserModal({
             id="name"
             type="text"
             value={form.name}
-            onChange={handleChange("name")}
+            onChange={handleChange('name')}
             placeholder="John Doe"
             disabled={isLoading}
           />
         </div>
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-          >
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={isLoading}>
-            {isLoading ? "Creating..." : "Create"}
+            {isLoading ? 'Creating...' : 'Create'}
           </Button>
         </div>
       </form>

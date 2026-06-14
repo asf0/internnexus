@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { getBackendToken } from "@/lib/auth.server";
-import { BACKEND_URL } from "@/lib/config";
-import AdminLayoutClient from "./AdminLayoutClient";
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
+import { getBackendToken } from '@/lib/auth.server';
+import { BACKEND_URL } from '@/lib/config';
+import AdminLayoutClient from './AdminLayoutClient';
 
 /**
  * Verify if the current user has admin access by calling the admin endpoint.
@@ -15,7 +15,7 @@ async function verifyAdminAccess(): Promise<boolean> {
     }
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs`, {
-      method: "GET",
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${backendToken}`,
       },
@@ -27,15 +27,11 @@ async function verifyAdminAccess(): Promise<boolean> {
   }
 }
 
-export default async function AdminLayout({
-  children,
-}: {
-  readonly children: React.ReactNode;
-}) {
+export default async function AdminLayout({ children }: { readonly children: React.ReactNode }) {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/?auth=required&callbackUrl=/admin");
+    redirect('/?auth=required&callbackUrl=/admin');
   }
 
   const isAdmin = await verifyAdminAccess();

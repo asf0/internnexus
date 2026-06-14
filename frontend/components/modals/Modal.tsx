@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { ReactNode, useEffect } from "react";
-import { X } from "lucide-react";
+import { ReactNode, useEffect } from 'react';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly title?: ReactNode;
   readonly children: ReactNode;
-  readonly size?: "sm" | "md" | "lg" | "xl";
+  readonly size?: 'sm' | 'md' | 'lg' | 'xl';
   readonly showCloseButton?: boolean;
 }
 
 const sizeClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-2xl",
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-2xl',
 };
 
 export default function Modal({
@@ -24,29 +24,29 @@ export default function Modal({
   onClose,
   title,
   children,
-  size = "md",
+  size = 'md',
   showCloseButton = true,
 }: ModalProps) {
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === 'Escape' && isOpen) {
         onClose();
       }
     };
-    globalThis.addEventListener("keydown", handleEscape);
-    return () => globalThis.removeEventListener("keydown", handleEscape);
+    globalThis.addEventListener('keydown', handleEscape);
+    return () => globalThis.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = 'unset';
     }
     return () => {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
 
@@ -64,30 +64,28 @@ export default function Modal({
 
       {/* Modal Card */}
       <div
-        className={`relative flex flex-col bg-white dark:bg-md-surface-container rounded-xl shadow-2xl border border-slate-200 dark:border-md-outline-variant w-full ${sizeClasses[size]} max-h-[80vh] z-10`}
+        className={`dark:bg-md-surface-container dark:border-md-outline-variant relative flex w-full flex-col rounded-xl border border-slate-200 bg-white shadow-2xl ${sizeClasses[size]} z-10 max-h-[80vh]`}
       >
         {/* Close Button */}
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-md-on-surface hover:bg-slate-100 dark:hover:bg-md-surface-container-high transition-colors z-20"
+            className="dark:hover:text-md-on-surface dark:hover:bg-md-surface-container-high absolute top-4 right-4 z-20 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         )}
 
         {/* Header */}
         {title && (
-          <div className="shrink-0 px-6 pt-6 pb-4 border-b border-slate-200 dark:border-md-outline-variant">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-md-on-surface">
-              {title}
-            </h2>
+          <div className="dark:border-md-outline-variant shrink-0 border-b border-slate-200 px-6 pt-6 pb-4">
+            <h2 className="dark:text-md-on-surface text-2xl font-bold text-slate-900">{title}</h2>
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 text-slate-700 dark:text-md-on-surface-variant">
+        <div className="dark:text-md-on-surface-variant flex-1 overflow-y-auto px-6 py-4 text-slate-700">
           {children}
         </div>
       </div>

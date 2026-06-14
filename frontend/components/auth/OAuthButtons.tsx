@@ -1,33 +1,33 @@
-"use client";
+'use client';
 
-import { Github, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Github } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface OAuthButtonsProps {
   isLoading: boolean;
-  onSignIn: (provider: "github" | "google") => void;
+  onSignIn: (provider: 'github' | 'google') => void;
 }
 
 export function OAuthButtons({ isLoading, onSignIn }: OAuthButtonsProps) {
   return (
-    <div className="space-y-3 mb-6">
+    <div className="mb-6 space-y-3">
       <Button
         variant="secondary"
-        onClick={() => onSignIn("github")}
+        onClick={() => onSignIn('github')}
         disabled={isLoading}
         className="w-full"
       >
-        <Github className="w-5 h-5" />
+        <Github className="h-5 w-5" />
         Continue with GitHub
       </Button>
 
       <Button
         variant="secondary"
-        onClick={() => onSignIn("google")}
+        onClick={() => onSignIn('google')}
         disabled={isLoading}
         className="w-full"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <svg className="h-5 w-5" viewBox="0 0 24 24">
           <path
             fill="currentColor"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

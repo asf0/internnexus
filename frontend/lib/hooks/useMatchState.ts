@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
-import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from "@/lib/constants";
-import type { MatchResponse } from "@/lib/types/job";
+import { useState, useCallback, useEffect } from 'react';
+import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from '@/lib/constants';
+import type { MatchResponse } from '@/lib/types/job';
 
-const MATCH_STATE_UPDATED_EVENT = "internnexus:match-state-updated";
+const MATCH_STATE_UPDATED_EVENT = 'internnexus:match-state-updated';
 
 interface MatchState {
   sessionId: string | null;
@@ -25,7 +25,7 @@ export function useMatchState() {
     if (storedScores) {
       try {
         const parsed = JSON.parse(storedScores) as Record<string, number>;
-        scores = parsed && typeof parsed === "object" ? parsed : {};
+        scores = parsed && typeof parsed === 'object' ? parsed : {};
       } catch {
         scores = {};
       }
@@ -48,10 +48,10 @@ export function useMatchState() {
     };
     const onLocalUpdate = () => loadFromStorage();
 
-    window.addEventListener("storage", onStorage);
+    window.addEventListener('storage', onStorage);
     window.addEventListener(MATCH_STATE_UPDATED_EVENT, onLocalUpdate);
     return () => {
-      window.removeEventListener("storage", onStorage);
+      window.removeEventListener('storage', onStorage);
       window.removeEventListener(MATCH_STATE_UPDATED_EVENT, onLocalUpdate);
     };
   }, [loadFromStorage]);
@@ -86,9 +86,12 @@ export function useMatchState() {
     });
   }, []);
 
-  const getMatchPercentage = useCallback((jobId: string): number | undefined => {
-    return state.matchScores.get(jobId);
-  }, [state.matchScores]);
+  const getMatchPercentage = useCallback(
+    (jobId: string): number | undefined => {
+      return state.matchScores.get(jobId);
+    },
+    [state.matchScores]
+  );
 
   return {
     ...state,

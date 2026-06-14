@@ -1,29 +1,29 @@
-import NextAuth from "next-auth"
-import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
-import Credentials from "next-auth/providers/credentials"
-import type { DefaultSession } from "next-auth"
-import { SESSION_MAX_AGE_SECONDS, SESSION_UPDATE_AGE_SECONDS } from "@/lib/constants"
+import NextAuth from 'next-auth';
+import GitHub from 'next-auth/providers/github';
+import Google from 'next-auth/providers/google';
+import Credentials from 'next-auth/providers/credentials';
+import type { DefaultSession } from 'next-auth';
+import { SESSION_MAX_AGE_SECONDS, SESSION_UPDATE_AGE_SECONDS } from '@/lib/constants';
 
 const backendBaseUrl = process.env.BACKEND_URL;
 
 // Extend the session type to include accessToken and user.id
-declare module "next-auth" {
+declare module 'next-auth' {
   interface Session {
     user: {
-      id?: string
-    } & DefaultSession["user"]
+      id?: string;
+    } & DefaultSession['user'];
   }
 
   interface JWT {
-    accessToken?: string
-    backendToken?: string  // Our backend JWT token
-    id?: string
-    provider?: string
+    accessToken?: string;
+    backendToken?: string; // Our backend JWT token
+    id?: string;
+    provider?: string;
   }
 
   interface User {
-    backendToken?: string
+    backendToken?: string;
   }
 }
 
@@ -40,53 +40,53 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       authorize: async (credentials) => {
         // Call backend login endpoint
-        const email = credentials?.email as string | undefined
-        const password = credentials?.password as string | undefined
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
 
         if (!email || !password) {
-          return null
+          return null;
         }
 
         try {
           const response = await fetch(`${backendBaseUrl}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
-          })
+          });
 
           if (!response.ok) {
-            const error = await response.json()
-            throw new Error(error.detail?.message || "Login failed")
+            const error = await response.json();
+            throw new Error(error.detail?.message || 'Login failed');
           }
 
-          const data = await response.json()
+          const data = await response.json();
 
           return {
             id: data.user.id,
             email: data.user.email,
             name: data.user.name,
             backendToken: data.access_token,
-          }
+          };
         } catch (error) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("Login error:", error)
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Login error:', error);
           }
-          return null
+          return null;
         }
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, account, profile, trigger, session }) {
       // Handle session update (after profile save)
-      if (trigger === "update" && session) {
-        if (session.name !== undefined) token.name = session.name
-        if (session.image !== undefined) token.picture = session.image
+      if (trigger === 'update' && session) {
+        if (session.name !== undefined) token.name = session.name;
+        if (session.image !== undefined) token.picture = session.image;
       }
 
       // Handle OAuth sign-in
@@ -94,10 +94,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Exchange OAuth token for backend JWT
         try {
           if (!profile.email) {
-            throw new Error("Email is required from OAuth provider")
+            throw new Error('Email is required from OAuth provider');
           }
           if (!account.access_token) {
-            throw new Error("Access token is missing from OAuth provider")
+            throw new Error('Access token is missing from OAuth provider');
           }
           const oauthData = {
             provider: account.provider,
@@ -107,53 +107,51 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             image: profile.image || null,
             access_token: account.access_token,
             refresh_token: account.refresh_token || null,
-            expires_at: account.expires_at
-              ? new Date(account.expires_at * 1000)
-              : null,
-          }
+            expires_at: account.expires_at ? new Date(account.expires_at * 1000) : null,
+          };
 
           const response = await fetch(`${backendBaseUrl}/auth/oauth/callback`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(oauthData),
-          })
+          });
 
           if (!response.ok) {
-            if (process.env.NODE_ENV !== "production") {
-              console.error("OAuth callback failed:", await response.text())
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('OAuth callback failed:', await response.text());
             }
-            throw new Error("Failed to exchange OAuth token")
+            throw new Error('Failed to exchange OAuth token');
           }
 
-          const data = await response.json()
-          token.backendToken = data.access_token
-          token.id = data.user.id
+          const data = await response.json();
+          token.backendToken = data.access_token;
+          token.id = data.user.id;
         } catch (error) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("OAuth exchange error:", error)
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('OAuth exchange error:', error);
           }
         }
       }
 
       // Handle credentials sign-in
       if (user?.backendToken) {
-        token.backendToken = user.backendToken
-        token.id = user.id
+        token.backendToken = user.backendToken;
+        token.id = user.id;
       }
 
-      return token
+      return token;
     },
     async session({ session, token }) {
       // Only expose user ID - backendToken stays in server-side JWT only
-      session.user.id = token.id as string
-      return session
-    }
+      session.user.id = token.id as string;
+      return session;
+    },
   },
 
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
     maxAge: SESSION_MAX_AGE_SECONDS,
     updateAge: SESSION_UPDATE_AGE_SECONDS,
   },
   secret: process.env.AUTH_SECRET,
-})
+});

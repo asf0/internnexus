@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Check, ChevronDown, X } from "lucide-react";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { Check, ChevronDown, X } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 interface MultiSelectProps {
   readonly options: string[];
@@ -12,9 +12,16 @@ interface MultiSelectProps {
   readonly disabled?: boolean;
 }
 
-export default function MultiSelect({ options, selected, onChange, placeholder, labelMap, disabled = false }: MultiSelectProps) {
+export default function MultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+  labelMap,
+  disabled = false,
+}: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
   const getLabel = (option: string) => labelMap?.[option] || option;
@@ -26,8 +33,8 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const filteredOptions = useMemo(() => {
@@ -66,19 +73,19 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`flex w-full min-h-[44px] flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-md-outline-variant dark:bg-md-surface-container ${
-          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+        className={`dark:border-md-outline-variant dark:bg-md-surface-container flex min-h-[44px] w-full flex-wrap items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm ${
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
         }`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
         {selected.length === 0 ? (
-          <span className="text-slate-400 dark:text-md-on-surface">{placeholder}</span>
+          <span className="dark:text-md-on-surface text-slate-400">{placeholder}</span>
         ) : (
           selectedPreview.map((item) => (
             <span
               key={item}
-              className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface"
+              className="dark:bg-md-surface-container-high dark:text-md-on-surface inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
             >
               {getLabel(item)}
               <span
@@ -93,7 +100,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                   removeOption(item);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
+                  if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     e.stopPropagation();
                     removeOption(item);
@@ -107,25 +114,25 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
           ))
         )}
         {hiddenSelectedCount > 0 && (
-          <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-md-surface-container-high dark:text-md-on-surface">
+          <span className="dark:bg-md-surface-container-high dark:text-md-on-surface inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
             +{hiddenSelectedCount} more
           </span>
         )}
         <ChevronDown
           size={16}
-          className={`ml-auto text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`ml-auto text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container">
+        <div className="dark:border-md-outline-variant dark:bg-md-surface-container absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg">
           <div className="p-2">
             <input
               type="text"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-md-primary focus:outline-none dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface"
+              className="focus:border-md-primary dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:outline-none"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -138,17 +145,17 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                   type="button"
                   key={option}
                   onClick={() => toggleOption(option)}
-                  className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-md-surface-container-high"
+                  className="dark:hover:bg-md-surface-container-high flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50"
                 >
-                  <span className="text-slate-900 dark:text-md-on-surface">{getLabel(option)}</span>
+                  <span className="dark:text-md-on-surface text-slate-900">{getLabel(option)}</span>
                   {selected.includes(option) && (
-                    <Check size={16} className="text-slate-900 dark:text-md-on-surface" />
+                    <Check size={16} className="dark:text-md-on-surface text-slate-900" />
                   )}
                 </button>
               ))
             )}
           </div>
-          <div className="flex items-center justify-between border-t border-slate-200 bg-white p-2 dark:border-md-outline-variant dark:bg-md-surface-container">
+          <div className="dark:border-md-outline-variant dark:bg-md-surface-container flex items-center justify-between border-t border-slate-200 bg-white p-2">
             <button
               type="button"
               onClick={(e) => {
@@ -156,7 +163,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                 onChange([]);
               }}
               disabled={selected.length === 0}
-              className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high"
+              className="dark:text-md-on-surface-variant dark:hover:bg-md-surface-container-high rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Clear
             </button>
@@ -166,7 +173,7 @@ export default function MultiSelect({ options, selected, onChange, placeholder, 
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="rounded bg-md-primary px-2 py-1 text-xs font-medium text-white hover:opacity-90"
+              className="bg-md-primary rounded px-2 py-1 text-xs font-medium text-white hover:opacity-90"
             >
               Done
             </button>

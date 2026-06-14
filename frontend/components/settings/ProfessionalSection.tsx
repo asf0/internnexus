@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Briefcase, Building, GraduationCap, Link as LinkIcon, Plus, X } from "lucide-react";
-import { Card, CardContent, IconContainer, FormField, Input, Badge, Button } from "@/components/ui";
+import { Briefcase, Building, GraduationCap, Link as LinkIcon, Plus, X } from 'lucide-react';
+import { Card, CardContent, IconContainer, FormField, Input, Badge, Button } from '@/components/ui';
 
 interface ProfessionalSectionProps {
   readonly jobTitle: string;
@@ -35,19 +35,23 @@ export function ProfessionalSection({
   return (
     <Card>
       <CardContent>
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-6 flex items-center gap-3">
           <IconContainer icon={Briefcase} color="green" />
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-md-on-surface">Professional Information</h2>
-            <p className="text-sm text-slate-500 dark:text-md-on-surface-variant">Your work details</p>
+            <h2 className="dark:text-md-on-surface text-xl font-semibold text-slate-900">
+              Professional Information
+            </h2>
+            <p className="dark:text-md-on-surface-variant text-sm text-slate-500">
+              Your work details
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             label="Job Title"
             value={jobTitle}
-            onChange={(value) => onFieldChange("job_title", value)}
+            onChange={(value) => onFieldChange('job_title', value)}
             icon={Briefcase}
             placeholder="Software Engineer"
           />
@@ -55,7 +59,7 @@ export function ProfessionalSection({
           <FormField
             label="Company"
             value={company}
-            onChange={(value) => onFieldChange("company", value)}
+            onChange={(value) => onFieldChange('company', value)}
             icon={Building}
             placeholder="Acme Inc."
           />
@@ -63,7 +67,7 @@ export function ProfessionalSection({
           <FormField
             label="Industry"
             value={industry}
-            onChange={(value) => onFieldChange("industry", value)}
+            onChange={(value) => onFieldChange('industry', value)}
             icon={GraduationCap}
             placeholder="Technology"
           />
@@ -71,7 +75,7 @@ export function ProfessionalSection({
           <FormField
             label="LinkedIn URL"
             value={linkedinUrl}
-            onChange={(value) => onFieldChange("linkedin_url", value)}
+            onChange={(value) => onFieldChange('linkedin_url', value)}
             icon={LinkIcon}
             placeholder="https://linkedin.com/in/username"
           />
@@ -80,7 +84,7 @@ export function ProfessionalSection({
             <FormField
               label="Portfolio / Website"
               value={portfolioUrl}
-              onChange={(value) => onFieldChange("portfolio_url", value)}
+              onChange={(value) => onFieldChange('portfolio_url', value)}
               icon={LinkIcon}
               placeholder="https://yourportfolio.com"
             />
@@ -88,8 +92,10 @@ export function ProfessionalSection({
         </div>
 
         <div className="mt-6">
-          <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Skills</label>
-          <div className="flex flex-wrap gap-2 mb-2">
+          <label className="dark:text-md-on-surface-variant mb-2 block text-sm font-medium text-slate-700">
+            Skills
+          </label>
+          <div className="mb-2 flex flex-wrap gap-2">
             {skills.map((skill) => (
               <Badge key={skill} variant="info">
                 {skill}
@@ -108,28 +114,36 @@ export function ProfessionalSection({
               placeholder="Add a skill (e.g., Python, React)"
               className="flex-1"
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   onAddSkill((e.target as HTMLInputElement).value);
-                  (e.target as HTMLInputElement).value = "";
+                  (e.target as HTMLInputElement).value = '';
                 }
               }}
             />
-            <Button variant="secondary" size="sm" onClick={() => {
-              const input = document.querySelector('input[placeholder*="Add a skill"]') as HTMLInputElement;
-              if (input?.value) {
-                onAddSkill(input.value);
-                input.value = "";
-              }
-            }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const input = document.querySelector(
+                  'input[placeholder*="Add a skill"]'
+                ) as HTMLInputElement;
+                if (input?.value) {
+                  onAddSkill(input.value);
+                  input.value = '';
+                }
+              }}
+            >
               <Plus className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         <div className="mt-6">
-          <label className="block text-sm font-medium text-slate-700 dark:text-md-on-surface-variant mb-2">Preferred Job Locations</label>
-          <div className="flex flex-wrap gap-2 mb-2">
+          <label className="dark:text-md-on-surface-variant mb-2 block text-sm font-medium text-slate-700">
+            Preferred Job Locations
+          </label>
+          <div className="mb-2 flex flex-wrap gap-2">
             {preferredLocations.map((location) => (
               <Badge key={location} variant="success">
                 {location}
@@ -148,20 +162,26 @@ export function ProfessionalSection({
               placeholder="Add a location (e.g., San Francisco, Remote)"
               className="flex-1"
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   onAddLocation((e.target as HTMLInputElement).value);
-                  (e.target as HTMLInputElement).value = "";
+                  (e.target as HTMLInputElement).value = '';
                 }
               }}
             />
-            <Button variant="secondary" size="sm" onClick={() => {
-              const input = document.querySelector('input[placeholder*="Add a location"]') as HTMLInputElement;
-              if (input?.value) {
-                onAddLocation(input.value);
-                input.value = "";
-              }
-            }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const input = document.querySelector(
+                  'input[placeholder*="Add a location"]'
+                ) as HTMLInputElement;
+                if (input?.value) {
+                  onAddLocation(input.value);
+                  input.value = '';
+                }
+              }}
+            >
               <Plus className="h-5 w-5" />
             </Button>
           </div>

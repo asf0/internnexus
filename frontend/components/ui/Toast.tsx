@@ -1,15 +1,15 @@
-import { X } from "lucide-react";
-import { Alert } from "./Alert";
+import { X } from 'lucide-react';
+import { Alert } from './Alert';
 
 interface ToastProps {
   readonly message: string;
   readonly onClose: () => void;
-  readonly type?: "success" | "error" | "warning" | "info";
+  readonly type?: 'success' | 'error' | 'warning' | 'info';
 }
 
-export function Toast({ message, onClose, type = "warning" }: ToastProps) {
+export function Toast({ message, onClose, type = 'warning' }: ToastProps) {
   return (
-    <div className="fixed bottom-4 right-4 z-[120] w-[calc(100vw-2rem)] max-w-sm shadow-xl">
+    <div className="fixed right-4 bottom-4 z-[120] w-[calc(100vw-2rem)] max-w-sm shadow-xl">
       <Alert type={type} className="pr-2">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm">{message}</p>

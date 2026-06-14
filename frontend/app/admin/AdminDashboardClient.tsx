@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Card, Statistic, Table, Tag, Row, Col, Typography } from "antd";
+import { Card, Statistic, Table, Tag, Row, Col, Typography } from 'antd';
 import {
   Briefcase,
   Building2,
@@ -10,8 +10,8 @@ import {
   PlayCircle,
   Clock,
   TrendingUp,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 const { Title } = Typography;
 
@@ -64,34 +64,34 @@ interface AdminDashboardClientProps {
 
 function StatisticIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30">
-      <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
+      <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
     </div>
   );
 }
 
 function formatDate(dateString: string | null): string {
-  if (!dateString) return "Never";
-  return new Date(dateString).toLocaleString("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+  if (!dateString) return 'Never';
+  return new Date(dateString).toLocaleString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case "completed":
-      return "green";
-    case "running":
-      return "blue";
-    case "failed":
-      return "red";
+    case 'completed':
+      return 'green';
+    case 'running':
+      return 'blue';
+    case 'failed':
+      return 'red';
     default:
-      return "default";
+      return 'default';
   }
 }
 
@@ -103,21 +103,21 @@ export default function AdminDashboardClient({
 }: AdminDashboardClientProps) {
   const topJobsColumns = [
     {
-      title: "Job Title",
-      dataIndex: "title",
-      key: "title",
+      title: 'Job Title',
+      dataIndex: 'title',
+      key: 'title',
       ellipsis: true,
     },
     {
-      title: "Company",
-      dataIndex: "company",
-      key: "company",
+      title: 'Company',
+      dataIndex: 'company',
+      key: 'company',
       ellipsis: true,
     },
     {
-      title: "Clicks",
-      dataIndex: "click_count",
-      key: "click_count",
+      title: 'Clicks',
+      dataIndex: 'click_count',
+      key: 'click_count',
       render: (count: number) => (
         <span className="font-semibold text-blue-600 dark:text-blue-400">
           {count.toLocaleString()}
@@ -128,18 +128,16 @@ export default function AdminDashboardClient({
 
   const categoryColumns = [
     {
-      title: "Category",
-      dataIndex: "category",
-      key: "category",
+      title: 'Category',
+      dataIndex: 'category',
+      key: 'category',
       render: (category: string) => <Tag color="blue">{category}</Tag>,
     },
     {
-      title: "Jobs",
-      dataIndex: "count",
-      key: "count",
-      render: (count: number) => (
-        <span className="font-semibold">{count.toLocaleString()}</span>
-      ),
+      title: 'Jobs',
+      dataIndex: 'count',
+      key: 'count',
+      render: (count: number) => <span className="font-semibold">{count.toLocaleString()}</span>,
     },
   ];
 
@@ -163,81 +161,81 @@ export default function AdminDashboardClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={Briefcase} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Total Jobs</span>}
               value={jobStats.total_jobs}
-              styles={{ content: { color: "#E6E1E5" } }}
+              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
         </Card>
 
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={CheckCircle} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Active Jobs</span>}
               value={jobStats.active_jobs}
-              styles={{ content: { color: "#16a34a" } }}
+              styles={{ content: { color: '#16a34a' } }}
             />
           </div>
         </Card>
 
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={Building2} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Total Companies</span>}
               value={jobStats.total_companies}
-              styles={{ content: { color: "#E6E1E5" } }}
+              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={MousePointer} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Total Clicks</span>}
               value={clickStats.total_clicks}
-              styles={{ content: { color: "#E6E1E5" } }}
+              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
         </Card>
 
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={TrendingUp} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Clicks Today</span>}
               value={clickStats.clicks_today}
-              styles={{ content: { color: "#005AC1" } }}
+              styles={{ content: { color: '#005AC1' } }}
             />
           </div>
         </Card>
 
-        <Card className="shadow-sm" styles={{ body: { padding: "20px" } }}>
+        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
           <div className="flex items-center gap-4">
             <StatisticIcon icon={Activity} />
             <Statistic
               title={<span className="text-slate-600 dark:text-slate-400">Clicks This Week</span>}
               value={clickStats.clicks_this_week}
-              styles={{ content: { color: "#E6E1E5" } }}
+              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <PlayCircle className="w-5 h-5" />
+              <PlayCircle className="h-5 w-5" />
               Pipeline Status
             </span>
           }
@@ -248,27 +246,27 @@ export default function AdminDashboardClient({
               <Statistic
                 title={<span className="text-slate-600 dark:text-slate-400">Total Runs</span>}
                 value={pipelineStats.total_runs}
-                styles={{ content: { fontSize: "24px" } }}
+                styles={{ content: { fontSize: '24px' } }}
               />
             </Col>
             <Col span={8}>
               <Statistic
                 title={<span className="text-slate-600 dark:text-slate-400">Completed</span>}
                 value={pipelineStats.completed}
-                styles={{ content: { fontSize: "24px", color: "#16a34a" } }}
+                styles={{ content: { fontSize: '24px', color: '#16a34a' } }}
               />
             </Col>
             <Col span={8}>
               <Statistic
                 title={<span className="text-slate-600 dark:text-slate-400">Failed</span>}
                 value={pipelineStats.failed}
-                styles={{ content: { fontSize: "24px", color: "#dc2626" } }}
+                styles={{ content: { fontSize: '24px', color: '#dc2626' } }}
               />
             </Col>
           </Row>
           {pipelineStats.running > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <Tag color="processing" icon={<PlayCircle className="w-3 h-3 inline mr-1" />}>
+            <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+              <Tag color="processing" icon={<PlayCircle className="mr-1 inline h-3 w-3" />}>
                 {pipelineStats.running} currently running
               </Tag>
             </div>
@@ -278,7 +276,7 @@ export default function AdminDashboardClient({
         <Card
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <Clock className="w-5 h-5" />
+              <Clock className="h-5 w-5" />
               Last Run Status
             </span>
           }
@@ -288,9 +286,7 @@ export default function AdminDashboardClient({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600 dark:text-slate-400">Status:</span>
-                <Tag color={getStatusColor(latestRun.status)}>
-                  {latestRun.status.toUpperCase()}
-                </Tag>
+                <Tag color={getStatusColor(latestRun.status)}>{latestRun.status.toUpperCase()}</Tag>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-600 dark:text-slate-400">Started:</span>
@@ -307,7 +303,7 @@ export default function AdminDashboardClient({
                 </div>
               )}
               {latestRun.error_message && (
-                <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="mt-2 rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
                   <p className="text-sm text-red-600 dark:text-red-400">
                     <strong>Error:</strong> {latestRun.error_message}
                   </p>
@@ -315,18 +311,18 @@ export default function AdminDashboardClient({
               )}
             </div>
           ) : (
-            <div className="text-center py-4 text-slate-500 dark:text-slate-400">
+            <div className="py-4 text-center text-slate-500 dark:text-slate-400">
               No pipeline runs recorded yet
             </div>
           )}
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <TrendingUp className="w-5 h-5" />
+              <TrendingUp className="h-5 w-5" />
               Top Jobs by Clicks
             </span>
           }
@@ -338,14 +334,14 @@ export default function AdminDashboardClient({
             rowKey="job_id"
             pagination={false}
             size="small"
-            locale={{ emptyText: "No clicks recorded yet" }}
+            locale={{ emptyText: 'No clicks recorded yet' }}
           />
         </Card>
 
         <Card
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <Briefcase className="w-5 h-5" />
+              <Briefcase className="h-5 w-5" />
               Jobs by Category
             </span>
           }
@@ -357,7 +353,7 @@ export default function AdminDashboardClient({
             rowKey="category"
             pagination={false}
             size="small"
-            locale={{ emptyText: "No categories found" }}
+            locale={{ emptyText: 'No categories found' }}
           />
         </Card>
       </div>

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import Link from 'next/link';
 
 interface GlobalErrorProps {
   readonly error: Error & { readonly digest?: string };
@@ -17,22 +17,22 @@ interface GlobalErrorProps {
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html lang="en">
-      <body className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4 dark:bg-md-surface">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg dark:border-md-outline-variant dark:bg-md-surface-container-low">
+      <body className="dark:bg-md-surface flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4">
+        <div className="dark:border-md-outline-variant dark:bg-md-surface-container-low w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
             <AlertTriangle className="h-10 w-10 text-red-600 dark:text-red-300" />
           </div>
 
-          <h1 className="mb-2 text-3xl font-bold text-slate-900 dark:text-md-on-surface">
+          <h1 className="dark:text-md-on-surface mb-2 text-3xl font-bold text-slate-900">
             Critical Error
           </h1>
 
-          <p className="mb-6 text-slate-600 dark:text-md-on-surface-variant">
+          <p className="dark:text-md-on-surface-variant mb-6 text-slate-600">
             A critical error has occurred. Our team has been notified.
           </p>
 
           {error.digest && (
-            <p className="mb-6 text-xs text-slate-400 dark:text-md-on-surface-variant">
+            <p className="dark:text-md-on-surface-variant mb-6 text-xs text-slate-400">
               Error ID: {error.digest}
             </p>
           )}
@@ -48,7 +48,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
             <Link
               href="/"
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant dark:hover:bg-slate-700"
+              className="dark:border-md-outline-variant dark:bg-md-surface-container dark:text-md-on-surface-variant flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <Home className="h-4 w-4" />
               Back to Home
@@ -56,7 +56,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           </div>
 
           {/* Show error details in development */}
-          {process.env.NODE_ENV === "development" && (
+          {process.env.NODE_ENV === 'development' && (
             <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-left dark:border-red-800 dark:bg-red-950">
               <p className="mb-2 font-semibold text-red-800 dark:text-red-200">
                 Error Details (Development Only):
