@@ -281,6 +281,24 @@ wheels = [
 ]
 
 [[package]]
+name = "internnexus-core"
+version = "0.1.0"
+source = { directory = "../packages/internnexus-core" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "ruff", specifier = ">=0.8.0" },
+]
+
+[[package]]
 name = "internnexus-pipeline"
 version = "0.1.0"
 source = { editable = "." }
@@ -288,6 +306,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "greenlet" },
     { name = "httpx" },
+    { name = "internnexus-core" },
     { name = "pgvector" },
     { name = "psutil" },
     { name = "pydantic" },
@@ -318,6 +337,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "internnexus-core", directory = "../packages/internnexus-core" },
     { name = "pgvector", specifier = ">=0.3.2" },
     { name = "playwright", marker = "extra == 'scrapers'", specifier = ">=1.46.0" },
     { name = "playwright-stealth", marker = "extra == 'scrapers'", specifier = ">=1.0.6" },

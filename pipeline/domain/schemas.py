@@ -5,15 +5,19 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from internnexus_core.jobs import JobSource as _JobSource
+from internnexus_core.jobs import JobType as _JobType
+from internnexus_core.jobs import WorkMode as _WorkMode
+
 
 JobSource = Literal[
-    "greenhouse",
-    "lever",
-    "ashby",
-    "manual",
+    _JobSource.greenhouse.value,
+    _JobSource.lever.value,
+    _JobSource.ashby.value,
+    _JobSource.manual.value,
 ]
-JobType = Literal["internship", "full_time", "part_time"]
-WorkMode = Literal["remote", "hybrid", "on_site"]
+JobType = Literal[_JobType.internship.value, _JobType.full_time.value, _JobType.part_time.value]
+WorkMode = Literal[_WorkMode.remote.value, _WorkMode.hybrid.value, _WorkMode.on_site.value]
 
 
 class JobSchema(BaseModel):

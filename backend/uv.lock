@@ -622,6 +622,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "greenlet" },
     { name = "httpx" },
+    { name = "internnexus-core" },
     { name = "pdfminer-six" },
     { name = "pgvector" },
     { name = "psycopg2-binary" },
@@ -655,6 +656,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "internnexus-core", directory = "../packages/internnexus-core" },
     { name = "pdfminer-six", specifier = ">=20231228" },
     { name = "pgvector", specifier = ">=0.3.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
@@ -676,6 +678,24 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "ruff", specifier = ">=0.8.0" },
+]
+
+[[package]]
+name = "internnexus-core"
+version = "0.1.0"
+source = { directory = "../packages/internnexus-core" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 

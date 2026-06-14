@@ -21,28 +21,10 @@ from sqlalchemy.orm import relationship, mapped_column, Mapped
 from sqlalchemy.sql import func
 
 from app.db import Base
+from internnexus_core.jobs import JobSource, JobType, WorkMode
 
 JOBS_ID_FK = "jobs.id"
 USERS_ID_FK = "users.id"
-
-
-class JobSource(enum.Enum):
-    greenhouse = "greenhouse"
-    lever = "lever"
-    ashby = "ashby"
-    manual = "manual"
-
-
-class JobType(enum.Enum):
-    internship = "internship"
-    full_time = "full_time"
-    part_time = "part_time"
-
-
-class WorkMode(enum.Enum):
-    remote = "remote"
-    hybrid = "hybrid"
-    on_site = "on_site"
 
 
 class AdminRole(enum.Enum):

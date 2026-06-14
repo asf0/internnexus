@@ -88,3 +88,18 @@ def test_pipeline_has_no_backend_or_shared_imports():
             if token in content:
                 offenders.append(f"{path.relative_to(PROJECT_ROOT)} contains {token}")
     assert offenders == []
+
+
+def test_core_has_no_backend_or_pipeline_imports():
+    """Core package must never import from backend or pipeline."""
+    core_dir = PROJECT_ROOT / "packages" / "internnexus-core" / "internnexus_core"
+    if not core_dir.exists():
+        return
+    forbidden = ("from app", "import app", "from backend", "import backend")
+    offenders = []
+    for path in core_dir.rglob("*.py"):
+        content = path.read_text()
+        for token in forbidden:
+            if token in content:
+                offenders.append(f"{path.relative_to(PROJECT_ROOT)} contains {token}")
+    assert offenders == []
