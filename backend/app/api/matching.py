@@ -30,6 +30,7 @@ from app.services.resume_service import (
     ResumeProcessingError,
     extract_resume_text,
     normalize_resume_text,
+    resume_processing_client_message,
 )
 
 router = APIRouter()
@@ -43,6 +44,12 @@ _RESUME_SCHEMA_ERROR_DETAIL = (
 def _is_resume_schema_error(exc: ProgrammingError) -> bool:
     message = str(getattr(exc, "orig", exc)).lower()
     return "user_resumes" in message and "content_hash" in message
+
+
+def _map_resume_schema_commit_error(exc: SQLAlchemyError) -> HTTPException | None:
+    if isinstance(exc, ProgrammingError) and _is_resume_schema_error(exc):
+        return HTTPException(status_code=503, detail=_RESUME_SCHEMA_ERROR_DETAIL)
+    return None
 
 
 _TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+#\.\-]{1,}")
@@ -509,7 +516,8 @@ async def match_resume(
     try:
         extracted_text = extract_resume_text(file.filename, file_content)
     except ResumeProcessingError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.info("Resume match upload rejected for user %s: %s", current_user.id, exc)
+        raise HTTPException(status_code=400, detail=resume_processing_client_message(exc)) from exc
 
     resume_text = normalize_resume_text(extracted_text)
     if not resume_text:
@@ -606,9 +614,15 @@ async def match_profile_resume(
         try:
             resume_text = decrypt_resume_text(user_resume.encrypted_resume_text)
         except ResumeProcessingError as exc:
+            logger.exception("Failed to decrypt stored resume for user %s", current_user.id)
             user_resume.status = "error"
-            user_resume.embedding_error = str(exc)
-            await db.commit()
+            user_resume.embedding_error = "Failed to decrypt stored resume"
+            await commit_or_500(
+                db,
+                operation="record resume decrypt failure",
+                detail="Failed to update resume status",
+                error_mapper=_map_resume_schema_commit_error,
+            )
             raise HTTPException(
                 status_code=500,
                 detail="Failed to decrypt stored resume. Please upload again.",
@@ -620,8 +634,13 @@ async def match_profile_resume(
         except Exception as exc:  # noqa: BLE001  # embedding provider failures are surfaced as 503 to the client
             logger.exception("Failed to generate embedding for stored resume")
             user_resume.status = "error"
-            user_resume.embedding_error = str(exc)
-            await db.commit()
+            user_resume.embedding_error = "Embedding service unavailable"
+            await commit_or_500(
+                db,
+                operation="record resume embedding failure",
+                detail="Failed to update resume status",
+                error_mapper=_map_resume_schema_commit_error,
+            )
             raise HTTPException(
                 status_code=503,
                 detail="Embedding service unavailable. Please try again later.",

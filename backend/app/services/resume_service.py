@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import logging
 import re
 from typing import BinaryIO
 
@@ -11,10 +12,34 @@ from cryptography.fernet import Fernet, InvalidToken
 from app.config import get_settings
 
 _WHITESPACE_RE = re.compile(r"\s+")
+logger = logging.getLogger(__name__)
+
+_SAFE_RESUME_PROCESSING_MESSAGES = {
+    "Cannot encrypt empty resume text",
+    "Cannot decrypt empty resume text",
+    "Failed to decrypt stored resume text",
+    "Resume text is empty",
+    "Invalid PDF file header",
+    "Only PDF and TXT files are accepted",
+}
+_PDF_EXTRACTION_ERROR = "Could not extract text from PDF. Please upload a text-based PDF or TXT file."
+_TEXT_DECODE_ERROR = "Failed to decode text file"
 
 
 class ResumeProcessingError(Exception):
     """Raised when resume parsing or crypto operations fail."""
+
+
+def resume_processing_client_message(error: ResumeProcessingError) -> str:
+    """Return a user-safe message for a resume processing failure."""
+    message = str(error)
+    if message in _SAFE_RESUME_PROCESSING_MESSAGES:
+        return message
+    if message.startswith("Could not extract text from PDF."):
+        return _PDF_EXTRACTION_ERROR
+    if message.startswith(_TEXT_DECODE_ERROR):
+        return _TEXT_DECODE_ERROR
+    return "Could not process resume. Please upload a valid PDF or TXT file."
 
 
 def _build_fernet() -> Fernet:
@@ -69,7 +94,8 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         if text:
             return text
     except Exception as exc:  # noqa: BLE001  # any pypdf failure falls through to next parser
-        errors.append(f"pypdf: {exc}")
+        logger.debug("pypdf failed to extract resume text", exc_info=exc)
+        errors.append("pypdf parser failed")
 
     try:
         from pdfminer.high_level import extract_text as pdfminer_extract
@@ -82,7 +108,8 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
     except ImportError:
         errors.append("pdfminer: not installed")
     except Exception as exc:  # noqa: BLE001  # any pdfminer failure falls through to next parser
-        errors.append(f"pdfminer: {exc}")
+        logger.debug("pdfminer failed to extract resume text", exc_info=exc)
+        errors.append("pdfminer parser failed")
 
     try:
         file_obj.seek(0)
@@ -93,12 +120,11 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
             if len(printable.strip()) > 100:
                 return printable.strip()
     except Exception as exc:  # noqa: BLE001  # any text fallback failure is recorded for the final error
-        errors.append(f"text fallback: {exc}")
+        logger.debug("text fallback failed to extract resume text", exc_info=exc)
+        errors.append("text fallback failed")
 
     raise ResumeProcessingError(
-        "Could not extract text from PDF. " + "; ".join(errors)
-        if errors
-        else "Unknown parser error"
+        "Could not extract text from PDF. " + "; ".join(errors) if errors else "Unknown parser error"
     )
 
 
@@ -108,7 +134,8 @@ def extract_resume_text(file_name: str, file_content: bytes) -> str:
         try:
             text = _decode_text_bytes(file_content)
         except Exception as exc:  # noqa: BLE001  # decode failure wrapped as ResumeProcessingError
-            raise ResumeProcessingError(f"Failed to decode text file: {exc}") from exc
+            logger.debug("Failed to decode text resume", exc_info=exc)
+            raise ResumeProcessingError(_TEXT_DECODE_ERROR) from exc
         if not text:
             raise ResumeProcessingError("Resume text is empty")
         return text

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { getBackendToken } from '@/lib/auth.server';
 import { BACKEND_URL } from '@/lib/config';
+import { createAuthHeaders } from '@/lib/http';
 import AdminLayoutClient from './AdminLayoutClient';
 
 /**
@@ -16,9 +17,7 @@ async function verifyAdminAccess(): Promise<boolean> {
 
     const response = await fetch(`${BACKEND_URL}/admin/jobs`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${backendToken}`,
-      },
+      headers: createAuthHeaders(backendToken),
     });
 
     return response.ok;

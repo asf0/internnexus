@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import delete, func, select
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mappers import job_to_response
@@ -30,9 +30,10 @@ from app.services.resume_service import (
     encrypt_resume_text,
     extract_resume_text,
     normalize_resume_text,
+    resume_processing_client_message,
 )
 from app.services.user_service import UpdateProfileData, UserService, get_user_service
-from app.utils.db import commit_or_500
+from app.utils.db import commit_or_500, rollback_or_500
 
 router = APIRouter(prefix="/users", tags=["users"])
 logger = logging.getLogger(__name__)
@@ -47,6 +48,15 @@ _RESUME_SCHEMA_ERROR_DETAIL = (
 def _is_resume_schema_error(exc: ProgrammingError) -> bool:
     message = str(getattr(exc, "orig", exc)).lower()
     return "user_resumes" in message and "content_hash" in message
+
+
+def _map_resume_schema_commit_error(exc: SQLAlchemyError) -> HTTPException | None:
+    if isinstance(exc, ProgrammingError) and _is_resume_schema_error(exc):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_RESUME_SCHEMA_ERROR_DETAIL,
+        )
+    return None
 
 
 class UserProfileResponse(BaseModel):
@@ -252,7 +262,11 @@ async def upload_resume_metadata(
     try:
         resume_text = extract_resume_text(filename, file_content)
     except ResumeProcessingError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        logger.info("Resume upload rejected for user %s: %s", current_user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=resume_processing_client_message(exc),
+        ) from exc
 
     normalized_text = normalize_resume_text(resume_text)
     if not normalized_text:
@@ -308,11 +322,20 @@ async def upload_resume_metadata(
                 payload={"file_name": filename},
             )
         )
+        await commit_or_500(
+            db,
+            operation="update resume metadata",
+            detail="Failed to update resume metadata",
+            error_mapper=_map_resume_schema_commit_error,
+        )
         try:
-            await db.commit()
             await db.refresh(existing)
         except ProgrammingError as exc:
-            await db.rollback()
+            await rollback_or_500(
+                db,
+                operation="refresh updated resume metadata",
+                detail="Failed to refresh resume metadata",
+            )
             if _is_resume_schema_error(exc):
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -344,11 +367,20 @@ async def upload_resume_metadata(
             payload={"file_name": filename},
         )
     )
+    await commit_or_500(
+        db,
+        operation="create resume metadata",
+        detail="Failed to create resume metadata",
+        error_mapper=_map_resume_schema_commit_error,
+    )
     try:
-        await db.commit()
         await db.refresh(resume)
     except ProgrammingError as exc:
-        await db.rollback()
+        await rollback_or_500(
+            db,
+            operation="refresh created resume metadata",
+            detail="Failed to refresh resume metadata",
+        )
         if _is_resume_schema_error(exc):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=_RESUME_SCHEMA_ERROR_DETAIL

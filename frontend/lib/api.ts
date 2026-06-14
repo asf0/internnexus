@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BACKEND_URL } from './config';
+import { createOptionalAuthHeaders } from './http';
 import { JobListResponseSchema, LocationItemSchema, MatchFacetsResponseSchema } from './schemas';
 import type { JobFilters, JobListResponse, MatchFacetsResponse } from './types/job';
 import type { LocationItem } from './types/job';
@@ -31,7 +32,7 @@ export async function fetchJobs(
 ): Promise<JobListResponse> {
   const response = await fetch(`${API_BASE}/jobs?${buildJobFilterParams(filters).toString()}`, {
     cache: 'no-store',
-    headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
+    headers: createOptionalAuthHeaders(backendToken),
   });
   if (!response.ok) {
     return { items: [], total: 0, page: 1, page_size: 20 };
@@ -57,7 +58,7 @@ export async function fetchLocations(
 
   const response = await fetch(`${API_BASE}/jobs/filters/locations?${params.toString()}`, {
     cache: 'no-store',
-    headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
+    headers: createOptionalAuthHeaders(backendToken),
   });
   if (!response.ok) return [];
   return z.array(LocationItemSchema).parse(await response.json());
@@ -109,7 +110,7 @@ export async function fetchMatchFacets(
 
   const response = await fetch(`${BACKEND_URL}/match/${sessionId}/facets?${params.toString()}`, {
     cache: 'no-store',
-    headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
+    headers: createOptionalAuthHeaders(backendToken),
   });
 
   if (!response.ok) return null;

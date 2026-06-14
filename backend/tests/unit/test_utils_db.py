@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.utils.db import commit_or_500
+from app.utils.db import commit_or_500, rollback_or_500
 
 
 @pytest.mark.asyncio
@@ -56,3 +56,44 @@ async def test_commit_or_500_default_detail_includes_operation():
         await commit_or_500(db, operation="track job click")
 
     assert exc_info.value.detail == "Failed to track job click"
+
+
+@pytest.mark.asyncio
+async def test_commit_or_500_uses_error_mapper():
+    db = AsyncMock()
+    db.commit.side_effect = SQLAlchemyError("commit failed")
+
+    def map_error(_exc: SQLAlchemyError) -> HTTPException:
+        return HTTPException(status_code=503, detail="Schema unavailable")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await commit_or_500(db, operation="save job", error_mapper=map_error)
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Schema unavailable"
+    db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_rollback_or_500_rolls_back_successfully():
+    db = AsyncMock()
+
+    await rollback_or_500(db, operation="cleanup failed refresh")
+
+    db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_rollback_or_500_raises_safe_500_on_failure():
+    db = AsyncMock()
+    db.rollback.side_effect = SQLAlchemyError("rollback failed")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rollback_or_500(
+            db,
+            operation="cleanup failed refresh",
+            detail="Database operation failed",
+        )
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Database operation failed"

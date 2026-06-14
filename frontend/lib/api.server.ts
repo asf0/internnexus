@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getBackendToken } from './auth.server';
 import { BACKEND_URL } from './config';
+import { createAuthHeaders } from './http';
 import { parseApiError } from './utils';
 
 export class BackendError extends Error {
@@ -13,15 +14,7 @@ export class BackendError extends Error {
   }
 }
 
-export function createAuthHeaders(
-  token: string,
-  extra: Record<string, string> = {}
-): Record<string, string> {
-  return {
-    ...extra,
-    Authorization: `Bearer ${token}`,
-  };
-}
+export { createAuthHeaders } from './http';
 
 export async function requireBackendToken(): Promise<string> {
   const token = await getBackendToken();

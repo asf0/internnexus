@@ -57,7 +57,7 @@ export async function fetchAdminText(
   try {
     const token = await requireBackendToken();
     const response = await fetch(`${BACKEND_URL}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: createAuthHeaders(token),
       cache: 'no-store',
     });
 
@@ -78,10 +78,7 @@ export async function fetchAdminData<T>(path: string, schema?: z.ZodSchema<T>): 
   try {
     const token = await requireBackendToken();
     const response = await fetch(`${BACKEND_URL}${path}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: createAuthHeaders(token, { 'Content-Type': 'application/json' }),
       cache: 'no-store',
     });
 
