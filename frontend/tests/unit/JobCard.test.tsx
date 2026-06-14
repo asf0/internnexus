@@ -52,11 +52,27 @@ describe('JobCard', () => {
     render(<JobCard job={mockJob} isSelected={false} onClick={handleClick} />);
 
     // Act
-    const card = screen.getByRole('article');
+    const card = screen.getByRole('button', { name: /view details/i });
     await user.click(card);
 
     // Assert
     expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClick when activated with Enter or Space', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    const handleClick = vi.fn();
+    render(<JobCard job={mockJob} isSelected={false} onClick={handleClick} />);
+    const card = screen.getByRole('button', { name: /view details/i });
+
+    // Act & Assert
+    card.focus();
+    await user.keyboard('{Enter}');
+    expect(handleClick).toHaveBeenCalledTimes(1);
+
+    await user.keyboard(' ');
+    expect(handleClick).toHaveBeenCalledTimes(2);
   });
 
   it('shows selected state styling when isSelected is true', () => {
@@ -64,8 +80,9 @@ describe('JobCard', () => {
     render(<JobCard job={mockJob} isSelected={true} onClick={vi.fn()} />);
 
     // Assert
-    const card = screen.getByRole('article');
+    const card = screen.getByRole('button', { name: /view details/i });
     expect(card.className).toContain('border-blue-500');
+    expect(card).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows unselected state styling when isSelected is false', () => {
@@ -73,8 +90,9 @@ describe('JobCard', () => {
     render(<JobCard job={mockJob} isSelected={false} onClick={vi.fn()} />);
 
     // Assert
-    const card = screen.getByRole('article');
+    const card = screen.getByRole('button', { name: /view details/i });
     expect(card.className).toContain('border-slate-200');
+    expect(card).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('displays match percentage when provided', () => {
@@ -134,11 +152,15 @@ describe('JobCard', () => {
     expect(screen.getByText('Software Engineer Intern')).toBeDefined();
   });
 
-  it('has correct ARIA role', () => {
+  it('has correct ARIA role and label', () => {
     // Arrange
     render(<JobCard job={mockJob} isSelected={false} onClick={vi.fn()} />);
 
     // Assert
-    expect(screen.getByRole('article')).toBeDefined();
+    const card = screen.getByRole('button', {
+      name: `View details for ${mockJob.title} at ${mockJob.company}`,
+    });
+    expect(card).toBeDefined();
+    expect(card).toHaveAttribute('tabIndex', '0');
   });
 });

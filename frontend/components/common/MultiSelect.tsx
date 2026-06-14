@@ -78,6 +78,7 @@ export default function MultiSelect({
         }`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
+        aria-label={placeholder}
       >
         {selected.length === 0 ? (
           <span className="dark:text-md-on-surface text-slate-400">{placeholder}</span>
@@ -136,7 +137,12 @@ export default function MultiSelect({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          <div className="max-h-52 overflow-y-auto">
+          <div
+            className="max-h-52 overflow-y-auto"
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={placeholder}
+          >
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-400">No results found</div>
             ) : (
@@ -144,8 +150,10 @@ export default function MultiSelect({
                 <button
                   type="button"
                   key={option}
+                  role="option"
+                  aria-selected={selected.includes(option)}
                   onClick={() => toggleOption(option)}
-                  className="dark:hover:bg-md-surface-container-high flex cursor-pointer items-center justify-between px-3 py-2 text-sm hover:bg-slate-50"
+                  className="dark:hover:bg-md-surface-container-high flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
                 >
                   <span className="dark:text-md-on-surface text-slate-900">{getLabel(option)}</span>
                   {selected.includes(option) && (

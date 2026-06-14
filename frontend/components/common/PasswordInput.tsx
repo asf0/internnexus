@@ -136,7 +136,7 @@ export default function PasswordInput({
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="dark:hover:text-md-on-surface-variant absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-            tabIndex={-1}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
@@ -214,7 +214,7 @@ export default function PasswordInput({
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="dark:hover:text-slate-100-variant absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-              tabIndex={-1}
+              aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>

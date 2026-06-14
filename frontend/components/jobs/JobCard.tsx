@@ -36,7 +36,11 @@ export function JobCard({
   onToggleApplied,
 }: JobCardProps) {
   return (
-    <article
+    <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`View details for ${job.title} at ${job.company}`}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -126,6 +130,6 @@ export function JobCard({
           )}
         </div>
       </div>
-    </article>
+    </div>
   );
 }

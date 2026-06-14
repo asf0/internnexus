@@ -335,6 +335,7 @@ export default function Toolbar({
                 setSearchInput('');
                 updateFilter('search', '');
               }}
+              aria-label="Clear search"
               className="absolute top-1/2 right-8 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X className="h-4 w-4" />
@@ -344,6 +345,7 @@ export default function Toolbar({
             <button
               type="button"
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              aria-label="Search tips"
               title="Search tips"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

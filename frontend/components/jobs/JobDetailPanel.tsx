@@ -77,7 +77,9 @@ export default function JobDetailPanel({
           </div>
         </div>
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Close job details"
           className="dark:hover:bg-md-surface-container-high dark:hover:text-md-on-surface-variant rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
         >
           <X className="h-5 w-5" />

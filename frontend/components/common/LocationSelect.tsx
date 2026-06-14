@@ -114,6 +114,7 @@ export default function LocationSelect({
         }`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
+        aria-label={placeholder}
       >
         {selected.length === 0 ? (
           <span className="dark:text-md-on-surface text-slate-400">{placeholder}</span>
@@ -196,7 +197,12 @@ export default function LocationSelect({
             />
           </div>
 
-          <div className="max-h-60 overflow-y-auto">
+          <div
+            className="max-h-60 overflow-y-auto"
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={placeholder}
+          >
             {filteredItems.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-400">No locations found</div>
             ) : (
@@ -227,21 +233,25 @@ export default function LocationSelect({
                         ({item.count})
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelect(item.value);
-                      }}
-                      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${item.label}`}
-                      className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
-                        isSelected
-                          ? 'border-md-primary bg-md-primary'
-                          : 'dark:border-md-outline-variant hover:border-md-primary border-slate-300'
-                      }`}
-                    >
-                      {isSelected && <div className="h-2 w-2 rounded-sm bg-white" />}
-                    </button>
+                    {!hasChildren && (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(item.value);
+                        }}
+                        aria-label={`${isSelected ? 'Deselect' : 'Select'} ${item.label}`}
+                        className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
+                          isSelected
+                            ? 'border-md-primary bg-md-primary'
+                            : 'dark:border-md-outline-variant hover:border-md-primary border-slate-300'
+                        }`}
+                      >
+                        {isSelected && <div className="h-2 w-2 rounded-sm bg-white" />}
+                      </button>
+                    )}
                   </div>
                 );
               })
