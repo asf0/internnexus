@@ -78,6 +78,8 @@ tests/
 !pipeline/tests/**
 !packages/internnexus-core/tests/
 !packages/internnexus-core/tests/**
+packages/internnexus-core/tests/**/__pycache__/
+packages/internnexus-core/tests/**/*.py[cod]
 pipeline/tests/**/__pycache__/
 pipeline/tests/**/*.py[cod]
 !docs/
