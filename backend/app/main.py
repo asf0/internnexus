@@ -96,7 +96,7 @@ async def readiness_check(request: Request) -> dict[str, str | dict[str, str]]:
         async with async_engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
         checks["database"] = "ok"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001  # readiness: any database failure means not ready
         checks["database"] = "error"
         raise APIError(error="DATABASE_UNAVAILABLE", message="Database unavailable", status_code=503, details=checks) from exc
 
@@ -107,7 +107,7 @@ async def readiness_check(request: Request) -> dict[str, str | dict[str, str]]:
             await client.ping()
             await client.aclose()
             checks["redis"] = "ok"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # readiness: any Redis failure means not ready
             checks["redis"] = "error"
             raise APIError(error="REDIS_UNAVAILABLE", message="Redis unavailable", status_code=503, details=checks) from exc
     else:

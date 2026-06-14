@@ -63,7 +63,7 @@ class TokenEncryptor:
                 pem.encode("utf-8"),
                 backend=default_backend(),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # cryptography loaders may raise many exception types
             raise EncryptionError(f"Failed to load public key: {exc}") from exc
 
     def _load_private_key(self, pem: str) -> Any:
@@ -80,7 +80,7 @@ class TokenEncryptor:
                 password=None,
                 backend=default_backend(),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # cryptography loaders may raise many exception types
             raise EncryptionError(f"Failed to load private key: {exc}") from exc
 
     def encrypt(self, plaintext: str) -> str:
@@ -118,7 +118,7 @@ class TokenEncryptor:
             result = encrypted_aes_key + nonce + ciphertext
             return f"{CIPHERTEXT_VERSION}{base64.b64encode(result).decode('utf-8')}"
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # wrap any cryptography failure as EncryptionError
             raise EncryptionError(f"Encryption failed: {exc}") from exc
 
     def decrypt(self, ciphertext_b64: str) -> str:
@@ -168,7 +168,7 @@ class TokenEncryptor:
             plaintext = cipher.decrypt(nonce, ciphertext, None)
             return plaintext.decode("utf-8")
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # wrap any cryptography failure as EncryptionError
             raise EncryptionError(f"Decryption failed: {exc}") from exc
 
 

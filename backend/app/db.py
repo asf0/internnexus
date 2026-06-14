@@ -117,7 +117,7 @@ async def recreate_session_safely() -> bool:
             await session.execute(text("SELECT 1"))
 
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001  # best-effort: any recreation failure falls back to original engines
         # If recreation fails, try to restore original engines
         # They might still work even if dispose partially failed
         return False

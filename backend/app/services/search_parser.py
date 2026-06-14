@@ -220,7 +220,7 @@ def parse_search_query(query: str) -> ParsedSearch:
         parser = SearchParser(lexer.tokens)
         expr = parser.parse()
         return ParsedSearch(is_boolean=True, original_query=original_query, expression=expr)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # intentional fallback: any parse failure degrades to simple terms
         import logging
 
         logging.getLogger(__name__).warning(f"Failed to parse boolean query '{query}': {e}")

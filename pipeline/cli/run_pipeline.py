@@ -52,10 +52,9 @@ from pipeline.runtime import (
     print_health_report,
     run_health_checks,
 )
-import pipeline.runtime.runner as _runner_module
-from pipeline.runtime import PipelineStateManager
+from pipeline.runtime.runner import CLASSIFY_COMMIT_BATCH_SIZE
 from pipeline.runtime.runner import PipelineRunner as _PipelineRunner
-from pipeline.runtime.runner import CLASSIFY_COMMIT_BATCH_SIZE, STEPS as _RUNNER_STEPS
+from pipeline.runtime.runner import STEPS as _RUNNER_STEPS
 from pipeline.runtime.services import (
     resolve_resume_run_id,
     run_continuous_loop,
@@ -70,18 +69,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 STEPS = _RUNNER_STEPS
 
+__all__ = ["PipelineRunner", "STEPS", "CLASSIFY_COMMIT_BATCH_SIZE"]
+
 
 class PipelineRunner(_PipelineRunner):
     """Backward-compatible CLI import for the runtime pipeline runner."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.classify_commit_batch_size = CLASSIFY_COMMIT_BATCH_SIZE
-
-    async def run(self) -> dict:
-        _runner_module.PipelineStateManager = PipelineStateManager
-        _runner_module.get_incomplete_run = get_incomplete_run
-        return await super().run()
+        super().__init__(*args, classify_commit_batch_size=CLASSIFY_COMMIT_BATCH_SIZE, **kwargs)
 
 
 async def run_continuous(runner: PipelineRunner, interval: int):

@@ -67,6 +67,9 @@ class PipelineRunner:
         resume_run_id=None,
         test_mode: bool = False,
         limit: int | None = None,
+        state_manager_class=PipelineStateManager,
+        get_incomplete_run_func=get_incomplete_run,
+        classify_commit_batch_size: int = CLASSIFY_COMMIT_BATCH_SIZE,
     ):
         self.config = get_config()
         self.skip_discover = skip_discover
@@ -75,7 +78,9 @@ class PipelineRunner:
         self.resume_run_id = resume_run_id
         self.test_mode = test_mode
         self.limit = limit
-        self.classify_commit_batch_size = CLASSIFY_COMMIT_BATCH_SIZE
+        self.state_manager_class = state_manager_class
+        self.get_incomplete_run_func = get_incomplete_run_func
+        self.classify_commit_batch_size = classify_commit_batch_size
         self.results = {
             "companies_verified": 0,
             "jobs_fetched": 0,
@@ -394,7 +399,7 @@ class PipelineRunner:
         start = time.time()
         self._reset_run_state()
 
-        incomplete_run = await get_incomplete_run()
+        incomplete_run = await self.get_incomplete_run_func()
         start_from_step = None
         resume_run_id = None
         if incomplete_run:
@@ -424,7 +429,7 @@ class PipelineRunner:
         batch_start_time = None
 
         if not self.dry_run:
-            state = PipelineStateManager(run_id=resume_run_id)
+            state = self.state_manager_class(run_id=resume_run_id)
             await state.__aenter__()
             await state.start_run()
 

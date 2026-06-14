@@ -68,7 +68,7 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         text = "\n".join(text_parts).strip()
         if text:
             return text
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # any pypdf failure falls through to next parser
         errors.append(f"pypdf: {exc}")
 
     try:
@@ -81,7 +81,7 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
             return text
     except ImportError:
         errors.append("pdfminer: not installed")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # any pdfminer failure falls through to next parser
         errors.append(f"pdfminer: {exc}")
 
     try:
@@ -92,7 +92,7 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
             printable = "".join(c for c in decoded if c.isprintable() or c in "\n\r\t ")
             if len(printable.strip()) > 100:
                 return printable.strip()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # any text fallback failure is recorded for the final error
         errors.append(f"text fallback: {exc}")
 
     raise ResumeProcessingError(
@@ -107,7 +107,7 @@ def extract_resume_text(file_name: str, file_content: bytes) -> str:
     if lower.endswith(".txt"):
         try:
             text = _decode_text_bytes(file_content)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # decode failure wrapped as ResumeProcessingError
             raise ResumeProcessingError(f"Failed to decode text file: {exc}") from exc
         if not text:
             raise ResumeProcessingError("Resume text is empty")

@@ -68,9 +68,11 @@ def is_valid_url(url: str) -> bool:
     Returns:
         True if the string is a valid HTTP/HTTPS URL, False otherwise
     """
+    if not isinstance(url, str):
+        return False
     try:
         parsed = urlparse(url)
         # Must have a scheme and netloc, and scheme must be http or https
         return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-    except Exception:
+    except ValueError:
         return False

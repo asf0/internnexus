@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import MatchResponse, MatchResult, MatchFacetsResponse, FacetItem, LocationFacetItem
@@ -24,6 +24,7 @@ from app.rate_limiter import limiter, RATE_LIMITS
 from app.services.match_cache import MatchCacheService, get_match_cache_service
 from app.services.posted_within import posted_within_cutoff
 from app.services.query_embedding_service import QueryEmbeddingService
+from app.utils.db import commit_or_500
 from app.services.resume_service import (
     decrypt_resume_text,
     ResumeProcessingError,
@@ -332,7 +333,7 @@ async def _rank_matches(
     try:
         result = await db.execute(stmt)
         candidate_rows: list[tuple[Job, float | None]] = [(job, semantic) for job, semantic in result.tuples().all()]
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         message = str(exc)
         logger.exception("Match query failed: %s", message)
         if "different vector dimensions" in message.lower():
@@ -470,7 +471,7 @@ async def _build_match_response(
                 min_score,
                 session_id,
             )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # cache failure should not fail the match response
         logger.warning(f"Failed to cache matches for session {session_id}: {exc}")
 
     total_pages = (total_matches + page_size - 1) // page_size if total_matches > 0 else 1
@@ -531,7 +532,7 @@ async def match_resume(
     try:
         embedder = QueryEmbeddingService()
         resume_embedding = await embedder.embed(resume_text)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # embedding provider failures are surfaced as 503 to the client
         logger.exception("Failed to generate embedding for uploaded resume")
         raise HTTPException(
             status_code=503,
@@ -616,7 +617,7 @@ async def match_profile_resume(
         try:
             embedder = QueryEmbeddingService()
             resume_embedding = await embedder.embed(resume_text)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # embedding provider failures are surfaced as 503 to the client
             logger.exception("Failed to generate embedding for stored resume")
             user_resume.status = "error"
             user_resume.embedding_error = str(exc)
@@ -632,7 +633,7 @@ async def match_profile_resume(
         user_resume.last_embedded_at = datetime.now(timezone.utc)
         user_resume.status = "ready"
         user_resume.embedding_error = None
-        await db.commit()
+        await commit_or_500(db, operation="store re-embedded resume")
     else:
         if user_resume.resume_embedding is None:
             raise HTTPException(

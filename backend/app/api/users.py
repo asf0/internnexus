@@ -32,6 +32,7 @@ from app.services.resume_service import (
     normalize_resume_text,
 )
 from app.services.user_service import UpdateProfileData, UserService, get_user_service
+from app.utils.db import commit_or_500
 
 router = APIRouter(prefix="/users", tags=["users"])
 logger = logging.getLogger(__name__)
@@ -263,7 +264,7 @@ async def upload_resume_metadata(
     try:
         embedder = QueryEmbeddingService()
         embedding = await embedder.embed(normalized_text)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # embedding provider failures are surfaced as 503 to the client
         logger.exception("Failed to generate embedding for uploaded resume")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -366,7 +367,7 @@ async def delete_resume_metadata(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     await db.execute(delete(UserResume).where(UserResume.user_id == current_user.id))
-    await db.commit()
+    await commit_or_500(db, operation="delete resume metadata")
     return {"message": "Resume metadata deleted"}
 
 
@@ -424,7 +425,7 @@ async def mark_notification_read(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     row.is_read = True
     row.read_at = datetime.now(timezone.utc)
-    await db.commit()
+    await commit_or_500(db, operation="mark notification read")
     return {"message": "Notification marked as read"}
 
 
@@ -444,7 +445,7 @@ async def mark_all_notifications_read(
         if not row.is_read:
             row.is_read = True
             row.read_at = now
-    await db.commit()
+    await commit_or_500(db, operation="mark all notifications read")
     return {"message": "All notifications marked as read"}
 
 
@@ -524,7 +525,7 @@ async def save_job(
         return {"message": "Job already saved"}
 
     db.add(SavedJob(user_id=current_user.id, job_id=job_id))
-    await db.commit()
+    await commit_or_500(db, operation="save job")
     return {"message": "Job saved"}
 
 
@@ -543,7 +544,7 @@ async def unsave_job(
     if row is None:
         return {"message": "Job was not saved"}
     await db.delete(row)
-    await db.commit()
+    await commit_or_500(db, operation="unsave job")
     return {"message": "Job unsaved"}
 
 
@@ -568,7 +569,7 @@ async def mark_job_applied(
         return {"message": "Job already marked as applied"}
 
     db.add(AppliedJob(user_id=current_user.id, job_id=job_id))
-    await db.commit()
+    await commit_or_500(db, operation="mark job applied")
     return {"message": "Job marked as applied"}
 
 
@@ -587,5 +588,5 @@ async def unmark_job_applied(
     if row is None:
         return {"message": "Job was not marked as applied"}
     await db.delete(row)
-    await db.commit()
+    await commit_or_500(db, operation="unmark job applied")
     return {"message": "Job unmarked as applied"}

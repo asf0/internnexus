@@ -242,12 +242,9 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
             return None
 
     fake_state = _FakeState()
-    monkeypatch.setattr(run_pipeline, "PipelineStateManager", lambda run_id=None: fake_state)
 
     async def _no_incomplete_run():
         return None
-
-    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _no_incomplete_run)
 
     async def _ok(*_args, **_kwargs):
         return 0
@@ -260,7 +257,10 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
     async def _classify_fail(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    runner = run_pipeline.PipelineRunner()
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=lambda run_id=None: fake_state,
+        get_incomplete_run_func=_no_incomplete_run,
+    )
     runner.step_discover = _ok
     runner.step_sync_inactive = _ok
     runner.step_ingest = _ingest
@@ -310,12 +310,8 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
             idx = steps.index(run.step_completed)
             return steps[idx + 1] if idx < len(steps) - 1 else None
 
-    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
-
     async def _get_incomplete_run():
         return SimpleNamespace(id="run-123", step_completed="cleanup", started_at="now")
-
-    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
 
     async def _step(name, returns=None):
         executed_steps.append(name)
@@ -327,7 +323,10 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
 
         return 0, datetime.now(timezone.utc)
 
-    runner = run_pipeline.PipelineRunner()
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+    )
     runner.step_discover = lambda *_a, **_k: _step("discover")
     runner.step_sync_inactive = lambda *_a, **_k: _step("sync_inactive")
     runner.step_ingest = _ingest
@@ -378,8 +377,6 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
             idx = steps.index(run.step_completed)
             return steps[idx + 1] if idx < len(steps) - 1 else None
 
-    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
-
     incomplete_runs = [
         SimpleNamespace(id="run-123", step_completed="cleanup", started_at="now"),
         None,
@@ -387,8 +384,6 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
 
     async def _get_incomplete_run():
         return incomplete_runs.pop(0)
-
-    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
 
     def _record(name):
         async def _inner(*_args, **_kwargs):
@@ -403,7 +398,10 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
 
         return _inner
 
-    runner = run_pipeline.PipelineRunner()
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+    )
     runner.step_discover = _record("discover")
     runner.step_sync_inactive = _record("sync_inactive")
     runner.step_ingest = _record("ingest")
@@ -460,12 +458,8 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
         async def mark_step_complete(self, step: str):
             completed_steps.append(step)
 
-    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
-
     async def _get_incomplete_run():
         return None
-
-    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
 
     async def _discover(*_args, **_kwargs):
         return 0
@@ -494,7 +488,10 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
     async def _zero_pair(*_args, **_kwargs):
         return 0, 0
 
-    runner = run_pipeline.PipelineRunner()
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+    )
     runner.step_discover = _discover
     runner.step_sync_inactive = _sync_inactive
     runner.step_ingest = _ingest
@@ -539,12 +536,8 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
         async def mark_step_complete(self, _step: str):
             return None
 
-    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
-
     async def _get_incomplete_run():
         return SimpleNamespace(id="run-123", step_completed="sync_inactive", started_at="now")
-
-    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
 
     async def _ingest(*_args, **_kwargs):
         from datetime import datetime, timezone
@@ -567,7 +560,10 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
     async def _zero_pair(*_args, **_kwargs):
         return 0, 0
 
-    runner = run_pipeline.PipelineRunner()
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+    )
     runner.step_ingest = _ingest
     runner.step_delete_inactive = _delete
     runner.rollback_sync_inactive = _rollback
@@ -588,4 +584,70 @@ def test_delete_inactive_guard_allows_small_syncs():
     assert _is_unsafe_delete_inactive_sync(50, 1) is False
     assert _is_unsafe_delete_inactive_sync(33971, 582) is True
     assert _is_unsafe_delete_inactive_sync(33971, 30000) is False
+
+
+@pytest.mark.asyncio
+async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
+    """The CLI runner must use constructor-injected dependencies, not mutate runner globals."""
+    from pipeline.runtime import runner as runner_module
+
+    original_state_manager = runner_module.PipelineStateManager
+    original_get_incomplete_run = runner_module.get_incomplete_run
+
+    state_calls = []
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            state_calls.append(run_id)
+            self.run_id = run_id or "fake-run"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error, _step):
+            return None
+
+        async def mark_step_complete(self, _step):
+            return None
+
+    async def _get_incomplete_run():
+        return None
+
+    async def _zero(*_args, **_kwargs):
+        return 0
+
+    async def _zero_pair(*_args, **_kwargs):
+        return 0, 0
+
+    async def _ingest(*_args, **_kwargs):
+        from datetime import datetime, timezone
+
+        return 0, datetime.now(timezone.utc)
+
+    runner = run_pipeline.PipelineRunner(
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+    )
+    runner.step_discover = _zero
+    runner.step_sync_inactive = _zero
+    runner.step_ingest = _ingest
+    runner.step_delete_inactive = _zero
+    runner.step_cleanup = _zero
+    runner.step_classify = _zero_pair
+    runner.step_embed = _zero_pair
+
+    await runner.run()
+
+    assert state_calls == [None]
+    assert runner_module.PipelineStateManager is original_state_manager
+    assert runner_module.get_incomplete_run is original_get_incomplete_run
 

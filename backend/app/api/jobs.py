@@ -10,7 +10,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mappers import job_to_response
@@ -24,6 +23,7 @@ from app.repositories.job import JobRepository
 from app.services.job_search import JobSearchParams, JobSearchService
 from app.services.location_service import LocationService
 from app.utils import add_utm_params
+from app.utils.db import commit_or_500
 
 router = APIRouter()
 
@@ -68,13 +68,6 @@ async def _get_saved_job_ids(db: AsyncSession, user: User | None, saved_only: bo
     )
     return list(saved_ids_result.scalars().all())
 
-
-async def _commit_or_500(db: AsyncSession, operation: str) -> None:
-    try:
-        await db.commit()
-    except SQLAlchemyError as exc:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to {operation}") from exc
 
 async def _get_job_search_service_dependency(
     db: AsyncSession = Depends(get_db),
@@ -310,7 +303,7 @@ async def track_job_click(
     )
     db.add(click)
 
-    await _commit_or_500(db, "track job click")
+    await commit_or_500(db, operation="track job click")
 
     # Add UTM params to apply URL
     apply_url = add_utm_params(

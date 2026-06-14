@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.matching import (
     _extract_resume_signals,
     _hybrid_match_score,
+    _rank_matches,
     _recency_score,
     _skill_title_score,
     _work_mode_score,
@@ -64,3 +70,14 @@ def test_hybrid_score_weights_semantic_heavily():
     )
 
     assert strong_semantic > weak_semantic
+
+
+@pytest.mark.asyncio
+async def test_rank_matches_returns_500_on_sqlalchemy_error():
+    db = AsyncMock()
+    db.execute.side_effect = SQLAlchemyError("vector dimension mismatch")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _rank_matches(db, resume_embedding=[0.1] * 2560, resume_text="Python backend", min_score=0.0)
+
+    assert exc_info.value.status_code == 500
