@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -14,9 +14,10 @@ from sqlalchemy.sql import Select
 
 from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse
-from app.cache.redis_pool import RedisService
+from app.cache.redis_pool import CacheService
 from app.models import Job
 from app.repositories.job import JobRepository
+from app.services.posted_within import posted_within_cutoff
 from app.services.search_parser import ParsedSearch, SearchTerm, parse_search_query
 
 MAX_SEARCH_LENGTH = 100
@@ -58,7 +59,7 @@ class JobSearchParams:
 class JobSearchService:
     """Service for job search with full-text search."""
 
-    def __init__(self, session: AsyncSession, cache: RedisService | None = None):
+    def __init__(self, session: AsyncSession, cache: CacheService | None = None):
         self.session = session
         self.job_repo = JobRepository(session)
         self.cache = cache
@@ -343,13 +344,7 @@ class JobSearchService:
     def _apply_posted_within_filter(self, stmt: JobSelect, posted_within: str) -> JobSelect:
         """Apply posted within filter."""
         now = datetime.now(timezone.utc)
-        cutoff = None
-        if posted_within == "24h":
-            cutoff = now - timedelta(hours=24)
-        elif posted_within == "week":
-            cutoff = now - timedelta(days=7)
-        elif posted_within == "month":
-            cutoff = now - timedelta(days=30)
+        cutoff = posted_within_cutoff(posted_within, now)
         return stmt.where(Job.posted_at >= cutoff) if cutoff else stmt
 
     def _apply_ordering(

@@ -10,8 +10,7 @@ JobSource = Literal[
     "greenhouse",
     "lever",
     "ashby",
-    "linkedin_scrape",
-    "indeed_scrape",
+    "manual",
 ]
 JobType = Literal["internship", "full_time", "part_time"]
 WorkMode = Literal["remote", "hybrid", "on_site"]

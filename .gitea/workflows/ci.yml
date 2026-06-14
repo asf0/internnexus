@@ -28,10 +28,37 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event.head_commit ||
-      contains(github.event.pull_request.changed_files.*.filename, 'backend/')
+      contains(github.event.pull_request.changed_files.*.filename, 'backend/') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
     runs-on: docker
     container:
       image: python:3.12-slim
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd "pg_isready -U test -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      TEST_DATABASE_URL: postgresql+asyncpg://test:test@postgres:5432/test_db
+      AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+      REDIS_URL: ""
+      EMBEDDING_PROVIDER: ollama
+      EMBEDDING_MODEL: test-embedding-model
+      OLLAMA_BASE_URL: http://localhost:11434
     steps:
       - name: Install Dependencies
         run: apt-get update && apt-get install -y git libatomic1
@@ -54,6 +81,9 @@ jobs:
       - name: Run unit tests
         run: cd backend && uv run pytest tests/unit -q --tb=short
 
+      - name: Run integration, E2E, and property tests
+        run: cd backend && uv run pytest tests/integration tests/e2e tests/property -q --tb=short
+
       - name: Validate imports
         run: cd backend && uv run pytest tests/test_import_chains.py -q
 
@@ -61,10 +91,12 @@ jobs:
     name: Frontend Checks
     if: |
       github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.changed_files.*.filename, 'frontend/')
+      contains(github.event.pull_request.changed_files.*.filename, 'frontend/') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
     runs-on: docker
     container:
-      image: oven/bun:1
+      image: node:22-slim
     steps:
       - name: Install Dependencies
         run: apt-get update && apt-get install -y git
@@ -76,22 +108,26 @@ jobs:
           git checkout --detach FETCH_HEAD
 
       - name: Install dependencies
-        run: cd frontend && bun install --frozen-lockfile
+        run: corepack enable && cd frontend && pnpm install --frozen-lockfile
 
       - name: Type check (lint)
-        run: cd frontend && bun run lint
+        run: cd frontend && pnpm run lint
 
       - name: Run tests
-        run: cd frontend && bun test
+        run: cd frontend && pnpm test
 
       - name: Build
-        run: cd frontend && bun run build
+        run: cd frontend && pnpm run build
 
   pipeline:
     name: Pipeline Checks
     if: |
       github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pipeline/')
+      contains(github.event.pull_request.changed_files.*.filename, 'pipeline/') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'pipeline.yaml') ||
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
     runs-on: docker
     container:
       image: python:3.12-slim

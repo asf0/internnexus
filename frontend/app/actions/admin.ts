@@ -579,7 +579,7 @@ export async function deleteUser(
 
 export async function resetUserPassword(
   userId: string
-): Promise<{ success?: boolean; error?: string }> {
+): Promise<{ success?: boolean; error?: string; message?: string }> {
   try {
     const token = await getBackendToken();
     if (!token) {
@@ -596,10 +596,15 @@ export async function resetUserPassword(
 
     if (!response.ok) {
       const error = await response.json();
-      return { error: error.detail || "Failed to reset password" };
+      const detail = error.detail;
+      const message = typeof detail === "string"
+        ? detail
+        : detail?.message || "Failed to reset password";
+      return { error: message };
     }
 
-    return { success: true };
+    const data = await response.json();
+    return { success: true, message: data.message };
   } catch {
     return { error: "Failed to reset password" };
   }

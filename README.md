@@ -4,7 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue)](https://www.postgresql.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.x-black)](https://bun.sh/)
+[![pnpm](https://img.shields.io/badge/pnpm-11.x-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > Production-ready internship aggregator with AI-powered job matching
@@ -38,22 +38,24 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 │   Frontend  │────▶│    Backend   │────▶│  PostgreSQL │
 │  (Next.js)  │     │   (FastAPI)  │     │  + pgvector │
 └─────────────┘     └──────────────┘     └─────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-         ┌────────┐  ┌──────────┐  ┌──────────┐
-         │ Redis  │  │  Ollama  │  │  Green-  │
-         │(Cache) │  │(Embeddings)│  │ house    │
-         └────────┘  └──────────┘  └──────────┘
+                            │
+                            ▼
+               ┌─────────────────────────────┐
+               │        External Services    │
+               │  Ollama (embeddings)        │
+               │  Greenhouse / Lever / Ashby │
+               └─────────────────────────────┘
+
 ```
 
 **Tech Stack:**
 - **Frontend**: Next.js 16, TypeScript, Tailwind CSS
 - **Backend**: FastAPI, SQLAlchemy 2.0, Pydantic
 - **Database**: PostgreSQL 17 + pgvector extension
-- **Cache**: Redis (rate limiting, embedding cache)
+- **Cache**: In-memory TTL cache (optional external Redis)
 - **AI**: Ollama or LM Studio (local embeddings)
 - **Geo**: pycountry (ISO country/state lookups)
+
 
 ---
 
@@ -61,7 +63,7 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 
 ### Prerequisites
 - Docker and `docker compose`
-- [bun](https://bun.sh/) (frontend package manager)
+- [pnpm](https://pnpm.io/) (frontend package manager)
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.12+
 - Ollama or LM Studio (for embeddings)
@@ -76,7 +78,7 @@ cp .env.example .env
 
 ### 2. Start Infrastructure
 ```bash
-docker compose up -d db redis
+docker compose up -d db
 ```
 
 ### 3. Install & Run Backend
@@ -96,8 +98,8 @@ uv run uvicorn app.main:app --reload
 ### 4. Install & Run Frontend
 ```bash
 cd frontend
-bun install
-bun dev
+pnpm install
+pnpm dev
 ```
 
 ### 5. Ingest Jobs
@@ -174,7 +176,7 @@ cd backend && uv run pytest tests --cov=app
 cd pipeline && uv run pytest tests
 
 # Frontend
-cd frontend && bun run lint && bun test
+cd frontend && pnpm run lint && pnpm test
 ```
 
 ---
@@ -189,8 +191,8 @@ POSTGRES_DB=internnexus
 POSTGRES_USER=internnexus
 POSTGRES_PASSWORD=secure_password
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
+# Redis (optional; leave empty for in-memory cache)
+REDIS_URL=
 
 # Auth (min 32 characters)
 AUTH_SECRET=your-super-secret-key-min-32-chars
@@ -239,7 +241,7 @@ git checkout -b feature/your-feature
 # 3. Make changes and run the checks for the surfaces you touched
 cd backend && uv run pytest tests
 cd pipeline && uv run pytest tests
-cd frontend && bun run lint && bun test
+cd frontend && pnpm run lint && pnpm test
 
 # 4. Commit and push
 git commit -m "Add your feature"

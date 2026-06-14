@@ -16,10 +16,10 @@ export const DEFAULT_PAGE_SIZE = 20;
 
 export const LOCAL_STORAGE_KEYS = {
   MATCH_SCORES: "matchScores",
-  MATCH_SESSION: "match_session",
 } as const;
 
 export const SESSION_STORAGE_KEYS = {
+  MATCH_SESSION: "match_session",
   PENDING_APPLY_URL: "pendingApplyUrl",
   PENDING_APPLY_JOB_ID: "pendingApplyJobId",
 } as const;

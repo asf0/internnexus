@@ -430,3 +430,162 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
         "embed",
     ]
     assert run_id_args == ["run-123", None]
+
+
+@pytest.mark.asyncio
+async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small(monkeypatch):
+    completed_steps = []
+    called_delete = False
+    called_rollback = False
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            self.run_id = run_id or "run-1"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, _step: str):
+            return None
+
+        async def mark_step_complete(self, step: str):
+            completed_steps.append(step)
+
+    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
+
+    async def _get_incomplete_run():
+        return None
+
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
+
+    async def _discover(*_args, **_kwargs):
+        return 0
+
+    async def _sync_inactive(*_args, **_kwargs):
+        return 33971
+
+    async def _ingest(*_args, **_kwargs):
+        from datetime import datetime, timezone
+
+        return 582, datetime.now(timezone.utc)
+
+    async def _delete(*_args, **_kwargs):
+        nonlocal called_delete
+        called_delete = True
+        return 33391
+
+    async def _rollback(*_args, **_kwargs):
+        nonlocal called_rollback
+        called_rollback = True
+        return 33391
+
+    async def _zero(*_args, **_kwargs):
+        return 0
+
+    async def _zero_pair(*_args, **_kwargs):
+        return 0, 0
+
+    runner = run_pipeline.PipelineRunner()
+    runner.step_discover = _discover
+    runner.step_sync_inactive = _sync_inactive
+    runner.step_ingest = _ingest
+    runner.step_delete_inactive = _delete
+    runner.rollback_sync_inactive = _rollback
+    runner.step_cleanup = _zero
+    runner.step_classify = _zero_pair
+    runner.step_embed = _zero_pair
+
+    results = await runner.run()
+
+    assert called_delete is False
+    assert called_rollback is True
+    assert results["inactive_jobs_deleted"] == 0
+    assert "delete_inactive" in completed_steps
+
+
+@pytest.mark.asyncio
+async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
+    called_delete = False
+    called_rollback = False
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            self.run_id = run_id or "run-1"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, _step: str):
+            return None
+
+        async def mark_step_complete(self, _step: str):
+            return None
+
+    monkeypatch.setattr(run_pipeline, "PipelineStateManager", _FakeState)
+
+    async def _get_incomplete_run():
+        return SimpleNamespace(id="run-123", step_completed="sync_inactive", started_at="now")
+
+    monkeypatch.setattr(run_pipeline, "get_incomplete_run", _get_incomplete_run)
+
+    async def _ingest(*_args, **_kwargs):
+        from datetime import datetime, timezone
+
+        return 30000, datetime.now(timezone.utc)
+
+    async def _delete(*_args, **_kwargs):
+        nonlocal called_delete
+        called_delete = True
+        return 1
+
+    async def _rollback(*_args, **_kwargs):
+        nonlocal called_rollback
+        called_rollback = True
+        return 1
+
+    async def _zero(*_args, **_kwargs):
+        return 0
+
+    async def _zero_pair(*_args, **_kwargs):
+        return 0, 0
+
+    runner = run_pipeline.PipelineRunner()
+    runner.step_ingest = _ingest
+    runner.step_delete_inactive = _delete
+    runner.rollback_sync_inactive = _rollback
+    runner.step_cleanup = _zero
+    runner.step_classify = _zero_pair
+    runner.step_embed = _zero_pair
+
+    results = await runner.run()
+
+    assert called_delete is False
+    assert called_rollback is True
+    assert results["inactive_jobs_deleted"] == 0
+
+
+def test_delete_inactive_guard_allows_small_syncs():
+    from pipeline.runtime.runner import _is_unsafe_delete_inactive_sync
+
+    assert _is_unsafe_delete_inactive_sync(50, 1) is False
+    assert _is_unsafe_delete_inactive_sync(33971, 582) is True
+    assert _is_unsafe_delete_inactive_sync(33971, 30000) is False
+

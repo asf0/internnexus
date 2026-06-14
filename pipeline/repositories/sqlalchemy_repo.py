@@ -286,6 +286,7 @@ class SQLAlchemyJobRepository:
         stmt = (
             select(Job.id)
             .where(Job.description_embedding.is_(None))
+            .where(Job.embedding_skip_reason.is_(None))
             .where(func.length(cleaned_text) >= 30)
             .order_by(Job.id)
             .limit(batch_size)
@@ -345,7 +346,11 @@ class SQLAlchemyJobRepository:
             job_id: The job's UUID
             embedding: The embedding vector to store
         """
-        stmt = update(Job).where(Job.id == job_id).values(description_embedding=embedding)
+        stmt = update(Job).where(Job.id == job_id).values(
+            description_embedding=embedding,
+            embedding_skip_reason=None,
+            embedding_skipped_at=None,
+        )
         await self._session.execute(stmt)
         await self._session.commit()
 

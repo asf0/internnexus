@@ -48,7 +48,7 @@ def _match(job_suffix: str) -> MatchResult:
 @pytest.mark.asyncio
 async def test_cache_is_user_scoped():
     redis = FakeRedisService()
-    service = MatchCacheService(redis_service=redis)  # type: ignore[arg-type]
+    service = MatchCacheService(cache_service=redis)
     session_id = "session-1"
     user_a = uuid4()
     user_b = uuid4()
@@ -70,7 +70,7 @@ async def test_cache_is_user_scoped():
 @pytest.mark.asyncio
 async def test_validate_match_session_checks_ownership():
     redis = FakeRedisService()
-    service = MatchCacheService(redis_service=redis)  # type: ignore[arg-type]
+    service = MatchCacheService(cache_service=redis)
     owner = uuid4()
     other_user = uuid4()
     session_id = "session-2"
@@ -84,7 +84,7 @@ async def test_validate_match_session_checks_ownership():
 @pytest.mark.asyncio
 async def test_resume_hash_mapping_roundtrip():
     redis = FakeRedisService()
-    service = MatchCacheService(redis_service=redis)  # type: ignore[arg-type]
+    service = MatchCacheService(cache_service=redis)
     user_id = uuid4()
     resume_hash = "abc123"
     min_score = 0.5

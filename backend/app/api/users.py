@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -33,6 +34,7 @@ from app.services.resume_service import (
 from app.services.user_service import UpdateProfileData, UserService, get_user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
+logger = logging.getLogger(__name__)
 
 
 _RESUME_SCHEMA_ERROR_DETAIL = (
@@ -262,9 +264,10 @@ async def upload_resume_metadata(
         embedder = QueryEmbeddingService()
         embedding = await embedder.embed(normalized_text)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to generate embedding for uploaded resume")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to generate resume embedding: {exc}",
+            detail="Embedding service unavailable. Please try again later.",
         ) from exc
 
     embedding_dim = len(embedding) if embedding else 0

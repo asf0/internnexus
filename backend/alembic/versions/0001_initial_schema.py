@@ -143,6 +143,8 @@ def upgrade() -> None:
         sa.Column('apply_url', sa.String(), nullable=False),
         sa.Column('description_text', sa.Text(), nullable=False),
         sa.Column('description_embedding', Vector(dim=2560), nullable=True),
+        sa.Column('embedding_skip_reason', sa.String(length=50), nullable=True),
+        sa.Column('embedding_skipped_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('search_vector', postgresql.TSVECTOR(), nullable=True),
         sa.Column('job_category', sa.String(length=100), nullable=True),
         sa.Column('job_type', job_type, nullable=True),

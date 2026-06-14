@@ -1,9 +1,10 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import {
   getMatchColor,
   parseApiError,
   generateJobSlug,
   findJobBySlug,
+  toSafeHttpUrl,
 } from "@/lib/utils";
 
 describe("getMatchColor", () => {
@@ -160,5 +161,25 @@ describe("findJobBySlug", () => {
   it("handles empty jobs array", () => {
     const result = findJobBySlug([], "slug-12345678");
     expect(result).toBeUndefined();
+  });
+});
+
+
+describe("toSafeHttpUrl", () => {
+  it("accepts http and https URLs", () => {
+    expect(toSafeHttpUrl("https://example.com/apply")).toBe("https://example.com/apply");
+    expect(toSafeHttpUrl("http://example.com/apply")).toBe("http://example.com/apply");
+  });
+
+  it("trims valid URLs", () => {
+    expect(toSafeHttpUrl("  https://example.com/apply  ")).toBe("https://example.com/apply");
+  });
+
+  it("rejects unsafe or malformed URLs", () => {
+    expect(toSafeHttpUrl("javascript:alert(1)")).toBeNull();
+    expect(toSafeHttpUrl("data:text/html,hi")).toBeNull();
+    expect(toSafeHttpUrl("blob:https://example.com/id")).toBeNull();
+    expect(toSafeHttpUrl("/relative/path")).toBeNull();
+    expect(toSafeHttpUrl("")).toBeNull();
   });
 });

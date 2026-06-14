@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { AuthModal } from "@/components/auth";
 import { Toast } from "@/components/ui";
 import { SESSION_STORAGE_KEYS } from "@/lib/constants";
+import { toSafeHttpUrl } from "@/lib/utils";
 import { trackJobClick } from "@/app/actions/jobs";
 
 interface ApplyNowAuthButtonProps {
@@ -16,19 +17,27 @@ interface ApplyNowAuthButtonProps {
 export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }: ApplyNowAuthButtonProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingApplyUrl, setPendingApplyUrl] = useState<string | null>(null);
-  const [showPopupBlockedToast, setShowPopupBlockedToast] = useState(false);
+  const [applyToastMessage, setApplyToastMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const openApplyUrl = useCallback((url: string, targetWindow?: Window | null) => {
-    if (targetWindow && !targetWindow.closed) {
-      targetWindow.location.href = url;
-      return;
+    const safeUrl = toSafeHttpUrl(url);
+    if (!safeUrl) {
+      setApplyToastMessage("This apply link is invalid or unsupported.");
+      return false;
     }
 
-    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-    if (!openedWindow) {
-      setShowPopupBlockedToast(true);
+    if (targetWindow && !targetWindow.closed) {
+      targetWindow.location.href = safeUrl;
+      return true;
     }
+
+    const openedWindow = window.open(safeUrl, "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      setApplyToastMessage("Popup blocked. Please allow popups for this site, then try Apply again.");
+      return false;
+    }
+    return true;
   }, []);
 
   const handleAuthenticatedClick = useCallback(async () => {
@@ -56,8 +65,14 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
       return;
     }
 
-    setPendingApplyUrl(applyUrl);
-    sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL, applyUrl);
+    const safeApplyUrl = toSafeHttpUrl(applyUrl);
+    if (!safeApplyUrl) {
+      setApplyToastMessage("This apply link is invalid or unsupported.");
+      return;
+    }
+
+    setPendingApplyUrl(safeApplyUrl);
+    sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL, safeApplyUrl);
     sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID, jobId);
     setIsAuthModalOpen(true);
   }, [applyUrl, jobId, isAuthenticated, handleAuthenticatedClick]);
@@ -131,10 +146,10 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
   }, [isAuthenticated, openApplyUrl]);
 
   useEffect(() => {
-    if (!showPopupBlockedToast) return;
-    const timeoutId = window.setTimeout(() => setShowPopupBlockedToast(false), 5000);
+    if (!applyToastMessage) return;
+    const timeoutId = window.setTimeout(() => setApplyToastMessage(null), 5000);
     return () => window.clearTimeout(timeoutId);
-  }, [showPopupBlockedToast]);
+  }, [applyToastMessage]);
 
   return (
     <>
@@ -172,11 +187,11 @@ export default function ApplyNowAuthButton({ jobId, applyUrl, isAuthenticated }:
         intent="apply"
       />
 
-      {showPopupBlockedToast && (
+      {applyToastMessage && (
         <Toast
           type="warning"
-          message="Popup blocked. Please allow popups for this site, then try Apply again."
-          onClose={() => setShowPopupBlockedToast(false)}
+          message={applyToastMessage}
+          onClose={() => setApplyToastMessage(null)}
         />
       )}
     </>

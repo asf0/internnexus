@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, cast
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,9 +32,15 @@ class Settings(BaseSettings):
     oauth_encryption_public_key_b64: str = ""
     oauth_encryption_private_key_b64: str = ""
 
-    # Redis configuration
-    redis_url: str
+    # OAuth provider settings are consumed by the frontend, but declaring them
+    # here lets the backend fail fast if OAuth is enabled without token keys.
+    gh_client_id: str = ""
+    gh_client_secret: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
 
+    # Redis configuration (optional; in-memory TTL cache is used when empty)
+    redis_url: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / ".env"),
@@ -55,6 +61,30 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError("auth_secret must be at least 32 characters for security")
         return v
+
+    @model_validator(mode="after")
+    def validate_oauth_encryption_keys(self) -> "Settings":
+        oauth_configured = any(
+            value.strip()
+            for value in (
+                self.gh_client_id,
+                self.gh_client_secret,
+                self.google_client_id,
+                self.google_client_secret,
+            )
+        )
+        if not oauth_configured:
+            return self
+
+        missing = []
+        if not self.oauth_encryption_public_key_b64.strip():
+            missing.append("OAUTH_ENCRYPTION_PUBLIC_KEY_B64")
+        if not self.oauth_encryption_private_key_b64.strip():
+            missing.append("OAUTH_ENCRYPTION_PRIVATE_KEY_B64")
+        if missing:
+            joined = ", ".join(missing)
+            raise ValueError(f"OAuth encryption keys are required when OAuth providers are configured: {joined}")
+        return self
 
     @property
     def resolved_database_url(self) -> str:

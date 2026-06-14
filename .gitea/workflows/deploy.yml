@@ -32,7 +32,6 @@ jobs:
           EMBEDDING_MODEL=${{ vars.EMBEDDING_MODEL }}
           CLASSIFICATION_MODEL=${{ vars.CLASSIFICATION_MODEL }}
           CLOUDFLARED_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}
-          REDIS_URL=${{ vars.REDIS_URL }}
           GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}
           GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
@@ -94,7 +93,7 @@ jobs:
           set -e
           docker compose pull || true
           # Start stateful deps first.
-          docker compose up -d db redis
+          docker compose up -d db
           
           # Build and start app services based on what changed
           BUILD_ARGS=""

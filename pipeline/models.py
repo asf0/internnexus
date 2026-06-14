@@ -60,6 +60,8 @@ class Job(Base):
     apply_url: Mapped[str] = mapped_column(String, nullable=False)
     description_text: Mapped[str] = mapped_column(Text, nullable=False)
     description_embedding: Mapped[list[float] | None] = mapped_column(Vector(2560), nullable=True)
+    embedding_skip_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    embedding_skipped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True)
     job_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     job_type: Mapped[JobType | None] = mapped_column(Enum(JobType, name="job_type"), nullable=True)

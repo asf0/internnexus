@@ -60,3 +60,21 @@ export function findJobBySlug<T extends { id: string; title: string; company: st
   const idSuffix = slug.slice(-8);
   return jobs.find((job) => job.id.startsWith(idSuffix));
 }
+
+
+export function toSafeHttpUrl(rawUrl: string | null | undefined): string | null {
+  if (typeof rawUrl !== "string") return null;
+
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}

@@ -15,7 +15,7 @@ import { fetchJobs } from "@/lib/api";
 import { useMatchState } from "@/lib/hooks/useMatchState";
 import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import { SHOW_JOB_COUNT } from "@/lib/config";
-import { generateJobSlug, findJobBySlug } from "@/lib/utils";
+import { generateJobSlug, findJobBySlug, toSafeHttpUrl } from "@/lib/utils";
 import type { Job } from "@/lib/types/job";
 
 interface JobListProps {
@@ -54,7 +54,7 @@ export default function JobList({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingApplyUrl, setPendingApplyUrl] = useState<string | null>(null);
   const [pendingApplyJobId, setPendingApplyJobId] = useState<string | null>(null);
-  const [showPopupBlockedToast, setShowPopupBlockedToast] = useState(false);
+  const [applyToastMessage, setApplyToastMessage] = useState<string | null>(null);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set(initialSavedJobIds));
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set(initialAppliedJobIds));
   const [saveAuthModalOpen, setSaveAuthModalOpen] = useState(false);
@@ -289,23 +289,37 @@ export default function JobList({
   }, []);
 
   const handleRequireAuthForApply = useCallback((applyUrl: string, jobId: string) => {
-    setPendingApplyUrl(applyUrl);
+    const safeApplyUrl = toSafeHttpUrl(applyUrl);
+    if (!safeApplyUrl) {
+      setApplyToastMessage("This apply link is invalid or unsupported.");
+      return;
+    }
+
+    setPendingApplyUrl(safeApplyUrl);
     setPendingApplyJobId(jobId);
-    sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL, applyUrl);
+    sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_URL, safeApplyUrl);
     sessionStorage.setItem(SESSION_STORAGE_KEYS.PENDING_APPLY_JOB_ID, jobId);
     setIsAuthModalOpen(true);
   }, []);
 
   const openApplyUrl = useCallback((url: string, targetWindow?: Window | null) => {
-    if (targetWindow && !targetWindow.closed) {
-      targetWindow.location.href = url;
-      return;
+    const safeUrl = toSafeHttpUrl(url);
+    if (!safeUrl) {
+      setApplyToastMessage("This apply link is invalid or unsupported.");
+      return false;
     }
 
-    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-    if (!openedWindow) {
-      setShowPopupBlockedToast(true);
+    if (targetWindow && !targetWindow.closed) {
+      targetWindow.location.href = safeUrl;
+      return true;
     }
+
+    const openedWindow = window.open(safeUrl, "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      setApplyToastMessage("Popup blocked. Please allow popups for this site, then try Apply again.");
+      return false;
+    }
+    return true;
   }, []);
 
   const handleApplyAfterAuth = useCallback(async (applyWindow?: Window | null) => {
@@ -406,10 +420,10 @@ export default function JobList({
   );
 
   useEffect(() => {
-    if (!showPopupBlockedToast) return;
-    const timeoutId = window.setTimeout(() => setShowPopupBlockedToast(false), 5000);
+    if (!applyToastMessage) return;
+    const timeoutId = window.setTimeout(() => setApplyToastMessage(null), 5000);
     return () => window.clearTimeout(timeoutId);
-  }, [showPopupBlockedToast]);
+  }, [applyToastMessage]);
 
   const buildPageUrl = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -552,11 +566,11 @@ export default function JobList({
         onAuthSuccess={handleApplyAfterAuth}
         intent="apply"
       />
-      {showPopupBlockedToast && (
+      {applyToastMessage && (
         <Toast
           type="warning"
-          message="Popup blocked. Please allow popups for this site, then try Apply again."
-          onClose={() => setShowPopupBlockedToast(false)}
+          message={applyToastMessage}
+          onClose={() => setApplyToastMessage(null)}
         />
       )}
       {pendingAppliedConfirmJobId && (

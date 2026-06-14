@@ -8,7 +8,7 @@ import { MultiSelect, LocationSelect } from "@/components/common";
 import { Button, Input, SingleSelect } from "@/components/ui";
 import { matchProfileResume, matchResume, fetchMatchFacets } from "@/app/actions/match";
 import { useMatchState } from "@/lib/hooks/useMatchState";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from "@/lib/constants";
 import { formatCategoryLabel } from "@/lib/utils";
 import type { MatchResponse, LocationItem, MatchFacetsResponse } from "@/lib/types/job";
 
@@ -205,8 +205,8 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
   };
   const postedWithinOptions = [
     { value: "24h", label: "Past 24 hours" },
-    { value: "week", label: "Past week" },
-    { value: "month", label: "Past month" },
+    { value: "7d", label: "Past week" },
+    { value: "30d", label: "Past month" },
   ];
 
 
@@ -218,7 +218,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
     if (response.error) {
       params.delete("matched");
       localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
       window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
       params.delete("page");
       startTransition(() => {
@@ -237,7 +237,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
       });
       params.delete("matched");
       localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
       window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
       params.delete("page");
       startTransition(() => {
@@ -253,13 +253,13 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
 
     if (matchIds.length > 0) {
       localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
-      localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
+      sessionStorage.setItem(SESSION_STORAGE_KEYS.MATCH_SESSION, response.session_id);
       window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
       params.set("matched", "true");
     } else {
       params.delete("matched");
       localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-      localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+      sessionStorage.removeItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
       window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
     }
 
@@ -535,7 +535,7 @@ export default function Toolbar({ companies, locations, categories = [], isAuthe
                   params.delete("matched");
                   params.delete("page");
                   localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-                  localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+                  sessionStorage.removeItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
                   window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
                   startTransition(() => {
                     router.push(`/?${params.toString()}`);

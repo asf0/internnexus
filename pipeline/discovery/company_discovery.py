@@ -9,7 +9,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -36,6 +36,17 @@ ATS_DOMAINS = {
     "greenhouse": "boards.greenhouse.io",
     "ashby": "jobs.ashbyhq.com",
 }
+
+ATS_DOMAIN_ALIASES = {
+    "lever": {"jobs.lever.co"},
+    "greenhouse": {"boards.greenhouse.io", "job-boards.greenhouse.io"},
+    "ashby": {"jobs.ashbyhq.com"},
+}
+
+MIN_EXISTING_COMPANIES_FOR_SHRINK_GUARD = 100
+MIN_DISCOVERY_RETENTION_RATIO = 0.75
+
+RESERVED_SLUGS = {"embed", "jobs", "job", "job_board", "job_app"}
 
 
 def _default_progress() -> dict[str, Any]:
@@ -107,40 +118,76 @@ def save_progress(progress: dict[str, Any], file_path: Path | None = None) -> No
         json.dump(progress, fh, indent=2)
 
 
+def _normalize_companies_output(data: Any) -> dict[str, set[str]]:
+    if not isinstance(data, dict):
+        return {ats: set() for ats in ATS_DOMAINS}
+
+    output: dict[str, set[str]] = {}
+    for ats in ATS_DOMAINS:
+        values = data.get(ats, [])
+        output[ats] = {value for value in values if isinstance(value, str)} if isinstance(values, list) else set()
+    return output
+
+
+def load_discovered_companies(output_path: Path | None = None) -> dict[str, set[str]]:
+    """Load the persisted discovery output."""
+    path = output_path or DISCOVERED_COMPANIES_FILE
+    if not path.exists():
+        return {ats: set() for ats in ATS_DOMAINS}
+
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            return _normalize_companies_output(json.load(fh))
+    except Exception as exc:
+        logger.warning("Could not load existing discovery output: %s", exc)
+        return {ats: set() for ats in ATS_DOMAINS}
+
+
+def _company_count(companies_by_ats: dict[str, set[str]]) -> int:
+    return sum(len(companies_by_ats.get(ats, set())) for ats in ATS_DOMAINS)
+
+
+def _should_keep_previous_discovery_output(
+    previous: dict[str, set[str]],
+    current: dict[str, set[str]],
+) -> bool:
+    previous_count = _company_count(previous)
+    current_count = _company_count(current)
+    if previous_count < MIN_EXISTING_COMPANIES_FOR_SHRINK_GUARD:
+        return False
+    return current_count < previous_count * MIN_DISCOVERY_RETENTION_RATIO
+
+
 def save_discovered_companies(
     companies_by_ats: dict[str, set[str]],
     output_path: Path | None = None,
 ) -> None:
-    """Save discovered companies in the format consumed by company_registry."""
+    """Replace discovered companies in the format consumed by company_registry."""
     path = output_path or DISCOVERED_COMPANIES_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    existing: dict[str, list[str]] = {ats: [] for ats in ATS_DOMAINS}
-    if path.exists():
-        try:
-            with path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict):
-                for ats in ATS_DOMAINS:
-                    values = data.get(ats, [])
-                    if isinstance(values, list):
-                        existing[ats] = values
-        except Exception as exc:
-            logger.warning("Could not load existing discovery output: %s", exc)
-
-    merged: dict[str, list[str]] = {}
-    for ats in ATS_DOMAINS:
-        existing_values = {value for value in existing.get(ats, []) if isinstance(value, str)}
-        merged[ats] = sorted(existing_values | companies_by_ats.get(ats, set()))
+    output = {
+        ats: sorted(value for value in companies_by_ats.get(ats, set()) if isinstance(value, str))
+        for ats in ATS_DOMAINS
+    }
 
     with path.open("w", encoding="utf-8") as fh:
-        json.dump(merged, fh, indent=2)
+        json.dump(output, fh, indent=2)
+
+
+def _valid_slug(slug: str) -> str | None:
+    slug = slug.lower()
+    if slug in RESERVED_SLUGS:
+        return None
+    if re.fullmatch(r"[a-z0-9][a-z0-9_-]*", slug):
+        return slug
+    return None
 
 
 def extract_company_slug(url: str, ats: str) -> str | None:
     """Extract a company slug from an ATS-hosted job URL."""
-    expected_domain = ATS_DOMAINS.get(ats)
-    if not expected_domain:
+    expected_domains = ATS_DOMAIN_ALIASES.get(ats, set())
+    if not expected_domains:
         return None
 
     try:
@@ -148,25 +195,27 @@ def extract_company_slug(url: str, ats: str) -> str | None:
     except Exception:
         return None
 
-    if expected_domain not in parsed.netloc:
+    hostname = (parsed.hostname or "").lower()
+    if hostname not in expected_domains:
         return None
 
     path_parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if ats == "greenhouse" and path_parts == ["embed", "job_board"]:
+        board_slug = parse_qs(parsed.query).get("for", [None])[0]
+        return _valid_slug(board_slug) if isinstance(board_slug, str) else None
+
     if not path_parts:
         return None
 
-    slug = path_parts[0].lower()
-    if re.fullmatch(r"[a-z0-9][a-z0-9_-]*", slug):
-        return slug
-    return None
+    return _valid_slug(path_parts[0])
 
 
 def _build_search_queries(countries: list[str]) -> list[tuple[str, str, str]]:
     queries: list[tuple[str, str, str]] = []
     for ats, domain in ATS_DOMAINS.items():
-        queries.append(("global", ats, f"site:{domain}"))
+        queries.append(("global", ats, f'site:{domain} intext:"apply"'))
         for country in countries:
-            queries.append((country, ats, f"{country} site:{domain}"))
+            queries.append((country, ats, f'site:{domain} {country} intext:"apply"'))
     return queries
 
 
@@ -230,7 +279,11 @@ async def _search_searxng(
     payload = response.json()
     if not isinstance(payload, dict):
         raise ValueError("unexpected SearxNG response payload")
-    return _extract_urls(payload)
+    urls = _extract_urls(payload)
+    unresponsive_engines = payload.get("unresponsive_engines")
+    if not urls and isinstance(unresponsive_engines, list) and unresponsive_engines:
+        raise RuntimeError(f"SearxNG returned no URLs with unresponsive engines: {unresponsive_engines}")
+    return urls
 
 
 async def discover_companies(
@@ -253,6 +306,10 @@ async def discover_companies(
         raise ValueError("Discovery is enabled but discovery.searxng_url is not configured")
 
     progress = load_progress(progress_file)
+    if progress.get("metadata", {}).get("status") == "complete":
+        logger.info("Previous discovery was complete; starting a fresh discovery refresh")
+        progress = _default_progress()
+
     countries = list(DEFAULT_COUNTRIES)
     search_queries = _build_search_queries(countries)
     max_pages = _configured_max_pages(config)
@@ -278,17 +335,18 @@ async def discover_companies(
     save_progress(progress, progress_file)
 
     query_failed = False
+    page = 1
     async with httpx.AsyncClient(timeout=float(config.timeout)) as client:
-        for query_index, (scope, ats, query) in enumerate(search_queries, start=1):
-            base_key = _base_query_key(scope, ats)
-            if base_key in exhausted:
-                continue
+        while max_pages is None or page <= max_pages:
+            progressed = False
+            for query_index, (scope, ats, query) in enumerate(search_queries, start=1):
+                base_key = _base_query_key(scope, ats)
+                if base_key in exhausted:
+                    continue
 
-            page = 1
-            while max_pages is None or page <= max_pages:
                 page_key = _query_key(scope, ats, page)
                 if page_key in completed:
-                    page += 1
+                    progressed = True
                     continue
 
                 logger.info(
@@ -303,8 +361,11 @@ async def discover_companies(
                 except Exception as exc:
                     query_failed = True
                     logger.warning("Discovery query failed for %s (%s page %d): %s", scope, ats, page, exc)
+                    if config.query_delay_seconds > 0:
+                        await asyncio.sleep(config.query_delay_seconds)
                     break
 
+                progressed = True
                 completed.add(page_key)
                 progress["completed_queries"] = sorted(completed)
 
@@ -312,21 +373,24 @@ async def discover_companies(
                     exhausted.add(base_key)
                     progress["exhausted_queries"] = sorted(exhausted)
                     save_progress(progress, progress_file)
-                    break
+                    if config.query_delay_seconds > 0:
+                        await asyncio.sleep(config.query_delay_seconds)
+                    continue
 
                 companies = {slug for url in urls if (slug := extract_company_slug(url, ats))}
                 existing = set(progress["companies"].get(ats, []))
                 progress["companies"][ats] = sorted(existing | companies)
 
                 save_progress(progress, progress_file)
-                save_discovered_companies(
-                    {name: set(values) for name, values in progress["companies"].items()},
-                    output_file,
-                )
 
-                page += 1
                 if config.query_delay_seconds > 0:
                     await asyncio.sleep(config.query_delay_seconds)
+
+            if query_failed or all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
+                break
+            if not progressed:
+                break
+            page += 1
 
     if query_failed:
         progress["metadata"]["status"] = "partial"
@@ -337,8 +401,28 @@ async def discover_companies(
     save_progress(progress, progress_file)
 
     result = {ats: set(progress["companies"].get(ats, [])) for ats in ATS_DOMAINS}
-    save_discovered_companies(result, output_file)
-    return result
+    previous = load_discovered_companies(output_file)
+    if progress["metadata"]["status"] == "complete":
+        if _should_keep_previous_discovery_output(previous, result):
+            logger.warning(
+                "Discovery found only %d companies after previous output had %d; keeping previous output unchanged",
+                _company_count(result),
+                _company_count(previous),
+            )
+            return previous
+        save_discovered_companies(result, output_file)
+        return result
+
+    merged = {ats: previous.get(ats, set()) | result.get(ats, set()) for ats in ATS_DOMAINS}
+    if merged != previous:
+        logger.warning(
+            "Discovery did not complete; merging %d newly discovered companies into previous output",
+            _company_count(merged) - _company_count(previous),
+        )
+        save_discovered_companies(merged, output_file)
+    else:
+        logger.warning("Discovery did not complete; keeping previous discovered companies output unchanged")
+    return merged
 
 
 async def main() -> None:

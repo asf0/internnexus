@@ -353,7 +353,22 @@ async def mark_all_jobs_inactive(session: AsyncSession) -> int:
     return count
 
 
+async def reactivate_inactive_jobs(session: AsyncSession) -> int:
+    """Reactivate non-manual jobs after an unsafe sync is detected.
 
+    This is a rollback helper for the mass inactive mark. It is intentionally
+    broad because the sync marker is currently only represented by is_active.
+    """
+    result = await session.execute(
+        update(Job)
+        .where(Job.is_active.is_(False), Job.source != JobSource.manual)
+        .values(is_active=True)
+    )
+    await session.commit()
+    count = result.rowcount
+    if count > 0:
+        logger.warning("Reactivated %s inactive jobs after unsafe sync guard triggered", count)
+    return count
 
 
 async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool = True) -> None:
@@ -404,6 +419,20 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
                         excluded.description_text,
                     ),
                     else_=Job.description_text,
+                ),
+                "embedding_skip_reason": case(
+                    (
+                        Job.description_text.is_distinct_from(excluded.description_text),
+                        None,
+                    ),
+                    else_=Job.embedding_skip_reason,
+                ),
+                "embedding_skipped_at": case(
+                    (
+                        Job.description_text.is_distinct_from(excluded.description_text),
+                        None,
+                    ),
+                    else_=Job.embedding_skipped_at,
                 ),
                 "job_type": case(
                     (Job.job_type.is_(None), excluded.job_type),

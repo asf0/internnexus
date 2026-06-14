@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from "@/lib/constants";
 import type { MatchResponse } from "@/lib/types/job";
 
 const MATCH_STATE_UPDATED_EVENT = "internnexus:match-state-updated";
@@ -18,7 +18,7 @@ export function useMatchState() {
   });
 
   const loadFromStorage = useCallback(() => {
-    const storedSessionId = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+    const storedSessionId = sessionStorage.getItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
     const storedScores = localStorage.getItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
     let scores: Record<string, number> = {};
 
@@ -42,10 +42,7 @@ export function useMatchState() {
     loadFromStorage();
 
     const onStorage = (event: StorageEvent) => {
-      if (
-        event.key === LOCAL_STORAGE_KEYS.MATCH_SESSION ||
-        event.key === LOCAL_STORAGE_KEYS.MATCH_SCORES
-      ) {
+      if (event.key === LOCAL_STORAGE_KEYS.MATCH_SCORES) {
         loadFromStorage();
       }
     };
@@ -65,7 +62,7 @@ export function useMatchState() {
       scoresMap[match.job_id] = match.match_percentage;
     });
 
-    localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SESSION, response.session_id);
+    sessionStorage.setItem(SESSION_STORAGE_KEYS.MATCH_SESSION, response.session_id);
     localStorage.setItem(LOCAL_STORAGE_KEYS.MATCH_SCORES, JSON.stringify(scoresMap));
     window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
 
@@ -80,7 +77,7 @@ export function useMatchState() {
 
   const clearMatches = useCallback(() => {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-    localStorage.removeItem(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+    sessionStorage.removeItem(SESSION_STORAGE_KEYS.MATCH_SESSION);
     window.dispatchEvent(new Event(MATCH_STATE_UPDATED_EVENT));
     setState({
       sessionId: null,

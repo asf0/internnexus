@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from pipeline.cleanup import cleanup_locations, delete_inactive_jobs
 from pipeline.embeddings import generate_embeddings
-from pipeline.ingest import fetch_and_ingest, mark_all_jobs_inactive
+from pipeline.ingest import fetch_and_ingest, mark_all_jobs_inactive, reactivate_inactive_jobs
 from pipeline.runtime import (
     PipelineStateManager,
     get_config,
@@ -21,6 +21,8 @@ from pipeline.runtime.steps import PIPELINE_STEPS
 logger = logging.getLogger(__name__)
 
 CLASSIFY_COMMIT_BATCH_SIZE = 200
+MIN_MARKED_INACTIVE_FOR_DELETE_GUARD = 1000
+MIN_FETCHED_TO_MARKED_INACTIVE_RATIO = 0.5
 STEPS = PIPELINE_STEPS
 
 
@@ -43,6 +45,17 @@ def _get_resume_step_from_db_run(step_completed: str | None) -> str | None:
     if idx < len(PIPELINE_STEPS) - 1:
         return PIPELINE_STEPS[idx + 1]
     return None
+
+
+def _is_unsafe_delete_inactive_sync(marked_inactive: int, jobs_fetched: int) -> bool:
+    """Return True when ingest looks too incomplete to drive hard deletes."""
+    if marked_inactive <= 0:
+        return False
+    if jobs_fetched <= 0:
+        return True
+    if marked_inactive < MIN_MARKED_INACTIVE_FOR_DELETE_GUARD:
+        return False
+    return jobs_fetched / marked_inactive < MIN_FETCHED_TO_MARKED_INACTIVE_RATIO
 
 
 class PipelineRunner:
@@ -370,6 +383,13 @@ class PipelineRunner:
 
         return count
 
+    async def rollback_sync_inactive(self) -> int:
+        """Reactivate jobs when a sync run is not safe enough to delete from."""
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            return await reactivate_inactive_jobs(session)
+
     async def run(self) -> dict:
         start = time.time()
         self._reset_run_state()
@@ -435,7 +455,31 @@ class PipelineRunner:
                 start_from_step or "delete_inactive"
             ):
                 self.current_step = "delete_inactive"
-                self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
+                missing_sync_context = (
+                    start_from_step in {"ingest", "delete_inactive"}
+                    and self.results["jobs_marked_inactive"] == 0
+                )
+                unsafe_partial_sync = _is_unsafe_delete_inactive_sync(
+                    self.results["jobs_marked_inactive"],
+                    self.results["jobs_fetched"],
+                )
+                if missing_sync_context or unsafe_partial_sync:
+                    logger.error(
+                        (
+                            "Skipping delete_inactive because the sync is unsafe "
+                            "(start_from_step=%s, fetched=%d, marked_inactive=%d). "
+                            "Reactivating inactive jobs to avoid a destructive partial sync."
+                        ),
+                        start_from_step,
+                        self.results["jobs_fetched"],
+                        self.results["jobs_marked_inactive"],
+                    )
+                    await self.rollback_sync_inactive()
+                    if state:
+                        await state.mark_step_complete("delete_inactive")
+                    self.results["inactive_jobs_deleted"] = 0
+                else:
+                    self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
 
             if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(start_from_step or "cleanup"):
                 self.current_step = "cleanup"

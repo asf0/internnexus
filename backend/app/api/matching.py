@@ -22,6 +22,7 @@ from app.db import get_db
 from app.models import Job, User, UserResume
 from app.rate_limiter import limiter, RATE_LIMITS
 from app.services.match_cache import MatchCacheService, get_match_cache_service
+from app.services.posted_within import posted_within_cutoff
 from app.services.query_embedding_service import QueryEmbeddingService
 from app.services.resume_service import (
     decrypt_resume_text,
@@ -304,18 +305,7 @@ def _filter_matches(
             ]
 
     if posted_within:
-        from datetime import datetime, timedelta
-
-        now = datetime.now(timezone.utc)
-        cutoff = None
-
-        if posted_within == "24h":
-            cutoff = now - timedelta(hours=24)
-        elif posted_within == "7d":
-            cutoff = now - timedelta(days=7)
-        elif posted_within == "30d":
-            cutoff = now - timedelta(days=30)
-
+        cutoff = posted_within_cutoff(posted_within, datetime.now(timezone.utc))
         if cutoff:
             filtered = [m for m in filtered if m.posted_at and m.posted_at >= cutoff]
 
@@ -542,7 +532,11 @@ async def match_resume(
         embedder = QueryEmbeddingService()
         resume_embedding = await embedder.embed(resume_text)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {str(exc)}")
+        logger.exception("Failed to generate embedding for uploaded resume")
+        raise HTTPException(
+            status_code=503,
+            detail="Embedding service unavailable. Please try again later.",
+        ) from exc
 
     return await _build_match_response(
         db=db,
@@ -623,10 +617,14 @@ async def match_profile_resume(
             embedder = QueryEmbeddingService()
             resume_embedding = await embedder.embed(resume_text)
         except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to generate embedding for stored resume")
             user_resume.status = "error"
             user_resume.embedding_error = str(exc)
             await db.commit()
-            raise HTTPException(status_code=503, detail=f"Embedding service unavailable: {exc}") from exc
+            raise HTTPException(
+                status_code=503,
+                detail="Embedding service unavailable. Please try again later.",
+            ) from exc
 
         user_resume.resume_embedding = resume_embedding
         user_resume.embedding_model = settings.embedding_model

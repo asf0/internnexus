@@ -1,5 +1,17 @@
-"""Redis cache module with connection pooling."""
+"""Cache module with optional Redis or in-memory TTL fallback."""
 
-from app.cache.redis_pool import get_redis, RedisService
+from app.cache.redis_pool import (
+    CacheService,
+    InMemoryCacheService,
+    RedisService,
+    get_redis,
+    get_redis_service,
+)
 
-__all__ = ["get_redis", "RedisService"]
+__all__ = [
+    "CacheService",
+    "InMemoryCacheService",
+    "RedisService",
+    "get_redis",
+    "get_redis_service",
+]

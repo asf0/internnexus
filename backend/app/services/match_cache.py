@@ -7,30 +7,30 @@ from typing import Any
 from uuid import UUID
 
 from app.api.schemas import MatchResult
-from app.cache.redis_pool import RedisService, get_redis_service
+from app.cache.redis_pool import CacheService, get_redis_service
 
 logger = logging.getLogger(__name__)
 
 
 class MatchCacheService:
-    """Service for caching job match results in Redis.
+    """Service for caching job match results.
 
     Provides methods to store, retrieve, and manage paginated match results
     with configurable TTL. Handles serialization of Pydantic models and
-    graceful error handling for Redis operations.
+    graceful error handling for cache operations.
     """
 
-    def __init__(self, redis_service: RedisService | None = None):
+    def __init__(self, cache_service: CacheService | None = None):
         """Initialize the match cache service.
 
         Args:
-            redis_service: Optional RedisService instance. If not provided,
+            cache_service: Optional cache service instance. If not provided,
                 a new instance will be created on first use.
         """
-        self._redis = redis_service
+        self._redis = cache_service
 
-    async def _get_redis(self) -> RedisService:
-        """Get or create the Redis service instance."""
+    async def _get_redis(self) -> CacheService:
+        """Get or create the cache service instance."""
         if self._redis is None:
             self._redis = await get_redis_service()
         return self._redis

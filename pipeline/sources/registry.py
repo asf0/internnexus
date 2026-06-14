@@ -56,10 +56,20 @@ def get_lever_slugs() -> list[str]:
 
 
 def get_ashby_slugs() -> list[str]:
-    """Get Ashby slugs."""
+    """Get Ashby slugs.
+
+    Generic company names produce many false 404s on Ashby because Ashby board
+    slugs are usually discovered-specific and do not match public company names.
+    """
     discovered = load_discovery_results().get("ashby", [])
-    common = load_common_companies()
-    return sorted(set(discovered + common))
+    try:
+        from pipeline.sources.ashby import ASHBY_KNOWN_SLUGS
+    except Exception as exc:
+        logger.warning("Could not load known Ashby slugs: %s", exc)
+        known = []
+    else:
+        known = ASHBY_KNOWN_SLUGS
+    return sorted(set(discovered + known))
 
 
 def get_all_slugs_by_ats() -> dict[str, list[str]]:

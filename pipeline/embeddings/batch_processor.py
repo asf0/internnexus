@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -152,16 +152,25 @@ def _classify_error(error: BaseException) -> tuple[str, bool]:
     return "unknown", True
 
 
-async def _fetch_job_ids_batch(db: AsyncSession, batch_size: int) -> list[UUID]:
-    """Fetch a batch of job IDs without embeddings."""
+async def _fetch_job_ids_batch(
+    db: AsyncSession,
+    batch_size: int,
+    excluded_ids: set[UUID] | None = None,
+) -> list[UUID]:
+    """Fetch a batch of job IDs without embeddings or permanent skip markers."""
     cleaned_text = embedding_candidate_text_sql()
-    result = await db.execute(
+    stmt = (
         select(Job.id)
         .where(Job.description_embedding.is_(None))
+        .where(Job.embedding_skip_reason.is_(None))
         .where(func.length(cleaned_text) >= MIN_EMBEDDABLE_TEXT_LENGTH)
         .order_by(Job.id)
         .limit(batch_size)
     )
+    if excluded_ids:
+        stmt = stmt.where(Job.id.notin_(excluded_ids))
+
+    result = await db.execute(stmt)
     job_ids = result.scalars().all()
     return list(job_ids)
 
@@ -182,6 +191,7 @@ async def _get_remaining_count(db: AsyncSession) -> int:
         select(func.count())
         .select_from(Job)
         .where(Job.description_embedding.is_(None))
+        .where(Job.embedding_skip_reason.is_(None))
         .where(func.length(cleaned_text) >= MIN_EMBEDDABLE_TEXT_LENGTH)
     )
     return result.scalar() or 0
@@ -198,21 +208,25 @@ async def _process_batch(
     if not jobs:
         return 0, 0, 0, []
 
-    jobs_in_db, texts = _prepare_job_texts(jobs)
-    skipped = len(jobs) - len(jobs_in_db)
+    jobs_in_db, texts, skipped_jobs = _prepare_job_texts(jobs)
+    skipped = len(skipped_jobs)
+
+    if skipped_jobs:
+        await _mark_jobs_skipped(db, skipped_jobs)
 
     if not jobs_in_db:
+        await db.commit()
         return 0, 0, skipped, []
-
 
     success, errors, failed = await _embed_and_save(db, jobs_in_db, texts, embedder, batch_num, retry_attempt)
     return success, errors, skipped, failed
 
 
-def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
+def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str], list[tuple[UUID, str]]]:
     """Prepare job texts for embedding, filtering invalid ones."""
     jobs_in_db = []
     texts = []
+    skipped_jobs: list[tuple[UUID, str]] = []
     skipped_entries: list[dict[str, Any]] = []
     log_path = _get_skipped_jobs_log_path()
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -224,6 +238,7 @@ def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
         text_length = len(text)
 
         if not text:
+            skipped_jobs.append((job.id, "empty_text"))
             skipped_entries.append(
                 {
                     "timestamp": timestamp,
@@ -240,6 +255,7 @@ def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
                 skipped_entries.clear()
             continue
         if text_length < MIN_EMBEDDABLE_TEXT_LENGTH:
+            skipped_jobs.append((job.id, "too_short"))
             skipped_entries.append(
                 {
                     "timestamp": timestamp,
@@ -262,7 +278,24 @@ def _prepare_job_texts(jobs: list[Job]) -> tuple[list[Job], list[str]]:
     if skipped_entries:
         _append_jsonl_batch(log_path, skipped_entries)
 
-    return jobs_in_db, texts
+    return jobs_in_db, texts, skipped_jobs
+
+
+async def _mark_jobs_skipped(db: AsyncSession, skipped_jobs: list[tuple[UUID, str]]) -> None:
+    """Persist permanent embedding skip markers so unembeddable jobs do not loop forever."""
+    if not skipped_jobs:
+        return
+
+    skipped_at = datetime.now(timezone.utc)
+    for job_id, reason in skipped_jobs:
+        await db.execute(
+            update(Job)
+            .where(Job.id == job_id)
+            .values(
+                embedding_skip_reason=reason,
+                embedding_skipped_at=skipped_at,
+            )
+        )
 
 
 async def _embed_and_save(
@@ -288,6 +321,8 @@ async def _embed_and_save(
             embeddings = await embedder.embed_many(batch_texts, batch_size=api_batch_size)
             for job, embedding in zip(batch_jobs, embeddings):
                 job.description_embedding = embedding
+                job.embedding_skip_reason = None
+                job.embedding_skipped_at = None
                 db.add(job)
                 success += 1
         except asyncio.CancelledError:

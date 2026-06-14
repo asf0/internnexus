@@ -32,5 +32,12 @@ COPY pipeline/ ./pipeline/
 # but browser binaries are not downloaded in this image.
 RUN uv pip install --system --no-cache -e ./pipeline
 
+# Drop runtime privileges after dependencies are installed.
+RUN mkdir -p /app/data \
+    && groupadd --system --gid 1000 appuser \
+    && useradd --system --uid 1000 --gid appuser --create-home appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 # Default command runs pipeline in continuous mode
 CMD ["internnexus-pipeline", "-c"]

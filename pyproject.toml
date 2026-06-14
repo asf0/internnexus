@@ -32,7 +32,6 @@ dependencies = [
     "cryptography>=42.0.0",
     "rich>=14.3.2",
     "psycopg2-binary>=2.9.11",
-    "redis>=7.1.1",
     "tenacity>=9.1.4",
     "hypothesis>=6.151.9",
     "psutil>=5.9.0",

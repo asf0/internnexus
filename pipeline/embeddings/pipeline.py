@@ -213,10 +213,11 @@ async def _collect_pending_batches(
     """Collect pending batches for processing."""
     pending_batches = []
     should_break = False
+    collected_ids: set[UUID] = set()
 
     for _ in range(max(1, parallel_batches)):
         batch_num += 1
-        job_ids = await _fetch_job_ids_batch(db, batch_size)
+        job_ids = await _fetch_job_ids_batch(db, batch_size, excluded_ids=collected_ids)
 
         if not job_ids:
             consecutive_empty += 1
@@ -227,6 +228,7 @@ async def _collect_pending_batches(
             continue
 
         consecutive_empty = 0
+        collected_ids.update(job_ids)
         pending_batches.append(_process_with_semaphore(semaphore, job_ids, embedder, batch_num))
 
     return pending_batches, batch_num, consecutive_empty, should_break

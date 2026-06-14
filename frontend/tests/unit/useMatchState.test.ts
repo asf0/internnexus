@@ -1,11 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from "bun:test";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useMatchState } from "@/lib/hooks/useMatchState";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from "@/lib/constants";
 import type { MatchResponse } from "@/lib/types/job";
 
-// Mock localStorage
+// Mock localStorage/sessionStorage
 const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+};
+const sessionStorageMock = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
@@ -13,14 +18,18 @@ const localStorageMock = {
 Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
 });
+Object.defineProperty(window, "sessionStorage", {
+  value: sessionStorageMock,
+});
 
 describe("useMatchState", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
+    sessionStorageMock.getItem.mockReturnValue(null);
   });
 
-  it("initializes with empty state when localStorage is empty", () => {
+  it("initializes with empty state when storage is empty", () => {
     // Act
     const { result } = renderHook(() => useMatchState());
 
@@ -30,13 +39,16 @@ describe("useMatchState", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("loads matches from localStorage on mount", () => {
+  it("loads match state from storage on mount", () => {
     // Arrange
     const storedSession = "test-session-123";
     const storedScores = { "job-1": 85, "job-2": 70 };
     localStorageMock.getItem.mockImplementation((key: string) => {
-      if (key === LOCAL_STORAGE_KEYS.MATCH_SESSION) return storedSession;
       if (key === LOCAL_STORAGE_KEYS.MATCH_SCORES) return JSON.stringify(storedScores);
+      return null;
+    });
+    sessionStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === SESSION_STORAGE_KEYS.MATCH_SESSION) return storedSession;
       return null;
     });
 
@@ -49,7 +61,7 @@ describe("useMatchState", () => {
     expect(result.current.matchScores.get("job-2")).toBe(70);
   });
 
-  it("saves matches to localStorage", () => {
+  it("saves match scores to localStorage and session id to sessionStorage", () => {
     // Arrange
     const { result } = renderHook(() => useMatchState());
     const response: MatchResponse = {
@@ -73,13 +85,13 @@ describe("useMatchState", () => {
       LOCAL_STORAGE_KEYS.MATCH_SCORES,
       JSON.stringify({ "job-1": 85 })
     );
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      LOCAL_STORAGE_KEYS.MATCH_SESSION,
+    expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
+      SESSION_STORAGE_KEYS.MATCH_SESSION,
       "test-session-123"
     );
   });
 
-  it("clears matches from localStorage", () => {
+  it("clears matches from storage", () => {
     // Arrange
     const { result } = renderHook(() => useMatchState());
 
@@ -90,7 +102,7 @@ describe("useMatchState", () => {
 
     // Assert
     expect(localStorageMock.removeItem).toHaveBeenCalledWith(LOCAL_STORAGE_KEYS.MATCH_SCORES);
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith(LOCAL_STORAGE_KEYS.MATCH_SESSION);
+    expect(sessionStorageMock.removeItem).toHaveBeenCalledWith(SESSION_STORAGE_KEYS.MATCH_SESSION);
   });
 
   it("getMatchPercentage returns correct score", () => {

@@ -259,9 +259,9 @@ export default function AdminUserDetailPage() {
     setIsActionLoading(true);
     const result = await resetUserPassword(userId);
     if (result.success) {
-      message.success("Password reset email sent successfully");
+      message.success(result.message || "Password reset request completed");
     } else {
-      message.error(result.error || "Failed to reset password");
+      message.error(result.error || "Password reset email delivery is not configured");
     }
     setIsActionLoading(false);
   };
@@ -580,14 +580,14 @@ export default function AdminUserDetailPage() {
                       Password
                     </h4>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Send a password reset email to the user
+                      Password reset email delivery is not configured yet
                     </p>
                   </div>
                   <Popconfirm
                     title="Reset Password"
-                    description="Send password reset email to this user?"
+                    description="Record a password reset request for this user?"
                     onConfirm={handleResetPassword}
-                    okText="Yes, send email"
+                    okText="Record request"
                     cancelText="Cancel"
                     okButtonProps={{ loading: isActionLoading }}
                   >

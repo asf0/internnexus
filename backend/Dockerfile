@@ -18,7 +18,16 @@ RUN apt-get update && apt-get install -y \
 COPY backend/ ./backend/
 
 # Install backend project
-RUN uv pip install --system --no-cache -e ./backend
+RUN uv pip install --system --no-cache ./backend
+
+# Make the local source tree importable for the namespace package layout.
+ENV PYTHONPATH=/app/backend
+
+# Drop runtime privileges after dependencies are installed.
+RUN groupadd --system --gid 1000 appuser \
+    && useradd --system --uid 1000 --gid appuser --create-home appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8000

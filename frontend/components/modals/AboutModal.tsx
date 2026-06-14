@@ -35,7 +35,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
               Tech Stack
             </h4>
             <div className="flex flex-wrap gap-2">
-              {["FastAPI", "Next.js", "PostgreSQL", "Redis", "Docker"].map((tech) => (
+              {["FastAPI", "Next.js", "PostgreSQL", "Docker"].map((tech) => (
                 <Badge key={tech} variant="default">
                   {tech}
                 </Badge>

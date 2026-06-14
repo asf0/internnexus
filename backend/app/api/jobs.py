@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse, JobResponse
 from app.auth.dependencies import get_optional_user
-from app.cache.redis_pool import RedisService, get_redis_service
+from app.cache.redis_pool import CacheService, get_redis_service
 from app.db import get_db
 from app.models import JobClick, SavedJob, User
 from app.rate_limiter import RATE_LIMITS, limiter
@@ -44,13 +44,13 @@ class ClickResponse(BaseModel):
 
 async def get_job_search_service(
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(get_redis_service),
+    cache: CacheService = Depends(get_redis_service),
 ) -> JobSearchService:
     """Get job search service instance."""
     return JobSearchService(db, cache)
 
 
-async def _get_cache_service_dependency() -> RedisService:
+async def _get_cache_service_dependency() -> CacheService:
     return await get_redis_service()
 
 
@@ -78,7 +78,7 @@ async def _commit_or_500(db: AsyncSession, operation: str) -> None:
 
 async def _get_job_search_service_dependency(
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(_get_cache_service_dependency),
+    cache: CacheService = Depends(_get_cache_service_dependency),
 ) -> JobSearchService:
     return await get_job_search_service(db, cache)
 
@@ -129,7 +129,7 @@ async def list_jobs(
 async def get_companies(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(_get_cache_service_dependency),
+    cache: CacheService = Depends(_get_cache_service_dependency),
 ) -> list[str]:
     """Get all distinct company names (cached 5 min)."""
     cache_key = "filters:companies"
@@ -148,7 +148,7 @@ async def get_companies(
 async def get_locations(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(_get_cache_service_dependency),
+    cache: CacheService = Depends(_get_cache_service_dependency),
     user: User | None = Depends(get_optional_user),
     search: str | None = Query(None),
     company: str | None = Query(None),
@@ -218,7 +218,7 @@ async def get_locations(
 async def get_categories(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(_get_cache_service_dependency),
+    cache: CacheService = Depends(_get_cache_service_dependency),
 ) -> list[str]:
     """Get all distinct job categories (cached 5 min)."""
     cache_key = "filters:categories"
@@ -238,7 +238,7 @@ async def get_job(
     request: Request,
     job_id: UUID,
     db: AsyncSession = Depends(get_db),
-    cache: RedisService = Depends(_get_cache_service_dependency),
+    cache: CacheService = Depends(_get_cache_service_dependency),
 ) -> JobResponse:
     """Get a single job by ID (cached 5 min)."""
     # Try cache first
