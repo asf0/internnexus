@@ -1,10 +1,12 @@
+"""Unit tests for core embedding service (backend consumer)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
 
-from app.services import query_embedding_service
+from internnexus_core.embedding import EmbeddingConfig, QueryEmbeddingService
 
 
 @pytest.mark.asyncio
@@ -23,19 +25,17 @@ async def test_lmstudio_embedding_request_includes_configured_dimensions(monkeyp
             calls.append((url, json, timeout))
             return _Response()
 
-    monkeypatch.setattr(
-        query_embedding_service,
-        "get_settings",
-        lambda: SimpleNamespace(
-            embedding_provider="lmstudio",
-            embedding_model="qwen3-embedding-4b",
-            embedding_dimensions=2,
-            ollama_base_url="http://192.168.0.4:8080",
-        ),
-    )
-    monkeypatch.setattr(query_embedding_service, "get_http_client", lambda: _Client())
+    from internnexus_core import embedding as core_embedding
 
-    service = query_embedding_service.QueryEmbeddingService()
+    monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
+
+    cfg = EmbeddingConfig(
+        provider="lmstudio",
+        model="qwen3-embedding-4b",
+        dimensions=2,
+        base_url="http://192.168.0.4:8080",
+    )
+    service = QueryEmbeddingService(config=cfg)
     result = await service._embed_lmstudio_impl("software engineer intern")
 
     assert result == [0.1, 0.2]
@@ -74,19 +74,17 @@ async def test_lmstudio_embed_many_uses_one_index_ordered_request(monkeypatch):
             calls.append((url, json, timeout))
             return _Response()
 
-    monkeypatch.setattr(
-        query_embedding_service,
-        "get_settings",
-        lambda: SimpleNamespace(
-            embedding_provider="lmstudio",
-            embedding_model="qwen3-embedding-4b",
-            embedding_dimensions=2,
-            ollama_base_url="http://192.168.0.4:8080",
-        ),
-    )
-    monkeypatch.setattr(query_embedding_service, "get_http_client", lambda: _Client())
+    from internnexus_core import embedding as core_embedding
 
-    service = query_embedding_service.QueryEmbeddingService()
+    monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
+
+    cfg = EmbeddingConfig(
+        provider="lmstudio",
+        model="qwen3-embedding-4b",
+        dimensions=2,
+        base_url="http://192.168.0.4:8080",
+    )
+    service = QueryEmbeddingService(config=cfg)
     result = await service.embed_many(["first", "second", "third"], batch_size=3)
 
     assert result == [[1.0, 1.1], [2.0, 2.1], [3.0, 3.1]]

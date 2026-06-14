@@ -286,10 +286,14 @@ version = "0.1.0"
 source = { directory = "../packages/internnexus-core" }
 dependencies = [
     { name = "httpx" },
+    { name = "tenacity" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
+]
 
 [package.metadata.requires-dev]
 dev = [
