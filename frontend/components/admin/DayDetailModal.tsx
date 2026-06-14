@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar, MousePointerClick, Briefcase, Users, UserX, ExternalLink } from 'lucide-react';
-import { Card, Table, Spin, Alert, Statistic } from 'antd';
 import { Modal } from '@/components/modals';
-import { IconContainer } from '@/components/ui';
+import { IconContainer, LoadingSpinner, Alert } from '@/components/ui';
+import { AdminCard, AdminStatistic, AdminTable } from '@/components/admin/ui';
+import type { AdminColumn } from '@/components/admin/ui';
 import { fetchDayClickStats, type DayClickStats, type TopJobByClicks } from '@/app/actions/admin';
 
 interface DayDetailModalProps {
@@ -37,7 +38,6 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch data when modal opens
   useEffect(() => {
     const loadData = async () => {
       if (!isOpen || !date) {
@@ -63,7 +63,6 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
     loadData();
   }, [isOpen, date]);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setData(null);
@@ -71,13 +70,11 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
     }
   }, [isOpen]);
 
-  // Calculate max clicks for hour bar scaling
   const maxHourClicks = data?.clicks_by_hour
     ? Math.max(...data.clicks_by_hour.map((h) => h.clicks), 1)
     : 1;
 
-  // Table columns for top jobs
-  const jobColumns = [
+  const jobColumns: AdminColumn<TopJobByClicks>[] = [
     {
       title: 'Job Title',
       dataIndex: 'title',
@@ -106,7 +103,7 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
       title: 'Click Count',
       dataIndex: 'click_count',
       key: 'click_count',
-      align: 'right' as const,
+      align: 'right',
       render: (count: number) => (
         <span className="dark:text-md-on-surface font-semibold text-slate-900">
           {count.toLocaleString()}
@@ -128,23 +125,19 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
       size="xl"
     >
       <div className="space-y-6">
-        {/* Loading State */}
         {isLoading && (
           <div className="flex justify-center py-12">
-            <Spin size="large" />
+            <LoadingSpinner size="lg" />
           </div>
         )}
 
-        {/* Error State */}
-        {error && !isLoading && <Alert type="error" message={error} showIcon />}
+        {error && !isLoading && <Alert type="error">{error}</Alert>}
 
-        {/* Content */}
         {data && !isLoading && !error && (
           <>
-            {/* Stats Cards Row */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <Card className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50">
-                <Statistic
+              <AdminCard className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50 p-4">
+                <AdminStatistic
                   title={
                     <span className="dark:text-md-on-surface-variant flex items-center gap-2 text-slate-600">
                       <MousePointerClick className="h-4 w-4" />
@@ -152,12 +145,12 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
                     </span>
                   }
                   value={data.total_clicks}
-                  styles={{ content: { color: '#005AC1', fontWeight: 600 } }}
+                  valueClassName="text-blue-600 dark:text-blue-400"
                 />
-              </Card>
+              </AdminCard>
 
-              <Card className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50">
-                <Statistic
+              <AdminCard className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50 p-4">
+                <AdminStatistic
                   title={
                     <span className="dark:text-md-on-surface-variant flex items-center gap-2 text-slate-600">
                       <Briefcase className="h-4 w-4" />
@@ -165,12 +158,12 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
                     </span>
                   }
                   value={data.unique_jobs}
-                  styles={{ content: { color: '#005AC1', fontWeight: 600 } }}
+                  valueClassName="text-blue-600 dark:text-blue-400"
                 />
-              </Card>
+              </AdminCard>
 
-              <Card className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50">
-                <Statistic
+              <AdminCard className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50 p-4">
+                <AdminStatistic
                   title={
                     <span className="dark:text-md-on-surface-variant flex items-center gap-2 text-slate-600">
                       <Users className="h-4 w-4" />
@@ -178,12 +171,12 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
                     </span>
                   }
                   value={data.unique_users}
-                  styles={{ content: { color: '#005AC1', fontWeight: 600 } }}
+                  valueClassName="text-blue-600 dark:text-blue-400"
                 />
-              </Card>
+              </AdminCard>
 
-              <Card className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50">
-                <Statistic
+              <AdminCard className="dark:bg-md-surface-container-high dark:border-md-outline-variant border-slate-200 bg-slate-50 p-4">
+                <AdminStatistic
                   title={
                     <span className="dark:text-md-on-surface-variant flex items-center gap-2 text-slate-600">
                       <UserX className="h-4 w-4" />
@@ -191,17 +184,16 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
                     </span>
                   }
                   value={data.anonymous_clicks}
-                  styles={{ content: { color: '#005AC1', fontWeight: 600 } }}
+                  valueClassName="text-blue-600 dark:text-blue-400"
                 />
-              </Card>
+              </AdminCard>
             </div>
 
-            {/* Clicks by Hour Section */}
             <div className="space-y-3">
               <h3 className="dark:text-md-on-surface text-sm font-semibold tracking-wide text-slate-900 uppercase">
                 Clicks by Hour
               </h3>
-              <div className="dark:bg-md-surface-container-high dark:border-md-outline-variant rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="dark:border-md-outline-variant dark:bg-md-surface-container-high rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="grid grid-cols-12 gap-1 lg:grid-cols-24">
                   {Array.from({ length: 24 }, (_, hour) => {
                     const hourData = data.clicks_by_hour.find((h) => h.hour === hour);
@@ -214,18 +206,15 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
                         className="flex flex-col items-center"
                         title={`${hour}:00 - ${clicks} clicks`}
                       >
-                        {/* Bar */}
                         <div className="dark:bg-md-surface-container relative flex h-16 w-full items-end rounded-sm bg-slate-200">
                           <div
                             className="w-full rounded-sm bg-blue-500 transition-all dark:bg-blue-400"
                             style={{ height: `${widthPercent}%` }}
                           />
                         </div>
-                        {/* Hour label */}
                         <span className="dark:text-md-on-surface-variant mt-1 text-xs text-slate-500">
                           {hour}
                         </span>
-                        {/* Click count */}
                         <span className="dark:text-md-on-surface text-xs font-medium text-slate-700">
                           {clicks}
                         </span>
@@ -236,24 +225,21 @@ export default function DayDetailModal({ isOpen, onClose, date }: DayDetailModal
               </div>
             </div>
 
-            {/* Top Jobs Table */}
             <div className="space-y-3">
               <h3 className="dark:text-md-on-surface text-sm font-semibold tracking-wide text-slate-900 uppercase">
                 Top Jobs
               </h3>
-              <Table
+              <AdminTable
                 dataSource={data.top_jobs.slice(0, 10)}
                 columns={jobColumns}
                 rowKey="job_id"
                 pagination={false}
                 size="small"
-                className="[&_.ant-table-thead>tr>th]:dark:bg-md-surface-container-high [&_.ant-table-tbody>tr>td]:dark:bg-md-surface-container [&_.ant-table]:bg-transparent [&_.ant-table-tbody>tr>td]:bg-white [&_.ant-table-thead>tr>th]:bg-slate-100"
               />
             </div>
           </>
         )}
 
-        {/* Empty state when no date */}
         {!date && !isLoading && (
           <div className="dark:text-md-on-surface-variant py-12 text-center text-slate-500">
             No date selected

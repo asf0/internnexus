@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Table, Form, Input, Select, Button, Tag, Typography, Spin, message } from 'antd';
-import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
-import { UserPlus, Download } from 'lucide-react';
-import { Button as UIButton } from '@/components/ui';
+import { Eye, Search, UserPlus, Download, Loader2 } from 'lucide-react';
+import { Button, Input, LoadingSpinner } from '@/components/ui';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 import CreateUserModal from '@/components/admin/CreateUserModal';
 import {
   fetchUsers,
@@ -13,25 +12,35 @@ import {
   type AdminUser,
   type PaginatedResponse,
 } from '@/app/actions/admin';
+import { AdminTable, AdminTag, useAdminMessage } from '@/components/admin/ui';
+import type { AdminColumn } from '@/components/admin/ui';
 
-const { Title } = Typography;
+const adminOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'true', label: 'Admins' },
+  { value: 'false', label: 'Non-admins' },
+];
 
 export default function AdminUsersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [form] = Form.useForm();
+  const message = useAdminMessage();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PaginatedResponse<AdminUser> | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Get initial values from URL
   const page = parseInt(searchParams.get('page') || '1', 10);
   const search = searchParams.get('search') || '';
-  const isAdmin = searchParams.get('is_admin') || '';
+  const isAdminFilter = searchParams.get('is_admin') || 'all';
 
-  // Fetch users data
+  const [form, setForm] = useState({ search, is_admin: isAdminFilter || 'all' });
+
+  useEffect(() => {
+    setForm({ search, is_admin: isAdminFilter || 'all' });
+  }, [search, isAdminFilter]);
+
   const loadUsers = useCallback(
     async (
       params: {
@@ -57,39 +66,33 @@ export default function AdminUsersPage() {
       }
       setLoading(false);
     },
-    [page, search, isAdmin]
+    [page, search, isAdminFilter, message]
   );
 
-  // Initial load
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
-  // Set form values from URL on mount
-  useEffect(() => {
-    form.setFieldsValue({
-      search,
-      is_admin: isAdmin || undefined,
-    });
-  }, [form, search, isAdmin]);
-
-  // Handle search form submit
-  const handleSearch = (values: { search?: string; is_admin?: string }) => {
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
     const params = new URLSearchParams();
     params.set('page', '1');
-    if (values.search) params.set('search', values.search);
-    if (values.is_admin) params.set('is_admin', values.is_admin);
+    if (form.search) params.set('search', form.search);
+    if (form.is_admin && form.is_admin !== 'all') {
+      params.set('is_admin', form.is_admin);
+    }
     router.push(`/admin/users?${params.toString()}`);
   };
 
-  // Handle table pagination
-  const handleTableChange = (pagination: { current?: number }) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('page', String(pagination.current || 1));
-    router.push(`/admin/users?${params.toString()}`);
-  };
+  const buildPageUrl = useCallback(
+    (p: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('page', String(p));
+      return `/admin/users?${params.toString()}`;
+    },
+    [searchParams]
+  );
 
-  // Handle CSV export
   const handleExport = async () => {
     setIsExporting(true);
     const result = await exportUsers();
@@ -107,12 +110,11 @@ export default function AdminUsersPage() {
     setIsExporting(false);
   };
 
-  // Handle successful user creation
   const handleUserCreated = () => {
     loadUsers();
   };
 
-  const columns = [
+  const columns: AdminColumn<AdminUser>[] = [
     {
       title: 'Email',
       dataIndex: 'email',
@@ -139,7 +141,7 @@ export default function AdminUsersPage() {
       render: (role: string | null) => {
         if (!role) return null;
         const color = role === 'super_admin' ? 'gold' : 'blue';
-        return <Tag color={color}>{role}</Tag>;
+        return <AdminTag color={color}>{role}</AdminTag>;
       },
     },
     {
@@ -149,13 +151,13 @@ export default function AdminUsersPage() {
       width: 100,
       render: (provider: string | null) => {
         if (!provider) {
-          return <Tag color="default">credentials</Tag>;
+          return <AdminTag color="default">credentials</AdminTag>;
         }
         const providerColors: Record<string, string> = {
           github: 'default',
           google: 'blue',
         };
-        return <Tag color={providerColors[provider] || 'default'}>{provider}</Tag>;
+        return <AdminTag color={providerColors[provider] || 'default'}>{provider}</AdminTag>;
       },
     },
     {
@@ -164,7 +166,7 @@ export default function AdminUsersPage() {
       key: 'is_active',
       width: 80,
       render: (active: boolean) => (
-        <Tag color={active ? 'green' : 'red'}>{active ? 'Active' : 'Inactive'}</Tag>
+        <AdminTag color={active ? 'green' : 'red'}>{active ? 'Active' : 'Inactive'}</AdminTag>
       ),
     },
     {
@@ -173,7 +175,7 @@ export default function AdminUsersPage() {
       key: 'has_password',
       width: 110,
       render: (hasPassword: boolean) => (
-        <Tag color={hasPassword ? 'green' : 'default'}>{hasPassword ? 'Yes' : 'No'}</Tag>
+        <AdminTag color={hasPassword ? 'green' : 'default'}>{hasPassword ? 'Yes' : 'No'}</AdminTag>
       ),
     },
     {
@@ -181,13 +183,12 @@ export default function AdminUsersPage() {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
-      render: (date: string) => {
-        return new Date(date).toLocaleDateString('en-US', {
+      render: (date: string) =>
+        new Date(date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric',
-        });
-      },
+        }),
     },
     {
       title: 'Actions',
@@ -195,11 +196,14 @@ export default function AdminUsersPage() {
       width: 80,
       render: (_: unknown, record: AdminUser) => (
         <Button
-          type="text"
-          icon={<EyeOutlined />}
+          variant="ghost"
+          size="sm"
           onClick={() => router.push(`/admin/users/${record.id}`)}
           title="View user details"
-        />
+          aria-label="View user details"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
       ),
     },
   ];
@@ -207,65 +211,70 @@ export default function AdminUsersPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <Title level={3} style={{ marginBottom: 0 }}>
-          Users
-        </Title>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Users</h1>
         <div className="flex items-center gap-2">
-          <UIButton variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
-            <Download className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             {isExporting ? 'Exporting...' : 'Export CSV'}
-          </UIButton>
-          <UIButton variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
             <UserPlus className="h-4 w-4" />
             Create User
-          </UIButton>
+          </Button>
         </div>
       </div>
 
-      <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={handleSearch}>
-        <Form.Item name="search">
-          <Input.Search
+      <form onSubmit={handleSearch} className="mb-4 flex flex-wrap items-end gap-4">
+        <div className="w-72">
+          <Input
             placeholder="Search by email or name..."
-            allowClear
-            style={{ width: 300 }}
-            prefix={<SearchOutlined />}
+            value={form.search}
+            onChange={(e) => setForm((f) => ({ ...f, search: e.target.value }))}
+            icon={Search}
           />
-        </Form.Item>
-        <Form.Item name="is_admin">
-          <Select
-            style={{ width: 150 }}
+        </div>
+        <div className="w-40">
+          <SingleSelect
+            options={adminOptions}
+            value={form.is_admin}
+            onChange={(value) => setForm((f) => ({ ...f, is_admin: value }))}
             placeholder="Admin Filter"
-            allowClear
-            options={[
-              { label: 'All', value: 'all' },
-              { label: 'Admins', value: 'true' },
-              { label: 'Non-admins', value: 'false' },
-            ]}
           />
-        </Form.Item>
-        <Button type="primary" htmlType="submit">
+        </div>
+        <Button type="submit" variant="primary" size="sm">
           Search
         </Button>
-      </Form>
+      </form>
 
-      <Spin spinning={loading}>
-        <Table
+      {loading && !data ? (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner />
+        </div>
+      ) : (
+        <AdminTable
           dataSource={data?.items || []}
           columns={columns}
           rowKey="id"
-          pagination={{
-            current: page,
-            pageSize: 20,
-            total: data?.total || 0,
-            pageSizeOptions: ['20', '50', '100'],
-            showSizeChanger: false,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
-          }}
+          loading={loading}
           scroll={{ x: 1000 }}
+          pagination={
+            data
+              ? {
+                  current: page,
+                  pageSize: 20,
+                  total: data.total,
+                  buildPageUrl,
+                }
+              : false
+          }
           size="small"
-          onChange={handleTableChange}
+          emptyText="No users found"
         />
-      </Spin>
+      )}
 
       <CreateUserModal
         isOpen={isCreateModalOpen}

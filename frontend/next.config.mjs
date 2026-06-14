@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const frontendRoot = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(frontendRoot, '../.env') });
@@ -29,4 +30,7 @@ const nextConfig = {
     ];
   },
 };
-export default nextConfig;
+
+export default process.env.ANALYZE === 'true'
+  ? withBundleAnalyzer({ enabled: true, openAnalyzer: false })(nextConfig)
+  : nextConfig;

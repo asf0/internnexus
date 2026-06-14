@@ -2,38 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  Table,
-  Space,
-  Input,
-  Select,
-  Tag,
-  Form,
-  Button,
-  Row,
-  Col,
-  Card,
-  Typography,
-  Spin,
-  message,
-} from 'antd';
-import type { TableProps } from 'antd';
-import { SearchOutlined, ReloadOutlined, EyeOutlined, EditOutlined } from '@ant-design/icons';
-import { Plus } from 'lucide-react';
+import { Search, RefreshCw, Eye, Edit, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { Input, Button } from '@/components/ui';
+import { SingleSelect } from '@/components/ui/SingleSelect';
+import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
+import CreateJobModal from '@/components/admin/CreateJobModal';
 import {
   fetchJobs,
   bulkJobAction,
   type AdminJob,
   type PaginatedResponse,
 } from '@/app/actions/admin';
-import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
-import CreateJobModal from '@/components/admin/CreateJobModal';
-import { Button as UIButton } from '@/components/ui';
+import { AdminCard, AdminTable, AdminTag, useAdminMessage } from '@/components/admin/ui';
+import type { AdminColumn, AdminRowSelection } from '@/components/admin/ui';
 
-const { Title } = Typography;
-
-// Get tag color for job type
 function getJobTypeColor(type: string | null): string {
   if (!type) return 'default';
   const typeColors: Record<string, string> = {
@@ -46,7 +29,6 @@ function getJobTypeColor(type: string | null): string {
   return typeColors[type] || 'default';
 }
 
-// Get tag color for work mode
 function getWorkModeColor(mode: string | null): string {
   if (!mode) return 'default';
   const modeColors: Record<string, string> = {
@@ -57,7 +39,6 @@ function getWorkModeColor(mode: string | null): string {
   return modeColors[mode] || 'default';
 }
 
-// Format date for display
 function formatDate(dateString: string | null): string {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -67,24 +48,39 @@ function formatDate(dateString: string | null): string {
   });
 }
 
+const activeOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
 export default function AdminJobsListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [form] = Form.useForm();
+  const message = useAdminMessage();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PaginatedResponse<AdminJob> | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Get initial values from URL
   const page = parseInt(searchParams.get('page') || '1', 10);
   const search = searchParams.get('search') || '';
   const company = searchParams.get('company') || '';
   const category = searchParams.get('category') || '';
-  const isActive = searchParams.get('is_active') || '';
+  const isActive = searchParams.get('is_active') || 'all';
 
-  // Fetch jobs data
+  const [form, setForm] = useState({
+    search,
+    company,
+    category,
+    is_active: isActive || 'all',
+  });
+
+  useEffect(() => {
+    setForm({ search, company, category, is_active: isActive || 'all' });
+  }, [search, company, category, isActive]);
+
   const loadJobs = useCallback(
     async (
       params: {
@@ -115,56 +111,40 @@ export default function AdminJobsListPage() {
       }
       setLoading(false);
     },
-    [page, search, company, category, isActive]
+    [page, search, company, category, isActive, message]
   );
 
-  // Initial load
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
 
-  // Set form values from URL on mount
-  useEffect(() => {
-    form.setFieldsValue({
-      search,
-      company,
-      category,
-      is_active: isActive || 'all',
-    });
-  }, [form, search, company, category, isActive]);
-
-  // Handle search form submit
-  const handleSearch = (values: {
-    search?: string;
-    company?: string;
-    category?: string;
-    is_active?: string;
-  }) => {
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
     const params = new URLSearchParams();
     params.set('page', '1');
-    if (values.search) params.set('search', values.search);
-    if (values.company) params.set('company', values.company);
-    if (values.category) params.set('category', values.category);
-    if (values.is_active && values.is_active !== 'all') {
-      params.set('is_active', values.is_active);
+    if (form.search) params.set('search', form.search);
+    if (form.company) params.set('company', form.company);
+    if (form.category) params.set('category', form.category);
+    if (form.is_active && form.is_active !== 'all') {
+      params.set('is_active', form.is_active);
     }
     router.push(`/admin/jobs?${params.toString()}`);
   };
 
-  // Handle reset
   const handleReset = () => {
-    form.resetFields();
+    setForm({ search: '', company: '', category: '', is_active: 'all' });
     router.push('/admin/jobs');
   };
 
-  // Handle table pagination
-  const handleTableChange = (pagination: { current?: number }) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('page', String(pagination.current || 1));
-    router.push(`/admin/jobs?${params.toString()}`);
-  };
+  const buildPageUrl = useCallback(
+    (p: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('page', String(p));
+      return `/admin/jobs?${params.toString()}`;
+    },
+    [searchParams]
+  );
 
-  // Handle bulk actions
   const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
     if (selectedRowKeys.length === 0) return;
 
@@ -179,59 +159,36 @@ export default function AdminJobsListPage() {
     }
   };
 
-  // Handle bulk activate
   const handleBulkActivate = () => handleBulkAction('activate');
-
-  // Handle bulk deactivate
   const handleBulkDeactivate = () => handleBulkAction('deactivate');
-
-  // Handle bulk delete
   const handleBulkDelete = () => handleBulkAction('delete');
+  const handleClearSelection = () => setSelectedRowKeys([]);
+  const handleJobCreated = () => loadJobs();
 
-  // Clear selection
-  const handleClearSelection = () => {
-    setSelectedRowKeys([]);
-  };
-
-  // Handle job created
-  const handleJobCreated = () => {
-    loadJobs();
-  };
-
-  // Table columns
-  const columns = [
+  const columns: AdminColumn<AdminJob>[] = [
     {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
       width: 250,
-      render: (value: string, record: AdminJob) => (
-        <Link href={`/admin/jobs/${record.id}`} style={{ color: '#1890ff', fontWeight: 500 }}>
-          {value}
+      render: (_value: string, record: AdminJob) => (
+        <Link
+          href={`/admin/jobs/${record.id}`}
+          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          {record.title}
         </Link>
       ),
     },
-    {
-      title: 'Company',
-      dataIndex: 'company',
-      key: 'company',
-      ellipsis: true,
-      width: 150,
-    },
-    {
-      title: 'Location',
-      dataIndex: 'location',
-      key: 'location',
-      ellipsis: true,
-      width: 150,
-    },
+    { title: 'Company', dataIndex: 'company', key: 'company', ellipsis: true, width: 150 },
+    { title: 'Location', dataIndex: 'location', key: 'location', ellipsis: true, width: 150 },
     {
       title: 'Category',
       dataIndex: 'job_category',
       key: 'job_category',
       width: 130,
-      render: (value: string | null) => (value ? <Tag color="blue">{value}</Tag> : '-'),
+      render: (value: string | null) => (value ? <AdminTag color="blue">{value}</AdminTag> : '-'),
     },
     {
       title: 'Type',
@@ -239,7 +196,7 @@ export default function AdminJobsListPage() {
       key: 'job_type',
       width: 110,
       render: (value: string | null) =>
-        value ? <Tag color={getJobTypeColor(value)}>{value}</Tag> : '-',
+        value ? <AdminTag color={getJobTypeColor(value)}>{value}</AdminTag> : '-',
     },
     {
       title: 'Work Mode',
@@ -247,16 +204,16 @@ export default function AdminJobsListPage() {
       key: 'work_mode',
       width: 100,
       render: (value: string | null) =>
-        value ? <Tag color={getWorkModeColor(value)}>{value}</Tag> : '-',
+        value ? <AdminTag color={getWorkModeColor(value)}>{value}</AdminTag> : '-',
     },
     {
       title: 'Active',
       dataIndex: 'is_active',
       key: 'is_active',
       width: 80,
-      align: 'center' as const,
+      align: 'center',
       render: (value: boolean) => (
-        <Tag color={value ? 'success' : 'error'}>{value ? 'Active' : 'Inactive'}</Tag>
+        <AdminTag color={value ? 'success' : 'error'}>{value ? 'Active' : 'Inactive'}</AdminTag>
       ),
     },
     {
@@ -264,8 +221,8 @@ export default function AdminJobsListPage() {
       dataIndex: 'click_count',
       key: 'click_count',
       width: 80,
-      align: 'right' as const,
-      render: (value: number) => <span style={{ fontWeight: 500 }}>{value.toLocaleString()}</span>,
+      align: 'right',
+      render: (value: number) => <span className="font-medium">{value.toLocaleString()}</span>,
     },
     {
       title: 'Posted At',
@@ -278,132 +235,111 @@ export default function AdminJobsListPage() {
       title: 'Actions',
       key: 'actions',
       width: 100,
-      fixed: 'right' as const,
       render: (_: unknown, record: AdminJob) => (
-        <Space size="small">
+        <div className="flex items-center gap-1">
           <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined />}
+            variant="ghost"
+            size="sm"
             onClick={() => router.push(`/admin/jobs/${record.id}`)}
             title="View job"
-          />
+            aria-label="View job"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
+            variant="ghost"
+            size="sm"
             onClick={() => router.push(`/admin/jobs/${record.id}`)}
             title="Edit job"
-          />
-        </Space>
+            aria-label="Edit job"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
 
-  // Row selection configuration
-  const rowSelection: TableProps<AdminJob>['rowSelection'] = {
+  const rowSelection: AdminRowSelection = {
     selectedRowKeys,
-    onChange: (newSelectedRowKeys: React.Key[]) => {
-      setSelectedRowKeys(newSelectedRowKeys);
-    },
-    selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
+    onChange: setSelectedRowKeys,
   };
 
   return (
     <div style={{ paddingBottom: selectedRowKeys.length > 0 ? 80 : 0 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <Title level={3} style={{ margin: 0 }}>
-          Jobs
-        </Title>
-        <UIButton variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Jobs</h1>
+        <Button variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Create Job
-        </UIButton>
+        </Button>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Card size="small" style={{ marginBottom: 16 }}>
-            <Form
-              form={form}
-              layout="inline"
-              style={{ gap: 16, flexWrap: 'wrap' }}
-              onFinish={handleSearch}
-            >
-              <Form.Item name="search" style={{ marginBottom: 0 }}>
-                <Input
-                  placeholder="Search title/company..."
-                  prefix={<SearchOutlined />}
-                  allowClear
-                  style={{ width: 200 }}
-                />
-              </Form.Item>
+      <AdminCard className="mb-4">
+        <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
+          <div className="w-52">
+            <Input
+              placeholder="Search title/company..."
+              value={form.search}
+              onChange={(e) => setForm((f) => ({ ...f, search: e.target.value }))}
+              icon={Search}
+            />
+          </div>
+          <div className="w-48">
+            <Input
+              placeholder="Filter by company"
+              value={form.company}
+              onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+            />
+          </div>
+          <div className="w-40">
+            <Input
+              placeholder="Filter by category"
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            />
+          </div>
+          <div className="w-40">
+            <SingleSelect
+              options={activeOptions}
+              value={form.is_active}
+              onChange={(value) => setForm((f) => ({ ...f, is_active: value }))}
+              placeholder="Active status"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="submit" variant="primary" size="sm">
+              <Search className="h-4 w-4" />
+              Search
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={handleReset}>
+              <RefreshCw className="h-4 w-4" />
+              Reset
+            </Button>
+          </div>
+        </form>
+      </AdminCard>
 
-              <Form.Item name="company" style={{ marginBottom: 0 }}>
-                <Input placeholder="Filter by company" allowClear style={{ width: 180 }} />
-              </Form.Item>
-
-              <Form.Item name="category" style={{ marginBottom: 0 }}>
-                <Input placeholder="Filter by category" allowClear style={{ width: 160 }} />
-              </Form.Item>
-
-              <Form.Item name="is_active" style={{ marginBottom: 0 }}>
-                <Select
-                  placeholder="Active status"
-                  allowClear
-                  style={{ width: 140 }}
-                  options={[
-                    { value: 'all', label: 'All' },
-                    { value: 'true', label: 'Active' },
-                    { value: 'false', label: 'Inactive' },
-                  ]}
-                />
-              </Form.Item>
-
-              <Form.Item style={{ marginBottom: 0 }}>
-                <Space>
-                  <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-                    Search
-                  </Button>
-                  <Button onClick={handleReset} icon={<ReloadOutlined />}>
-                    Reset
-                  </Button>
-                </Space>
-              </Form.Item>
-            </Form>
-          </Card>
-        </Col>
-
-        <Col span={24}>
-          <Spin spinning={loading}>
-            <Table
-              dataSource={data?.items || []}
-              columns={columns}
-              rowKey="id"
-              rowSelection={rowSelection}
-              scroll={{ x: 1400 }}
-              pagination={{
+      <AdminTable
+        dataSource={data?.items || []}
+        columns={columns}
+        rowKey="id"
+        rowSelection={rowSelection}
+        loading={loading}
+        scroll={{ x: 1400 }}
+        pagination={
+          data
+            ? {
                 current: page,
                 pageSize: 20,
-                total: data?.total || 0,
-                pageSizeOptions: ['20', '50', '100'],
-                showSizeChanger: false,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} jobs`,
-              }}
-              onChange={handleTableChange}
-            />
-          </Spin>
-        </Col>
-      </Row>
+                total: data.total,
+                buildPageUrl,
+              }
+            : false
+        }
+        emptyText="No jobs found"
+      />
 
-      {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedCount={selectedRowKeys.length}
         onActivate={handleBulkActivate}
@@ -412,7 +348,6 @@ export default function AdminJobsListPage() {
         onClear={handleClearSelection}
       />
 
-      {/* Create Job Modal */}
       <CreateJobModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

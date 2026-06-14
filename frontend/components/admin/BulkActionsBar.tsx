@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui';
 import { X, Check, XCircle, Trash2 } from 'lucide-react';
-import { Popconfirm } from 'antd';
+import { AdminPopconfirm } from '@/components/admin/ui';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -60,7 +60,7 @@ export function BulkActionsBar({
                 <span className="hidden sm:inline">Deactivate</span>
               </Button>
 
-              <Popconfirm
+              <AdminPopconfirm
                 title={`Delete ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}?`}
                 description="This action cannot be undone."
                 onConfirm={onDelete}
@@ -76,7 +76,7 @@ export function BulkActionsBar({
                   <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </Button>
-              </Popconfirm>
+              </AdminPopconfirm>
 
               {/* Divider */}
               <div className="bg-md-outline-variant mx-1 h-8 w-px" />

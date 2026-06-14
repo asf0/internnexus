@@ -1,13 +1,13 @@
 'use client';
 
-import { Card, Statistic, Table, Typography, Spin, Alert } from 'antd';
 import { MousePointer, TrendingUp, Calendar, CalendarDays, BarChart3, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchClicksByUser } from '@/app/actions/admin';
 import { StatisticIcon } from '@/components/admin/StatisticIcon';
+import { Alert, LoadingSpinner } from '@/components/ui';
 import DayDetailModal from '@/components/admin/DayDetailModal';
-
-const { Title } = Typography;
+import { AdminCard, AdminStatistic, AdminTable } from '@/components/admin/ui';
+import type { AdminColumn } from '@/components/admin/ui';
 
 interface ClickStats {
   readonly total_clicks: number;
@@ -80,7 +80,6 @@ interface ClicksClientProps {
   readonly recentClicks: ClicksListResponse | null;
 }
 
-// Format date for display - uses UTC timezone for hydration safety
 function formatDateTime(dateString: string): string {
   return new Date(dateString).toLocaleString('en-US', {
     year: 'numeric',
@@ -92,7 +91,6 @@ function formatDateTime(dateString: string): string {
   });
 }
 
-// Format date for chart display - uses UTC timezone for hydration safety
 function formatDateShort(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
@@ -101,7 +99,6 @@ function formatDateShort(dateString: string): string {
   });
 }
 
-// Add UTM parameters to a URL
 function addUtmParams(baseUrl: string, source = 'internnexus'): string {
   try {
     const url = new URL(baseUrl);
@@ -113,12 +110,9 @@ function addUtmParams(baseUrl: string, source = 'internnexus'): string {
 }
 
 export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksClientProps) {
-  // State for clicks by user data
   const [clicksByUser, setClicksByUser] = useState<ClicksByUser[]>([]);
   const [clicksByUserLoading, setClicksByUserLoading] = useState(true);
   const [clicksByUserError, setClicksByUserError] = useState<string | null>(null);
-
-  // State for day detail modal
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
 
@@ -132,7 +126,6 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     setSelectedDate(null);
   };
 
-  // Fetch clicks by user on mount
   useEffect(() => {
     async function loadClicksByUser() {
       setClicksByUserLoading(true);
@@ -148,23 +141,11 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     loadClicksByUser();
   }, []);
 
-  // Calculate max clicks for bar chart scaling
   const maxClicks = Math.max(...(clicksByDay?.map((d) => d.clicks) || [1]));
 
-  // Top jobs table columns
-  const topJobsColumns = [
-    {
-      title: 'Job Title',
-      dataIndex: 'title',
-      key: 'title',
-      ellipsis: true,
-    },
-    {
-      title: 'Company',
-      dataIndex: 'company',
-      key: 'company',
-      ellipsis: true,
-    },
+  const topJobsColumns: AdminColumn<(typeof clickStats.top_jobs)[number]>[] = [
+    { title: 'Job Title', dataIndex: 'title', key: 'title', ellipsis: true },
+    { title: 'Company', dataIndex: 'company', key: 'company', ellipsis: true },
     {
       title: 'Clicks',
       dataIndex: 'click_count',
@@ -177,8 +158,7 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     },
   ];
 
-  // Clicks by day table columns
-  const clicksByDayColumns = [
+  const clicksByDayColumns: AdminColumn<ClickByDay>[] = [
     {
       title: 'Date',
       dataIndex: 'date',
@@ -224,7 +204,7 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     },
   ];
 
-  const trafficColumns = [
+  const trafficColumns: AdminColumn<{ value: string; click_count: number }>[] = [
     {
       title: 'Value',
       dataIndex: 'value',
@@ -247,14 +227,13 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     },
   ];
 
-  // Recent clicks table columns
-  const recentClicksColumns = [
+  const recentClicksColumns: AdminColumn<JobClick>[] = [
     {
       title: 'Job Title',
       dataIndex: 'job_title',
       key: 'job_title',
       ellipsis: true,
-      render: (title: string, record: JobClick) => {
+      render: (_title: string, record: JobClick) => {
         if (record.apply_url) {
           return (
             <a
@@ -263,11 +242,11 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
             >
-              {title}
+              {record.job_title}
             </a>
           );
         }
-        return <span className="text-slate-900 dark:text-slate-100">{title}</span>;
+        return <span className="text-slate-900 dark:text-slate-100">{record.job_title}</span>;
       },
     },
     {
@@ -301,8 +280,7 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
     },
   ];
 
-  // Top users by clicks table columns
-  const topUsersColumns = [
+  const topUsersColumns: AdminColumn<ClicksByUser>[] = [
     {
       title: 'User Email',
       dataIndex: 'email',
@@ -336,158 +314,144 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Title level={2} className="!mb-1 !text-slate-900 dark:!text-slate-100">
-            Click Analytics
-          </Title>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Click Analytics</h1>
           <p className="text-slate-600 dark:text-slate-400">
             Track job click activity and engagement metrics
           </p>
         </div>
       </div>
 
-      {/* Row 1: Stats Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
+        <AdminCard className="p-5">
           <div className="flex items-center gap-4">
             <StatisticIcon icon={MousePointer} />
-            <Statistic
+            <AdminStatistic
               title={<span className="text-slate-600 dark:text-slate-400">Total Clicks</span>}
               value={clickStats.total_clicks}
-              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
-        </Card>
+        </AdminCard>
 
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
+        <AdminCard className="p-5">
           <div className="flex items-center gap-4">
             <StatisticIcon icon={TrendingUp} />
-            <Statistic
+            <AdminStatistic
               title={<span className="text-slate-600 dark:text-slate-400">Clicks Today</span>}
               value={clickStats.clicks_today}
-              styles={{ content: { color: '#005AC1' } }}
+              valueClassName="text-blue-600 dark:text-blue-400"
             />
           </div>
-        </Card>
+        </AdminCard>
 
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
+        <AdminCard className="p-5">
           <div className="flex items-center gap-4">
             <StatisticIcon icon={Calendar} />
-            <Statistic
+            <AdminStatistic
               title={<span className="text-slate-600 dark:text-slate-400">Clicks This Week</span>}
               value={clickStats.clicks_this_week}
-              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
-        </Card>
+        </AdminCard>
 
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
+        <AdminCard className="p-5">
           <div className="flex items-center gap-4">
             <StatisticIcon icon={CalendarDays} />
-            <Statistic
+            <AdminStatistic
               title={<span className="text-slate-600 dark:text-slate-400">Clicks This Month</span>}
               value={clickStats.clicks_this_month}
-              styles={{ content: { color: '#E6E1E5' } }}
             />
           </div>
-        </Card>
+        </AdminCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <Statistic
+        <AdminCard className="p-5">
+          <AdminStatistic
             title={<span className="text-slate-600 dark:text-slate-400">Clicks (24h)</span>}
             value={clickStats.clicks_last_24h}
           />
-        </Card>
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <Statistic
+        </AdminCard>
+        <AdminCard className="p-5">
+          <AdminStatistic
             title={<span className="text-slate-600 dark:text-slate-400">Unique Users</span>}
             value={clickStats.unique_users_total}
           />
-        </Card>
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <Statistic
+        </AdminCard>
+        <AdminCard className="p-5">
+          <AdminStatistic
             title={<span className="text-slate-600 dark:text-slate-400">Anonymous Clicks</span>}
             value={clickStats.anonymous_clicks_total}
           />
-        </Card>
-        <Card className="shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <Statistic
+        </AdminCard>
+        <AdminCard className="p-5">
+          <AdminStatistic
             title={<span className="text-slate-600 dark:text-slate-400">Avg/Day (30d)</span>}
             value={clickStats.avg_clicks_per_day_30d}
             precision={2}
           />
-        </Card>
+        </AdminCard>
       </div>
 
-      {/* Row 2: Clicks by Day Chart (as table) */}
-      <Card
+      <AdminCard
         title={
           <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <BarChart3 className="h-5 w-5" />
             Clicks by Day (Last 30 Days)
           </span>
         }
-        className="shadow-sm"
       >
-        <Table
+        <AdminTable
           dataSource={clicksByDay || []}
           columns={clicksByDayColumns}
           rowKey="date"
           pagination={false}
           size="small"
           scroll={{ y: 300 }}
-          locale={{ emptyText: 'No click data available' }}
+          emptyText="No click data available"
           onRow={(record) => ({
             onClick: () => openDayModal(record.date),
-            style: { cursor: 'pointer' },
+            className: 'cursor-pointer',
           })}
         />
-      </Card>
+      </AdminCard>
 
-      {/* Row 3: Tables */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Top Jobs by Clicks */}
-        <Card
+        <AdminCard
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <TrendingUp className="h-5 w-5" />
               Top Jobs by Clicks
             </span>
           }
-          className="shadow-sm"
         >
-          <Table
+          <AdminTable
             dataSource={clickStats.top_jobs}
             columns={topJobsColumns}
             rowKey="job_id"
             pagination={false}
             size="small"
-            locale={{ emptyText: 'No clicks recorded yet' }}
+            emptyText="No clicks recorded yet"
           />
-        </Card>
+        </AdminCard>
 
-        {/* Recent Clicks */}
-        <Card
+        <AdminCard
           title={
             <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <MousePointer className="h-5 w-5" />
               Recent Clicks
             </span>
           }
-          className="shadow-sm"
         >
-          <Table
+          <AdminTable
             dataSource={recentClicks?.items || []}
             columns={recentClicksColumns}
             rowKey="id"
             pagination={false}
             size="small"
             scroll={{ x: 700 }}
-            locale={{ emptyText: 'No recent clicks' }}
+            emptyText="No recent clicks"
           />
           {recentClicks && recentClicks.total > 50 && (
             <div className="mt-4 border-t border-slate-200 pt-4 text-center dark:border-slate-700">
@@ -496,76 +460,70 @@ export function ClicksClient({ clickStats, clicksByDay, recentClicks }: ClicksCl
               </span>
             </div>
           )}
-        </Card>
+        </AdminCard>
       </div>
 
-      {/* Row 4: Top Users by Clicks */}
-      <Card
+      <AdminCard
         title={
           <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <Users className="h-5 w-5" />
             Top Users by Clicks
           </span>
         }
-        className="shadow-sm"
       >
-        {clicksByUserError && <Alert type="error" message={clicksByUserError} className="mb-4" />}
+        {clicksByUserError && (
+          <Alert type="error" className="mb-4">
+            {clicksByUserError}
+          </Alert>
+        )}
         {clicksByUserLoading ? (
           <div className="flex justify-center py-8">
-            <Spin />
+            <LoadingSpinner />
           </div>
         ) : (
-          <Table
+          <AdminTable
             dataSource={clicksByUser}
             columns={topUsersColumns}
             rowKey={(record) => record.user_id || 'anonymous'}
             pagination={false}
             size="small"
-            locale={{ emptyText: 'No user click data available' }}
+            emptyText="No user click data available"
           />
         )}
-      </Card>
+      </AdminCard>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card
-          title={<span className="text-slate-900 dark:text-slate-100">Top Sources</span>}
-          className="shadow-sm"
-        >
-          <Table
+        <AdminCard title={<span className="text-slate-900 dark:text-slate-100">Top Sources</span>}>
+          <AdminTable
             dataSource={clickStats.top_sources || []}
             columns={trafficColumns}
             rowKey={(record) => `source-${record.value}`}
             pagination={false}
             size="small"
           />
-        </Card>
-        <Card
-          title={<span className="text-slate-900 dark:text-slate-100">Top Mediums</span>}
-          className="shadow-sm"
-        >
-          <Table
+        </AdminCard>
+        <AdminCard title={<span className="text-slate-900 dark:text-slate-100">Top Mediums</span>}>
+          <AdminTable
             dataSource={clickStats.top_mediums || []}
             columns={trafficColumns}
             rowKey={(record) => `medium-${record.value}`}
             pagination={false}
             size="small"
           />
-        </Card>
-        <Card
+        </AdminCard>
+        <AdminCard
           title={<span className="text-slate-900 dark:text-slate-100">Top Campaigns</span>}
-          className="shadow-sm"
         >
-          <Table
+          <AdminTable
             dataSource={clickStats.top_campaigns || []}
             columns={trafficColumns}
             rowKey={(record) => `campaign-${record.value}`}
             pagination={false}
             size="small"
           />
-        </Card>
+        </AdminCard>
       </div>
 
-      {/* Day Detail Modal */}
       <DayDetailModal isOpen={isDayModalOpen} onClose={closeDayModal} date={selectedDate} />
     </div>
   );

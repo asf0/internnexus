@@ -3,20 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Card,
-  Descriptions,
-  Tag,
-  Spin,
-  Result,
-  Typography,
-  Tabs,
-  Table,
-  Popconfirm,
-  message,
-} from 'antd';
-import type { TabsProps } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import {
   Mail,
   User,
   Shield,
@@ -33,10 +19,19 @@ import {
   KeyRound,
   Trash2,
 } from 'lucide-react';
-import { Button, Badge, Alert, IconContainer } from '@/components/ui';
-import { Modal } from '@/components/modals';
+import { Button, Badge, Alert, IconContainer, Input, LoadingSpinner } from '@/components/ui';
 import { SingleSelect } from '@/components/ui/SingleSelect';
-import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/modals';
+import {
+  AdminCard,
+  AdminPopconfirm,
+  AdminResult,
+  AdminTable,
+  AdminTabs,
+  AdminTag,
+  useAdminMessage,
+} from '@/components/admin/ui';
+import type { AdminColumn } from '@/components/admin/ui';
 import {
   fetchUser,
   fetchCurrentAdmin,
@@ -53,15 +48,11 @@ import {
   type PaginatedResponse,
 } from '@/app/actions/admin';
 
-const { Title } = Typography;
-
-// Types
 interface CurrentAdminInfo {
   id: string;
   role: 'admin' | 'super_admin';
 }
 
-// Format date for display
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString('en-US', {
     year: 'numeric',
@@ -72,7 +63,6 @@ function formatDate(dateString: string): string {
   });
 }
 
-// Admin role badge color
 function getAdminRoleBadgeVariant(role: string): 'purple' | 'danger' {
   return role === 'super_admin' ? 'danger' : 'purple';
 }
@@ -81,17 +71,14 @@ export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
+  const message = useAdminMessage();
 
-  // State for data
   const [user, setUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<CurrentAdminInfo | null>(null);
-
-  // State for tabs
   const [activeTab, setActiveTab] = useState('overview');
 
-  // State for modals and actions
   const [showGrantAdminModal, setShowGrantAdminModal] = useState(false);
   const [showRevokeAdminModal, setShowRevokeAdminModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
@@ -99,26 +86,21 @@ export default function AdminUserDetailPage() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Grant admin form state
   const [grantRole, setGrantRole] = useState('admin');
   const [grantNotes, setGrantNotes] = useState('');
 
-  // Notes state
   const [notes, setNotes] = useState('');
   const [isNotesLoading, setIsNotesLoading] = useState(false);
 
-  // Click history state
   const [clicksData, setClicksData] = useState<PaginatedResponse<UserClick> | null>(null);
   const [clicksLoading, setClicksLoading] = useState(false);
   const [clicksPage, setClicksPage] = useState(1);
   const clicksPageSize = 10;
 
-  // Fetch user data
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
 
-      // Fetch user data
       const userResult = await fetchUser(userId);
       if (userResult.data) {
         setUser(userResult.data);
@@ -127,7 +109,6 @@ export default function AdminUserDetailPage() {
         setIsError(true);
       }
 
-      // Fetch current admin info
       const adminResult = await fetchCurrentAdmin();
       if (adminResult.data) {
         setCurrentAdmin(adminResult.data);
@@ -138,7 +119,6 @@ export default function AdminUserDetailPage() {
     loadData();
   }, [userId]);
 
-  // Fetch clicks when tab changes to click history
   const fetchClicks = useCallback(
     async (page: number) => {
       setClicksLoading(true);
@@ -151,7 +131,6 @@ export default function AdminUserDetailPage() {
     [userId]
   );
 
-  // Load clicks when tab changes
   useEffect(() => {
     if (activeTab === 'clicks' && !clicksData) {
       fetchClicks(1);
@@ -161,7 +140,14 @@ export default function AdminUserDetailPage() {
   const isSuperAdmin = currentAdmin?.role === 'super_admin';
   const isOwnProfile = currentAdmin?.id === userId;
 
-  // Admin action handlers
+  const refreshUser = async () => {
+    const userResult = await fetchUser(userId);
+    if (userResult.data) {
+      setUser(userResult.data);
+      setNotes(userResult.data.notes || '');
+    }
+  };
+
   const handleGrantAdmin = async () => {
     setIsActionLoading(true);
     setActionError(null);
@@ -177,11 +163,7 @@ export default function AdminUserDetailPage() {
       setGrantRole('admin');
       setGrantNotes('');
       message.success('Admin access granted successfully');
-      // Refetch user data
-      const userResult = await fetchUser(userId);
-      if (userResult.data) {
-        setUser(userResult.data);
-      }
+      await refreshUser();
     } else {
       setActionError(result.error || 'An error occurred');
     }
@@ -198,11 +180,7 @@ export default function AdminUserDetailPage() {
     if ('success' in result && result.success) {
       setShowRevokeAdminModal(false);
       message.success('Admin access revoked successfully');
-      // Refetch user data
-      const userResult = await fetchUser(userId);
-      if (userResult.data) {
-        setUser(userResult.data);
-      }
+      await refreshUser();
     } else {
       setActionError(result.error || 'An error occurred');
     }
@@ -219,11 +197,7 @@ export default function AdminUserDetailPage() {
     if ('success' in result && result.success) {
       setShowDeactivateModal(false);
       message.success('User deactivated successfully');
-      // Refetch user data
-      const userResult = await fetchUser(userId);
-      if (userResult.data) {
-        setUser(userResult.data);
-      }
+      await refreshUser();
     } else {
       setActionError(result.error || 'An error occurred');
     }
@@ -240,11 +214,7 @@ export default function AdminUserDetailPage() {
     if ('success' in result && result.success) {
       setShowReactivateModal(false);
       message.success('User reactivated successfully');
-      // Refetch user data
-      const userResult = await fetchUser(userId);
-      if (userResult.data) {
-        setUser(userResult.data);
-      }
+      await refreshUser();
     } else {
       setActionError(result.error || 'An error occurred');
     }
@@ -252,23 +222,18 @@ export default function AdminUserDetailPage() {
     setIsActionLoading(false);
   };
 
-  // Notes handler
   const handleSaveNotes = async () => {
     setIsNotesLoading(true);
     const result = await updateUserNotes(userId, notes || null);
     if (result.success) {
       message.success('Notes saved successfully');
-      const userResult = await fetchUser(userId);
-      if (userResult.data) {
-        setUser(userResult.data);
-      }
+      await refreshUser();
     } else {
       message.error(result.error || 'Failed to save notes');
     }
     setIsNotesLoading(false);
   };
 
-  // Reset password handler
   const handleResetPassword = async () => {
     setIsActionLoading(true);
     const result = await resetUserPassword(userId);
@@ -280,7 +245,6 @@ export default function AdminUserDetailPage() {
     setIsActionLoading(false);
   };
 
-  // Delete user handler
   const handleDeleteUser = async () => {
     setIsActionLoading(true);
     const result = await deleteUser(userId);
@@ -293,20 +257,9 @@ export default function AdminUserDetailPage() {
     setIsActionLoading(false);
   };
 
-  // Click history table columns
-  const clickColumns: ColumnsType<UserClick> = [
-    {
-      title: 'Job Title',
-      dataIndex: 'job_title',
-      key: 'job_title',
-      ellipsis: true,
-    },
-    {
-      title: 'Company',
-      dataIndex: 'company',
-      key: 'company',
-      ellipsis: true,
-    },
+  const clickColumns: AdminColumn<UserClick>[] = [
+    { title: 'Job Title', dataIndex: 'job_title', key: 'job_title', ellipsis: true },
+    { title: 'Company', dataIndex: 'company', key: 'company', ellipsis: true },
     {
       title: 'Clicked At',
       dataIndex: 'clicked_at',
@@ -316,8 +269,7 @@ export default function AdminUserDetailPage() {
     },
   ];
 
-  // Tab items
-  const tabItems: TabsProps['items'] = [
+  const tabItems = [
     {
       key: 'overview',
       label: (
@@ -327,102 +279,85 @@ export default function AdminUserDetailPage() {
         </span>
       ),
       children: (
-        <Card className="shadow-sm">
-          <Descriptions column={{ xs: 1, sm: 2, md: 2, lg: 2 }} bordered size="small">
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Email
-                </span>
-              }
-            >
-              <span className="text-slate-900 dark:text-slate-100">{user?.email}</span>
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Name
-                </span>
-              }
-            >
-              <span className="text-slate-900 dark:text-slate-100">
+        <AdminCard className="shadow-sm">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <Mail className="h-4 w-4" />
+                Email
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">{user?.email}</dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <User className="h-4 w-4" />
+                Name
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">
                 {user?.name || <span className="text-slate-400">Not set</span>}
-              </span>
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Admin Role
-                </span>
-              }
-            >
-              {user?.admin_role ? (
-                <Badge variant={getAdminRoleBadgeVariant(user.admin_role)}>
-                  {user.admin_role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                </Badge>
-              ) : (
-                <span className="text-slate-400">Not an admin</span>
-              )}
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
-                  Provider
-                </span>
-              }
-            >
-              <span className="text-slate-900 capitalize dark:text-slate-100">
+              </dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <Shield className="h-4 w-4" />
+                Admin Role
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">
+                {user?.admin_role ? (
+                  <Badge variant={getAdminRoleBadgeVariant(user.admin_role)}>
+                    {user.admin_role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                  </Badge>
+                ) : (
+                  <span className="text-slate-400">Not an admin</span>
+                )}
+              </dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <Key className="h-4 w-4" />
+                Provider
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900 capitalize">
                 {user?.provider || 'credentials'}
-              </span>
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Active Status
-                </span>
-              }
-            >
-              {user?.is_active ? (
-                <Badge variant="success">Active</Badge>
-              ) : (
-                <Badge variant="danger">Deactivated</Badge>
-              )}
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
-                  Has Password
-                </span>
-              }
-            >
-              {user?.has_password ? <Tag color="green">Yes</Tag> : <Tag color="default">No</Tag>}
-            </Descriptions.Item>
-
-            <Descriptions.Item
-              label={
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Created At
-                </span>
-              }
-            >
-              <span className="text-slate-900 dark:text-slate-100">
+              </dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <CheckCircle className="h-4 w-4" />
+                Active Status
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">
+                {user?.is_active ? (
+                  <Badge variant="success">Active</Badge>
+                ) : (
+                  <Badge variant="danger">Deactivated</Badge>
+                )}
+              </dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <Key className="h-4 w-4" />
+                Has Password
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">
+                {user?.has_password ? (
+                  <AdminTag color="green">Yes</AdminTag>
+                ) : (
+                  <AdminTag color="default">No</AdminTag>
+                )}
+              </dd>
+            </div>
+            <div className="dark:bg-md-surface-container-high rounded-lg bg-slate-50 p-3">
+              <dt className="dark:text-md-on-surface-variant mb-1 flex items-center gap-2 text-sm text-slate-500">
+                <Calendar className="h-4 w-4" />
+                Created At
+              </dt>
+              <dd className="dark:text-md-on-surface text-slate-900">
                 {user?.created_at && formatDate(user.created_at)}
-              </span>
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
+              </dd>
+            </div>
+          </dl>
+        </AdminCard>
       ),
     },
     {
@@ -434,28 +369,28 @@ export default function AdminUserDetailPage() {
         </span>
       ),
       children: (
-        <Card className="shadow-sm">
-          <Table
+        <AdminCard className="shadow-sm">
+          <AdminTable
             columns={clickColumns}
             dataSource={clicksData?.items || []}
             rowKey="id"
             loading={clicksLoading}
-            pagination={{
-              current: clicksPage,
-              pageSize: clicksPageSize,
-              total: clicksData?.total || 0,
-              onChange: (page) => {
-                setClicksPage(page);
-                fetchClicks(page);
-              },
-              showSizeChanger: false,
-              showTotal: (total) => `${total} clicks`,
-            }}
-            locale={{
-              emptyText: 'No click history found for this user',
-            }}
+            pagination={
+              clicksData
+                ? {
+                    current: clicksPage,
+                    pageSize: clicksPageSize,
+                    total: clicksData.total,
+                    onChange: (page) => {
+                      setClicksPage(page);
+                      fetchClicks(page);
+                    },
+                  }
+                : false
+            }
+            emptyText="No click history found for this user"
           />
-        </Card>
+        </AdminCard>
       ),
     },
     {
@@ -468,8 +403,7 @@ export default function AdminUserDetailPage() {
       ),
       children: (
         <div className="space-y-6">
-          {/* Admin Notes Section */}
-          <Card
+          <AdminCard
             title={
               <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
                 <FileText className="h-5 w-5" />
@@ -491,11 +425,10 @@ export default function AdminUserDetailPage() {
                 </Button>
               </div>
             </div>
-          </Card>
+          </AdminCard>
 
-          {/* Admin Actions - Super Admin Only */}
           {isSuperAdmin && !isOwnProfile && (
-            <Card
+            <AdminCard
               title={
                 <span className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
                   <ShieldAlert className="h-5 w-5" />
@@ -505,7 +438,6 @@ export default function AdminUserDetailPage() {
               className="shadow-sm"
             >
               <div className="space-y-4">
-                {/* Admin Access Section */}
                 <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
                   <div>
                     <h4 className="font-medium text-slate-900 dark:text-slate-100">Admin Access</h4>
@@ -535,7 +467,6 @@ export default function AdminUserDetailPage() {
                   </div>
                 </div>
 
-                {/* Account Status Section */}
                 <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
                   <div>
                     <h4 className="font-medium text-slate-900 dark:text-slate-100">
@@ -567,7 +498,6 @@ export default function AdminUserDetailPage() {
                   </div>
                 </div>
 
-                {/* Password Reset Section */}
                 <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
                   <div>
                     <h4 className="font-medium text-slate-900 dark:text-slate-100">Password</h4>
@@ -575,7 +505,7 @@ export default function AdminUserDetailPage() {
                       Password reset email delivery is not configured yet
                     </p>
                   </div>
-                  <Popconfirm
+                  <AdminPopconfirm
                     title="Reset Password"
                     description="Record a password reset request for this user?"
                     onConfirm={handleResetPassword}
@@ -587,10 +517,9 @@ export default function AdminUserDetailPage() {
                       <KeyRound className="h-4 w-4" />
                       Reset Password
                     </Button>
-                  </Popconfirm>
+                  </AdminPopconfirm>
                 </div>
 
-                {/* Delete User Section */}
                 <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
                   <div>
                     <h4 className="font-medium text-red-900 dark:text-red-100">Danger Zone</h4>
@@ -598,7 +527,7 @@ export default function AdminUserDetailPage() {
                       Permanently delete this user and all associated data
                     </p>
                   </div>
-                  <Popconfirm
+                  <AdminPopconfirm
                     title="Delete User"
                     description={
                       <div>
@@ -618,13 +547,12 @@ export default function AdminUserDetailPage() {
                       <Trash2 className="h-4 w-4" />
                       Delete User
                     </Button>
-                  </Popconfirm>
+                  </AdminPopconfirm>
                 </div>
               </div>
-            </Card>
+            </AdminCard>
           )}
 
-          {/* Self-action warning */}
           {isOwnProfile && (
             <Alert type="info">
               You cannot modify your own admin status or account activation.
@@ -635,19 +563,18 @@ export default function AdminUserDetailPage() {
     },
   ];
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <Spin size="large" description="Loading user details..." />
+        <LoadingSpinner size="lg" />
+        <span className="sr-only">Loading user details...</span>
       </div>
     );
   }
 
-  // Error state
   if (isError || !user) {
     return (
-      <Result
+      <AdminResult
         status="404"
         title="User Not Found"
         subTitle="The requested user could not be found."
@@ -663,27 +590,24 @@ export default function AdminUserDetailPage() {
   return (
     <>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <Title level={3} style={{ margin: 0 }}>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               User: {user.name || user.email}
-            </Title>
+            </h1>
           </div>
           <Button variant="secondary" onClick={() => router.push('/admin/users')}>
             Back to Users
           </Button>
         </div>
 
-        {/* Error Alert */}
         {actionError && (
           <Alert type="error" className="mb-4">
             {actionError}
           </Alert>
         )}
 
-        {/* Tabs */}
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <AdminTabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </div>
 
       {/* Grant Admin Modal */}
