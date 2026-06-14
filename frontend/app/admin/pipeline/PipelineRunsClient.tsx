@@ -2,7 +2,8 @@
 
 import { Card, Statistic, Table, Tag, Typography, Row, Col } from 'antd';
 import { PlayCircle, CheckCircle, XCircle, Clock, Activity, AlertCircle } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { StatisticIcon } from '@/components/admin/StatisticIcon';
+import { getStatusColor } from '@/lib/admin-utils';
 
 const { Title } = Typography;
 
@@ -42,14 +43,6 @@ interface PipelineRunsClientProps {
   readonly currentPage: number;
 }
 
-function StatisticIcon({ icon: Icon }: { readonly icon: LucideIcon }) {
-  return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
-      <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-    </div>
-  );
-}
-
 function formatDate(dateString: string | null): string {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleString('en-US', {
@@ -60,19 +53,6 @@ function formatDate(dateString: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'completed':
-      return 'green';
-    case 'running':
-      return 'blue';
-    case 'failed':
-      return 'red';
-    default:
-      return 'default';
-  }
 }
 
 function formatStep(step: string | null): string {

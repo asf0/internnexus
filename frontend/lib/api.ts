@@ -1,13 +1,12 @@
+import { z } from 'zod';
 import { BACKEND_URL } from './config';
-import type { Job, JobListResponse, JobFilters, MatchFacetsResponse } from './types/job';
+import { JobListResponseSchema, LocationItemSchema, MatchFacetsResponseSchema } from './schemas';
+import type { JobFilters, JobListResponse, MatchFacetsResponse } from './types/job';
 import type { LocationItem } from './types/job';
 
 const API_BASE = typeof window !== 'undefined' ? '/api' : BACKEND_URL;
 
-export async function fetchJobs(
-  filters: JobFilters = {},
-  backendToken?: string
-): Promise<JobListResponse> {
+function buildJobFilterParams(filters: JobFilters): URLSearchParams {
   const params = new URLSearchParams();
 
   if (filters.page) params.set('page', filters.page.toString());
@@ -23,14 +22,21 @@ export async function fetchJobs(
 
   params.set('page_size', filters.page_size?.toString() || '20');
 
-  const response = await fetch(`${API_BASE}/jobs?${params.toString()}`, {
+  return params;
+}
+
+export async function fetchJobs(
+  filters: JobFilters = {},
+  backendToken?: string
+): Promise<JobListResponse> {
+  const response = await fetch(`${API_BASE}/jobs?${buildJobFilterParams(filters).toString()}`, {
     cache: 'no-store',
     headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
   });
   if (!response.ok) {
     return { items: [], total: 0, page: 1, page_size: 20 };
   }
-  return (await response.json()) as JobListResponse;
+  return JobListResponseSchema.parse(await response.json());
 }
 
 export async function fetchCompanies(): Promise<string[]> {
@@ -38,30 +44,23 @@ export async function fetchCompanies(): Promise<string[]> {
     cache: 'no-store',
   });
   if (!response.ok) return [];
-  return (await response.json()) as string[];
+  return z.array(z.string()).parse(await response.json());
 }
 
 export async function fetchLocations(
   filters: JobFilters = {},
   backendToken?: string
 ): Promise<LocationItem[]> {
-  const params = new URLSearchParams();
-
-  if (filters.search) params.set('search', filters.search);
-  if (filters.company) params.set('company', filters.company);
-  if (filters.category) params.set('category', filters.category);
-  if (filters.job_type) params.set('job_type', filters.job_type);
-  if (filters.work_mode) params.set('work_mode', filters.work_mode);
-  if (filters.posted_within) params.set('posted_within', filters.posted_within);
-  if (filters.match_ids) params.set('match_ids', filters.match_ids);
-  if (filters.saved_only) params.set('saved_only', filters.saved_only);
+  const params = buildJobFilterParams(filters);
+  params.delete('page');
+  params.delete('page_size');
 
   const response = await fetch(`${API_BASE}/jobs/filters/locations?${params.toString()}`, {
     cache: 'no-store',
     headers: backendToken ? { Authorization: `Bearer ${backendToken}` } : undefined,
   });
   if (!response.ok) return [];
-  return (await response.json()) as LocationItem[];
+  return z.array(LocationItemSchema).parse(await response.json());
 }
 
 export async function fetchCategories(): Promise<string[]> {
@@ -69,17 +68,17 @@ export async function fetchCategories(): Promise<string[]> {
     cache: 'no-store',
   });
   if (!response.ok) return [];
-  return (await response.json()) as string[];
+  return z.array(z.string()).parse(await response.json());
 }
 
-export async function fetchJob(id: string): Promise<Job | null> {
+export async function fetchJob(id: string): Promise<JobListResponse['items'][number] | null> {
   const response = await fetch(`${API_BASE}/jobs/${id}`, {
     cache: 'no-store',
   });
   if (!response.ok) {
     return null;
   }
-  return (await response.json()) as Job;
+  return JobListResponseSchema.shape.items.element.parse(await response.json());
 }
 
 export async function fetchAllJobIds(): Promise<string[]> {
@@ -89,7 +88,7 @@ export async function fetchAllJobIds(): Promise<string[]> {
   if (!response.ok) {
     return [];
   }
-  const data = (await response.json()) as JobListResponse;
+  const data = JobListResponseSchema.parse(await response.json());
   return data.items.map((job) => job.id);
 }
 
@@ -114,5 +113,5 @@ export async function fetchMatchFacets(
   });
 
   if (!response.ok) return null;
-  return (await response.json()) as MatchFacetsResponse;
+  return MatchFacetsResponseSchema.parse(await response.json());
 }

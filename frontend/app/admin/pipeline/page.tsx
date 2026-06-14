@@ -1,5 +1,10 @@
 import { getBackendToken } from '@/lib/auth.server';
-import { BACKEND_URL } from '@/lib/config';
+import {
+  PipelineRunSchema,
+  PipelineRunsListResponseSchema,
+  PipelineStatsSchema,
+} from '@/lib/schemas';
+import { fetchAdminData } from '@/lib/admin-api';
 import PipelineRunsClient from './PipelineRunsClient';
 
 // Types for API responses
@@ -31,27 +36,6 @@ interface PipelineRunsListResponse {
   readonly total_pages: number;
 }
 
-// Fetch helper with auth
-async function fetchAdminEndpoint<T>(endpoint: string, token: string): Promise<T | null> {
-  try {
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
 export default async function PipelineRunsPage({
   searchParams,
 }: {
@@ -73,11 +57,11 @@ export default async function PipelineRunsPage({
 
   // Fetch all data in parallel
   const [pipelineStats, latestRun, pipelineRuns] = await Promise.all([
-    fetchAdminEndpoint<PipelineStats>('/admin/pipeline-runs/stats', token),
-    fetchAdminEndpoint<PipelineRun | null>('/admin/pipeline-runs/latest', token),
-    fetchAdminEndpoint<PipelineRunsListResponse>(
+    fetchAdminData<PipelineStats>('/admin/pipeline-runs/stats', PipelineStatsSchema),
+    fetchAdminData<PipelineRun | null>('/admin/pipeline-runs/latest', PipelineRunSchema.nullable()),
+    fetchAdminData<PipelineRunsListResponse>(
       `/admin/pipeline-runs?page=${currentPage}&page_size=20&status=${statusFilter}`,
-      token
+      PipelineRunsListResponseSchema
     ),
   ]);
 

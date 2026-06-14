@@ -1,10 +1,15 @@
 'use server';
 
 import { signOut } from '@/auth';
-import { getBackendToken } from '@/lib/auth.server';
+import { BackendError, backendFetch } from '@/lib/api.server';
 import { revalidatePath } from 'next/cache';
-import { BACKEND_URL } from '@/lib/config';
-import { parseApiError } from '@/lib/utils';
+import {
+  NotificationItemSchema,
+  SavedJobRecordSchema,
+  UnreadCountResponseSchema,
+  UserProfileSchema,
+  UserResumeSchema,
+} from '@/lib/schemas';
 import type {
   NotificationItem,
   SavedJobRecord,
@@ -12,30 +17,15 @@ import type {
   UserProfile,
   UserResume,
 } from '@/lib/types/user';
+import { z } from 'zod';
 
 export async function fetchUserProfile(): Promise<UserProfile | null> {
-  const backendToken = await getBackendToken();
-
-  if (!backendToken) {
-    return null;
-  }
-
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me`, {
-      headers: {
-        Authorization: `Bearer ${backendToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        return null;
-      }
-      throw new Error('Failed to fetch user profile');
-    }
-
-    return await response.json();
+    return await backendFetch('/users/me', { cache: 'no-store' }, UserProfileSchema);
   } catch (error) {
+    if (error instanceof BackendError && error.status === 401) {
+      return null;
+    }
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error fetching user profile:', error);
     }
@@ -51,99 +41,59 @@ export interface ChangePasswordData {
 export async function updateUserProfile(
   data: UpdateUserData
 ): Promise<{ success: boolean; error?: string; name?: string | null; image?: string | null }> {
-  const backendToken = await getBackendToken();
-
-  if (!backendToken) {
-    return { success: false, error: 'Not authenticated' };
-  }
-
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${backendToken}`,
+    const updatedUser = await backendFetch(
+      '/users/me',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       },
-      body: JSON.stringify(data),
-    });
+      UserProfileSchema
+    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
-
-    const updatedUser = await response.json();
     revalidatePath('/');
     revalidatePath('/settings');
     return { success: true, name: updatedUser.name ?? null, image: updatedUser.image ?? null };
   } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'An unexpected error occurred';
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error updating user profile:', error);
     }
-    return { success: false, error: 'An unexpected error occurred' };
+    return { success: false, error: message };
   }
 }
 
 export async function changePassword(
   data: ChangePasswordData
 ): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-
-  if (!backendToken) {
-    return { success: false, error: 'Not authenticated' };
-  }
-
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/password`, {
+    await backendFetch('/users/me/password', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${backendToken}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
-
     return { success: true };
   } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'An unexpected error occurred';
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error changing password:', error);
     }
-    return { success: false, error: 'An unexpected error occurred' };
+    return { success: false, error: message };
   }
 }
 
 export async function deleteAccount(): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-
-  if (!backendToken) {
-    return { success: false, error: 'Not authenticated' };
-  }
-
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${backendToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
-
+    await backendFetch('/users/me', { method: 'DELETE' });
     await signOut({ redirect: false });
     return { success: true };
   } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'An unexpected error occurred';
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error deleting account:', error);
     }
-    return { success: false, error: 'An unexpected error occurred' };
+    return { success: false, error: message };
   }
 }
 
@@ -156,105 +106,68 @@ export interface FetchUserResumeResult {
 }
 
 export async function fetchUserResume(): Promise<FetchUserResumeResult> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { data: null, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/resume`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      let errorMessage = 'Failed to load resume metadata';
-      try {
-        const errorData = await response.json();
-        errorMessage = parseApiError(errorData) || errorMessage;
-      } catch {
-        // Keep default message.
-      }
-      return { data: null, error: errorMessage };
-    }
-    return { data: await response.json() };
+    const resume = await backendFetch('/users/me/resume', { cache: 'no-store' }, UserResumeSchema);
+    return { data: resume };
   } catch (error) {
+    const message =
+      error instanceof BackendError ? error.message : 'Failed to load resume metadata';
     if (process.env.NODE_ENV !== 'production') {
       console.error('Error fetching resume metadata:', error);
     }
-    return { data: null, error: 'Failed to load resume metadata' };
+    return { data: null, error: message };
   }
 }
 
 export async function uploadUserResume(
   file: File
 ): Promise<{ success: boolean; data?: UserResume; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
     const body = new FormData();
     body.append('file', file, file.name);
-    const response = await fetch(`${BACKEND_URL}/users/me/resume`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${backendToken}` },
-      body,
-    });
-    if (!response.ok) {
-      try {
-        const errorData = await response.json();
-        return { success: false, error: parseApiError(errorData) };
-      } catch {
-        return { success: false, error: `Resume upload failed (${response.status})` };
-      }
-    }
-    const data = (await response.json()) as UserResume;
+    const resume = await backendFetch(
+      '/users/me/resume',
+      { method: 'POST', body },
+      UserResumeSchema
+    );
     revalidatePath('/profile');
-    return { success: true, data };
-  } catch {
-    return { success: false, error: 'Failed to upload resume' };
+    return { success: true, data: resume };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to upload resume';
+    return { success: false, error: message };
   }
 }
 
 export async function deleteUserResume(): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/resume`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch('/users/me/resume', { method: 'DELETE' });
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to delete resume' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to delete resume';
+    return { success: false, error: message };
   }
 }
 
 export async function fetchNotifications(): Promise<NotificationItem[]> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return [];
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/notifications`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) return [];
-    return await response.json();
+    return await backendFetch(
+      '/users/me/notifications',
+      { cache: 'no-store' },
+      z.array(NotificationItemSchema)
+    );
   } catch {
     return [];
   }
 }
 
 export async function fetchUnreadNotificationCount(): Promise<number> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return 0;
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/notifications/unread-count`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) return 0;
-    const data = (await response.json()) as { unread_count: number };
+    const data = await backendFetch(
+      '/users/me/notifications/unread-count',
+      { cache: 'no-store' },
+      UnreadCountResponseSchema
+    );
     return data.unread_count || 0;
   } catch {
     return 0;
@@ -264,166 +177,108 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
 export async function markNotificationRead(
   notificationId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/notifications/${notificationId}/read`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch(`/users/me/notifications/${notificationId}/read`, { method: 'PATCH' });
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to update notification' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to update notification';
+    return { success: false, error: message };
   }
 }
 
 export async function markAllNotificationsRead(): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/notifications/read-all`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch('/users/me/notifications/read-all', { method: 'PATCH' });
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to update notifications' };
+  } catch (error) {
+    const message =
+      error instanceof BackendError ? error.message : 'Failed to update notifications';
+    return { success: false, error: message };
   }
 }
 
 export async function fetchSavedJobIds(): Promise<string[]> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return [];
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/saved-jobs/ids`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) return [];
-    const ids = (await response.json()) as string[];
-    return Array.isArray(ids) ? ids : [];
+    return await backendFetch(
+      '/users/me/saved-jobs/ids',
+      { cache: 'no-store' },
+      z.array(z.string())
+    );
   } catch {
     return [];
   }
 }
 
 export async function fetchAppliedJobIds(): Promise<string[]> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return [];
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/applied-jobs/ids`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) return [];
-    const ids = (await response.json()) as string[];
-    return Array.isArray(ids) ? ids : [];
+    return await backendFetch(
+      '/users/me/applied-jobs/ids',
+      { cache: 'no-store' },
+      z.array(z.string())
+    );
   } catch {
     return [];
   }
 }
 
 export async function fetchSavedJobs(): Promise<SavedJobRecord[]> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return [];
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/saved-jobs`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) return [];
-    return (await response.json()) as SavedJobRecord[];
+    return await backendFetch(
+      '/users/me/saved-jobs',
+      { cache: 'no-store' },
+      z.array(SavedJobRecordSchema)
+    );
   } catch {
     return [];
   }
 }
 
 export async function saveJob(jobId: string): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/saved-jobs/${jobId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch(`/users/me/saved-jobs/${jobId}`, { method: 'POST' });
     revalidatePath('/');
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to save job' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to save job';
+    return { success: false, error: message };
   }
 }
 
 export async function unsaveJob(jobId: string): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/saved-jobs/${jobId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch(`/users/me/saved-jobs/${jobId}`, { method: 'DELETE' });
     revalidatePath('/');
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to unsave job' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to unsave job';
+    return { success: false, error: message };
   }
 }
 
 export async function markApplied(jobId: string): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/applied-jobs/${jobId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch(`/users/me/applied-jobs/${jobId}`, { method: 'POST' });
     revalidatePath('/');
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to mark applied' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to mark applied';
+    return { success: false, error: message };
   }
 }
 
 export async function unmarkApplied(jobId: string): Promise<{ success: boolean; error?: string }> {
-  const backendToken = await getBackendToken();
-  if (!backendToken) return { success: false, error: 'Not authenticated' };
   try {
-    const response = await fetch(`${BACKEND_URL}/users/me/applied-jobs/${jobId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${backendToken}` },
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: parseApiError(errorData) };
-    }
+    await backendFetch(`/users/me/applied-jobs/${jobId}`, { method: 'DELETE' });
     revalidatePath('/');
     revalidatePath('/profile');
     return { success: true };
-  } catch {
-    return { success: false, error: 'Failed to unmark applied' };
+  } catch (error) {
+    const message = error instanceof BackendError ? error.message : 'Failed to unmark applied';
+    return { success: false, error: message };
   }
 }
