@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import DOMPurify from 'isomorphic-dompurify';
 import { Calendar } from 'lucide-react';
-import { fetchJob } from '../../../lib/api';
-import { BASE_URL } from '../../../lib/config';
-import { Badge } from '../../../components/ui';
-import { ApplyNowAuthButton } from '../../../components/jobs';
-import { JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from '../../../lib/constants';
-import { formatCategoryLabel } from '../../../lib/utils';
+import { fetchJob } from '@/lib/api';
+import { BASE_URL } from '@/lib/config';
+import { Badge } from '@/components/ui';
+import { ApplyNowAuthButton } from '@/components/jobs';
+import { JOB_TYPE_LABEL_MAP, WORK_MODE_LABEL_MAP } from '@/lib/constants';
+import { formatCategoryLabel } from '@/lib/utils';
 import { auth } from '@/auth';
 import { headers } from 'next/headers';
 import { toSafeJsonLd } from '@/lib/security/jsonld';
