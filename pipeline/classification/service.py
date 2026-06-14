@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -45,6 +45,7 @@ VALID_CATEGORY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 VALID_CATEGORIES = CANONICAL_CATEGORIES
 CANDIDATE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_\-]+")
 MAX_REJECTION_SAMPLES_PER_BATCH = 5
+REJECTION_LOG_RETENTION_DAYS = 7
 LOW_SIGNAL_REJECTION_TOKENS = {
     "a",
     "an",
@@ -151,12 +152,36 @@ def _write_unmapped_categories(candidates: set[str]) -> int:
     return added
 
 
+def _get_rejection_log_path() -> Path:
+    """Return today's date-stamped rejection log path."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Path(os.getenv("DATA_DIR", "data")) / f"classification_rejections_{today}.jsonl"
+
+
+def _rotate_rejection_logs() -> None:
+    """Delete classification rejection logs older than retention window."""
+    try:
+        log_dir = Path(os.getenv("DATA_DIR", "data"))
+        cutoff = datetime.now(timezone.utc) - timedelta(days=REJECTION_LOG_RETENTION_DAYS)
+        for log_file in log_dir.glob("classification_rejections_*.jsonl"):
+            try:
+                date_str = log_file.stem.split("_")[-1]
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                if file_date < cutoff:
+                    log_file.unlink()
+            except (ValueError, OSError):
+                pass
+    except OSError:
+        pass
+
+
 def _append_rejection_events(events: list[dict[str, str]]) -> None:
     """Append non-tokenizable classification rejections for review."""
     if not events:
         return
 
-    log_path = Path(os.getenv("DATA_DIR", "data")) / "classification_rejections.jsonl"
+    _rotate_rejection_logs()
+    log_path = _get_rejection_log_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as fh:
         for event in events:

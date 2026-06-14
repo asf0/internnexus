@@ -15,6 +15,7 @@ from pipeline.cleanup.metadata import (
 from pipeline.cleanup.parser import _parse_location_only
 from pipeline.location.simple_parser import normalize_state_name
 from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository
+from pipeline.utils.lru import LRUDict
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +60,20 @@ async def _get_total_count(repo: SQLAlchemyJobRepository, since, process_all) ->
     return await repo.get_total_count(since=since, process_all=process_all)
 
 
-async def _process_test_mode_chunked(session: AsyncSession, since, process_all, limit: int | None) -> int:
+async def _process_test_mode_chunked(
+    session: AsyncSession,
+    since,
+    process_all,
+    limit: int | None,
+    location_cache_max_size: int = 10_000,
+) -> int:
     repo = SQLAlchemyJobRepository(session)
     output_dir = Path(__file__).parent.parent / "output"
     output_dir.mkdir(exist_ok=True)
 
     csv_path = output_dir / "location_test_results.csv"
 
-    unique_locations: dict[str, dict] = {}
+    unique_locations: LRUDict[str, dict] = LRUDict(max_size=location_cache_max_size)
     total_processed = 0
     chunk_size = 5000
 

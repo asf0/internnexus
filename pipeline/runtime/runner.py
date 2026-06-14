@@ -195,6 +195,7 @@ class PipelineRunner:
             limit=limit,
             parse_concurrency=self.config.cleanup.parse_concurrency,
             chunk_size=self.config.cleanup.chunk_size,
+            location_cache_max_size=self.config.cleanup.location_cache_max_size,
         )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'cleanup' completed in {self.step_times[step_name]:.1f}s")

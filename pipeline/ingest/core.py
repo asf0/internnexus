@@ -5,6 +5,7 @@ import gc
 import html
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import Callable
@@ -39,6 +40,7 @@ from pipeline.ingest.deduplication import deduplicate_jobs
 logger = logging.getLogger(__name__)
 API_FETCH_CONCURRENCY = 10
 NOT_FOUND_COOLDOWN_HOURS = 24
+SLUG_404_MAX_ENTRIES_PER_SOURCE = 500
 SLUG_404_CACHE_PATH = Path(__file__).resolve().parents[1] / "output" / "slug_404_cache.json"
 
 
@@ -92,12 +94,37 @@ def _load_slug_404_cache() -> dict[str, dict[str, float]]:
         return {}
 
 
+def _prune_slug_404_cache(
+    cache: dict[str, dict[str, float]],
+    max_entries: int = SLUG_404_MAX_ENTRIES_PER_SOURCE,
+) -> dict[str, dict[str, float]]:
+    """Remove expired entries and cap per-source entry count.
+
+    Keeps the most-recently expiring entries when a source exceeds the cap.
+    """
+    now_ts = time.time()
+    pruned: dict[str, dict[str, float]] = {}
+    for source, entries in cache.items():
+        active = {
+            slug: expires_at for slug, expires_at in entries.items() if expires_at > now_ts
+        }
+        if not active:
+            continue
+        if len(active) > max_entries:
+            sorted_active = sorted(active.items(), key=lambda item: item[1], reverse=True)
+            active = dict(sorted_active[:max_entries])
+        pruned[source] = active
+    return pruned
+
+
 def _save_slug_404_cache(cache: dict[str, dict[str, float]]) -> None:
-    """Persist 404 cooldown cache to disk."""
+    """Persist 404 cooldown cache to disk atomically."""
     try:
         SLUG_404_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(SLUG_404_CACHE_PATH, "w", encoding="utf-8") as f:
+        tmp_path = SLUG_404_CACHE_PATH.parent / f"{SLUG_404_CACHE_PATH.name}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(cache, f)
+        os.replace(tmp_path, SLUG_404_CACHE_PATH)
     except (OSError, TypeError) as exc:
         logger.debug("Failed to save slug 404 cache: %s", exc)
 
@@ -245,14 +272,7 @@ async def _fetch_all_apis_parallel(
                     ashby_jobs = cast(list[JobSchema], source_jobs)
                 fetch_errors.extend(source_errors)
 
-        now_ts = time.time()
-        for source in list(slug_404_cache.keys()):
-            source_entries = slug_404_cache[source]
-            slug_404_cache[source] = {
-                slug: expires_at for slug, expires_at in source_entries.items() if expires_at > now_ts
-            }
-            if not slug_404_cache[source]:
-                del slug_404_cache[source]
+        slug_404_cache = _prune_slug_404_cache(slug_404_cache)
         _save_slug_404_cache(slug_404_cache)
 
         for error in fetch_errors:

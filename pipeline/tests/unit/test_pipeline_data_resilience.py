@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,11 @@ from pipeline.discovery.company_discovery import (
     load_progress,
 )
 import pipeline.ingest.core as ingest_core
-from pipeline.ingest.core import _load_slug_404_cache
+from pipeline.ingest.core import (
+    _load_slug_404_cache,
+    _prune_slug_404_cache,
+    _save_slug_404_cache,
+)
 from pipeline.sources import registry as registry_module
 
 
@@ -121,3 +126,67 @@ def test_load_common_companies_corrupt_json_returns_empty(
 def test_extract_company_slug_rejects_non_string_input() -> None:
     assert extract_company_slug(None, "greenhouse") is None  # type: ignore[arg-type]
     assert extract_company_slug(12345, "greenhouse") is None  # type: ignore[arg-type]
+
+
+def test_slug_cache_prune_removes_expired_entries() -> None:
+    now = time.time()
+    cache = {
+        "greenhouse": {
+            "active": now + 3600,
+            "expired": now - 1,
+        }
+    }
+    pruned = _prune_slug_404_cache(cache)
+    assert "active" in pruned["greenhouse"]
+    assert "expired" not in pruned["greenhouse"]
+
+
+def test_slug_cache_prune_caps_per_source() -> None:
+    now = time.time()
+    cache = {
+        "greenhouse": {
+            f"slug_{i}": now + i for i in range(10)
+        }
+    }
+    pruned = _prune_slug_404_cache(cache, max_entries=3)
+    assert len(pruned["greenhouse"]) == 3
+    # Most-recently expiring entries should be retained.
+    assert set(pruned["greenhouse"]) == {"slug_7", "slug_8", "slug_9"}
+
+
+def test_slug_cache_prune_drops_empty_sources() -> None:
+    now = time.time()
+    cache = {
+        "greenhouse": {"expired": now - 1},
+        "lever": {"active": now + 3600},
+    }
+    pruned = _prune_slug_404_cache(cache)
+    assert "greenhouse" not in pruned
+    assert "lever" in pruned
+
+
+def test_slug_cache_atomic_write_saves_target_and_cleans_tmp(
+    temp_dir: Path, monkeypatch,
+) -> None:
+    cache_file = temp_dir / "slug_404_cache.json"
+    monkeypatch.setattr(ingest_core, "SLUG_404_CACHE_PATH", cache_file)
+    cache = {"greenhouse": {"slug": 12345.0}}
+
+    _save_slug_404_cache(cache)
+
+    assert cache_file.exists()
+    assert json.loads(cache_file.read_text()) == cache
+    assert not (temp_dir / "slug_404_cache.json.tmp").exists()
+
+
+def test_slug_cache_load_after_atomic_write_round_trips(
+    temp_dir: Path, monkeypatch,
+) -> None:
+    cache_file = temp_dir / "slug_404_cache.json"
+    monkeypatch.setattr(ingest_core, "SLUG_404_CACHE_PATH", cache_file)
+    cache = {"greenhouse": {"slug": 12345.0}}
+
+    _save_slug_404_cache(cache)
+    loaded = _load_slug_404_cache()
+
+    assert loaded == {"greenhouse": {"slug": 12345.0}}

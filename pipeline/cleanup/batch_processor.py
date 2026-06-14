@@ -17,6 +17,7 @@ from pipeline.cleanup.parser import _parse_location_only
 from pipeline.location.simple_parser import normalize_state_name
 from pipeline.repositories import LocationUpdate
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, SQLAlchemyJobRepository
+from pipeline.utils.lru import LRUDict
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,10 @@ async def _process_production_mode_chunked(
     limit: int | None,
     parse_concurrency: int = 12,
     chunk_size: int = 5000,
+    location_cache_max_size: int = 10_000,
 ) -> int:
     repo = SQLAlchemyJobRepository(session)
-    unique_locations: dict[str, dict] = {}
+    unique_locations: LRUDict[str, dict] = LRUDict(max_size=location_cache_max_size)
     total_processed = 0
     total_updated = 0
 
@@ -101,10 +103,6 @@ async def _process_production_mode_chunked(
             await _warm_location_cache(unknown_locations)
             if len(unique_locations) % 500 == 0:
                 logger.info(f"Normalized {len(unique_locations)} unique locations...")
-
-        if len(unique_locations) > 20_000:
-            keep = list(unique_locations)[-10_000:]
-            unique_locations = {k: unique_locations[k] for k in keep}
 
         for job in jobs:
             if limit and total_processed >= limit:
@@ -166,6 +164,7 @@ async def cleanup_locations(
     limit: int | None = None,
     parse_concurrency: int = 12,
     chunk_size: int = 5000,
+    location_cache_max_size: int = 10_000,
 ) -> int:
     logger.info("=" * 60)
     logger.info("STEP 3: Cleaning up locations...")
@@ -191,7 +190,9 @@ async def cleanup_locations(
             logger.info("Processing jobs that have not been normalized yet")
 
         if test_mode:
-            return await _process_test_mode_chunked(session, since, process_all, limit)
+            return await _process_test_mode_chunked(
+                session, since, process_all, limit, location_cache_max_size=location_cache_max_size
+            )
 
         return await _process_production_mode_chunked(
             session,
@@ -200,6 +201,7 @@ async def cleanup_locations(
             limit,
             parse_concurrency=parse_concurrency,
             chunk_size=chunk_size,
+            location_cache_max_size=location_cache_max_size,
         )
     finally:
         if should_close_session:

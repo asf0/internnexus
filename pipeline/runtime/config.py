@@ -17,6 +17,7 @@ class CleanupConfig(BaseModel):
     process_all: bool = False
     parse_concurrency: int = 12
     chunk_size: int = 5000
+    location_cache_max_size: int = 10_000
 
 
 class EmbeddingsConfig(BaseModel):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,15 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from pipeline.classification import JobClassifier
+from pipeline.classification.service import (
+    _get_rejection_log_path,
+    _rotate_rejection_logs,
+)
+
+
+def _rejection_log_path(data_dir: Path) -> Path:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return data_dir / f"classification_rejections_{today}.jsonl"
 
 
 @pytest.mark.asyncio
@@ -52,7 +62,7 @@ async def test_rejected_outputs_without_tokens_write_jsonl_events(tmp_path, monk
 
     assert results == [(None, "empty_response")]
 
-    events_path = tmp_path / "classification_rejections.jsonl"
+    events_path = _rejection_log_path(tmp_path)
     assert events_path.exists()
     lines = [line for line in events_path.read_text().splitlines() if line]
     assert len(lines) == 1
@@ -77,4 +87,32 @@ async def test_low_signal_rejected_tokens_are_not_added_to_unmapped(tmp_path, mo
 
     assert results == [(None, "no_mappable_token")]
     assert not (tmp_path / "unmapped_categories.json").exists()
-    assert (tmp_path / "classification_rejections.jsonl").exists()
+    assert _rejection_log_path(tmp_path).exists()
+
+
+def test_get_rejection_log_path_uses_daily_suffix(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    expected = _rejection_log_path(tmp_path)
+    assert _get_rejection_log_path() == expected
+
+
+def test_rejection_log_rotation_deletes_old_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    old_date = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d")
+    old_log = tmp_path / f"classification_rejections_{old_date}.jsonl"
+    old_log.write_text("{}")
+
+    _rotate_rejection_logs()
+
+    assert not old_log.exists()
+
+
+def test_rejection_log_rotation_keeps_recent_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    recent_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    recent_log = tmp_path / f"classification_rejections_{recent_date}.jsonl"
+    recent_log.write_text("{}")
+
+    _rotate_rejection_logs()
+
+    assert recent_log.exists()
