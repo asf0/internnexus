@@ -511,7 +511,7 @@ class PipelineRunner:
             elapsed = time.time() - start
             self._log_summary(elapsed)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # top-level run guard: record step failure, then re-raise
             current_step = self.current_step or PIPELINE_STEPS[0]
             if state:
                 await state.mark_failed(e, current_step)

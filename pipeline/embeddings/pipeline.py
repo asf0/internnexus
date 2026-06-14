@@ -59,7 +59,7 @@ def _initialize_embedder() -> EmbeddingService | None:
         embedder = EmbeddingService()
         logger.info(f"Using embedding provider: {embedder._provider}, model: {embedder._model}")
         return embedder
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # embedder init failure reported as unhealthy; pipeline can still run
         logger.error(f"Failed to initialize embedding service: {e}")
         return None
 

@@ -43,7 +43,7 @@ async def check_database(session: AsyncSession | None = None) -> HealthCheckResu
             healthy=False,
             message="Database query returned unexpected result",
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # health check: any DB failure means unhealthy
         return HealthCheckResult(
             name="Database",
             healthy=False,
@@ -72,7 +72,7 @@ async def check_embedding_service() -> HealthCheckResult:
                     healthy=False,
                     message=f"Ollama returned status {resp.status_code}",
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # health check: any Ollama failure means unhealthy
             return HealthCheckResult(
                 name="Embedding Service (Ollama)",
                 healthy=False,
@@ -96,14 +96,14 @@ async def check_job_apis() -> HealthCheckResult:
         try:
             resp = await client.get(f"{settings.greenhouse_api_url}/example/jobs")
             results["greenhouse"] = resp.status_code in [200, 404]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # health check: any API failure means unhealthy
             results["greenhouse"] = False
             logger.debug(f"Greenhouse API check failed: {e}")
 
         try:
             resp = await client.get(f"{settings.lever_api_url}/bluesight?mode=json")
             results["lever"] = resp.status_code in [200, 404]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # health check: any API failure means unhealthy
             results["lever"] = False
             logger.debug(f"Lever API check failed: {e}")
 

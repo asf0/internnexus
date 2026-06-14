@@ -64,7 +64,7 @@ async def enrich_jobs(
                         job.job_category = category
                 classified_count = sum(1 for c in categories if c)
                 logger.info(f"Classified {classified_count}/{len(jobs_to_classify)} jobs")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  # enrichment failure should not fail the whole batch
                 logger.warning(f"Failed to classify jobs: {e}")
 
     # Generate embeddings for jobs with descriptions
@@ -77,7 +77,7 @@ async def enrich_jobs(
                 embeddings = await embedder.embed_many(texts, batch_size=10)
                 for job, embedding in zip(jobs_to_embed, embeddings):
                     job.description_embedding = embedding
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  # enrichment failure should not fail the whole batch
                 logger.warning(f"Failed to embed batch: {e}")
 
     return jobs

@@ -271,7 +271,7 @@ class QueryEmbeddingService:
                 results.extend(await self._embed_lmstudio_many_impl(batch))
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001  # batch retry: any embedding failure falls back to per-item
                 logger.warning(
                     "LM Studio batch embedding failed for %d texts; retrying individually: %s",
                     len(batch),
@@ -280,7 +280,7 @@ class QueryEmbeddingService:
                 for offset, text in enumerate(batch):
                     try:
                         results.append(await self._embed_lmstudio_impl(text))
-                    except Exception as item_exc:
+                    except Exception as item_exc:  # noqa: BLE001  # wrap any per-item embedding failure as EmbeddingError
                         raise EmbeddingError(
                             f"Failed to embed text at index {i + offset}: {item_exc}",
                             retryable=_is_retryable_exception(item_exc),

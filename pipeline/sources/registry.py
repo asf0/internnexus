@@ -24,7 +24,7 @@ def load_discovery_results() -> dict[str, list[str]]:
                 data = json.load(f)
                 if isinstance(data, dict):
                     return data
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, AttributeError) as e:
             logger.warning(f"Could not load discovery results: {e}")
     return {"greenhouse": [], "lever": [], "ashby": []}
 
@@ -36,7 +36,7 @@ def load_common_companies() -> list[str]:
             with open(COMMON_COMPANIES_FILE) as f:
                 data = json.load(f)
                 return data.get("common_slugs", [])
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, AttributeError) as e:
             logger.warning(f"Could not load common companies: {e}")
     return []
 
@@ -64,7 +64,7 @@ def get_ashby_slugs() -> list[str]:
     discovered = load_discovery_results().get("ashby", [])
     try:
         from pipeline.sources.ashby import ASHBY_KNOWN_SLUGS
-    except Exception as exc:
+    except ImportError as exc:
         logger.warning("Could not load known Ashby slugs: %s", exc)
         known = []
     else:

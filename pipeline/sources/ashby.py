@@ -190,7 +190,7 @@ class AshbyClient:
         for slug in slugs:
             try:
                 jobs.extend(self.fetch_jobs(slug))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001  # one failed slug should not stop the rest
                 logger.debug("Ashby v2 slug %s failed: %s", slug, exc)
         return jobs
 

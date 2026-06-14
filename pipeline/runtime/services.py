@@ -30,7 +30,7 @@ def log_memory_usage(label: str = "") -> None:
             process = psutil.Process()
             mem_mb = process.memory_info().rss / 1024 / 1024
             logger.info(f"Memory usage{' (' + label + ')' if label else ''}: {mem_mb:.2f} MB")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # memory logging is best-effort
             logger.debug(f"Could not log memory usage: {e}")
 
 
@@ -43,35 +43,35 @@ async def cleanup_resources() -> None:
     try:
         await close_http_client()
         logger.debug("HTTP client closed")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error closing HTTP client: {e}")
 
     # Close location cache
     try:
         await close_location_cache()
         logger.debug("Location cache closed")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error closing location cache: {e}")
 
     # Reset classifier singleton (async version)
     try:
         await reset_classifier_async()
         logger.debug("Classifier reset")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error resetting classifier: {e}")
 
     # Reset embedder singleton
     try:
         reset_embedder()
         logger.debug("Embedder reset")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error resetting embedder: {e}")
 
     # Dispose database engines
     try:
         await dispose_engines()
         logger.debug("Database engines disposed")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error disposing database engines: {e}")
 
     # Force garbage collection
@@ -82,7 +82,7 @@ async def cleanup_resources() -> None:
     if _sys.platform == "linux":
         try:
             _ctypes.CDLL("libc.so.6").malloc_trim(0)
-        except Exception:
+        except Exception:  # noqa: BLE001  # malloc_trim is best-effort memory optimization
             pass
     log_memory_usage("after cleanup")
     logger.debug("Resource cleanup completed")
@@ -140,7 +140,7 @@ async def run_pipeline_command(runner, command, logger) -> None:
         else:
             result = await runner.run()
             await mark_command_completed(command.id, result, getattr(runner, "resume_run_id", None))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001  # record command failure, then re-raise
         await mark_command_failed(command.id, exc, getattr(runner, "resume_run_id", None))
         raise
 
@@ -161,7 +161,7 @@ async def run_continuous_loop(*, runner, interval: int, get_incomplete_run, logg
             logger.info("Interrupted, exiting...")
             await cleanup_resources()
             break
-        except Exception:
+        except Exception:  # noqa: BLE001  # continuous loop: any pipeline error triggers backoff
             logger.exception("Pipeline error")
             backoff_multiplier = min(backoff, runner.config.pipeline.max_backoff_multiplier)
             sleep_time = interval * backoff_multiplier

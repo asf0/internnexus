@@ -74,7 +74,7 @@ def load_progress(file_path: Path | None = None) -> dict[str, Any]:
     try:
         with path.open("r", encoding="utf-8") as fh:
             data = json.load(fh)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Could not load discovery progress: %s", exc)
         return default
 
@@ -138,7 +138,7 @@ def load_discovered_companies(output_path: Path | None = None) -> dict[str, set[
     try:
         with path.open("r", encoding="utf-8") as fh:
             return _normalize_companies_output(json.load(fh))
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Could not load existing discovery output: %s", exc)
         return {ats: set() for ats in ATS_DOMAINS}
 
@@ -190,9 +190,11 @@ def extract_company_slug(url: str, ats: str) -> str | None:
     if not expected_domains:
         return None
 
+    if not isinstance(url, str):
+        return None
     try:
         parsed = urlparse(url)
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
     hostname = (parsed.hostname or "").lower()
@@ -358,7 +360,7 @@ async def discover_companies(
                 )
                 try:
                     urls = await _search_searxng(client, config.searxng_url, query, page=page)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001  # any SearxNG failure stops this query/page
                     query_failed = True
                     logger.warning("Discovery query failed for %s (%s page %d): %s", scope, ats, page, exc)
                     if config.query_delay_seconds > 0:

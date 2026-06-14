@@ -54,7 +54,7 @@ def _rotate_old_logs() -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         for pattern in ["skipped_jobs_*.jsonl", "failed_jobs_*.jsonl"]:
             _rotate_log_files(pattern, cutoff)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         logger.debug(f"Log rotation error: {e}")
 
 
@@ -90,7 +90,7 @@ def _log_skipped_job(job: Job, reason: str, text_length: int) -> None:
 
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
-    except Exception as e:
+    except (OSError, TypeError) as e:
         logger.debug(f"Failed to log skipped job: {e}")
 
 
@@ -103,7 +103,7 @@ def _append_jsonl_batch(path: Path, entries: list[dict[str, Any]]) -> None:
         LOGS_DIR.mkdir(exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.writelines(json.dumps(entry) + "\n" for entry in entries)
-    except Exception as e:
+    except (OSError, TypeError) as e:
         logger.debug(f"Failed to append JSONL batch: {e}")
 
 
@@ -135,7 +135,7 @@ def _log_failed_job(
 
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
-    except Exception as e:
+    except (OSError, TypeError) as e:
         logger.debug(f"Failed to log failed job: {e}")
 
 
@@ -328,7 +328,7 @@ async def _embed_and_save(
         except asyncio.CancelledError:
             logger.warning(f"  Batch {batch_num} cancelled during embedding")
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # any embedding failure is classified and recorded per job
             batch_success, batch_errors, batch_failed = _handle_batch_error(batch_jobs, e, batch_num, retry_attempt)
             success += batch_success
             errors += batch_errors

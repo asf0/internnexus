@@ -45,7 +45,7 @@ class SimplifyJobsCategoryParser:
                     return {}
 
                 return self._parse_markdown(response.text)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # parser failure falls back to empty context
             logger.error(f"Error parsing SimplifyJobs README: {e}")
             return {}
 
@@ -122,6 +122,6 @@ async def get_category_context_async() -> Dict[str, str]:
         parser = SimplifyJobsCategoryParser()
         categories = await parser.get_all_categories()
         return categories
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # parser failure falls back to empty context
         logger.error(f"Failed to get category context: {e}")
         return {}

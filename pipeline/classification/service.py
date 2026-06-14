@@ -502,7 +502,7 @@ class JobClassifier:
         except ClassificationError as e:
             logger.warning(f"Classification failed for '{title}': {e}")
             return None, "http_or_timeout_error", ""
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # single-job failure should not crash the batch
             logger.error(f"Unexpected classification error for '{title}': {e}")
             return None, "unexpected_error", ""
 
@@ -719,7 +719,7 @@ class JobClassifier:
                 results.append(await self._classify_job_with_reason(title, description))
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001  # per-job fallback: one failed job should not stop the rest
                 logger.error("Error classifying job '%s': %s", title, exc)
                 results.append((None, "unexpected_error", ""))
         return results
@@ -787,7 +787,7 @@ class JobClassifier:
                             chunk_results = await self._classify_batch_individually_with_reasons(chunk)
                 except asyncio.CancelledError:
                     raise
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001  # batch failure falls back to individual classification
                     logger.warning(
                         "Batch classification failed for %d jobs; retrying individually: %s",
                         len(chunk),

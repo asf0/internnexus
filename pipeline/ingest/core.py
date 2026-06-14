@@ -52,7 +52,7 @@ def _log_memory_usage(batch_num: int | None = None) -> None:
                 logger.info(f"Batch {batch_num}: {mem_mb:.2f} MB")
             else:
                 logger.info(f"Memory: {mem_mb:.2f} MB")
-        except Exception:
+        except Exception:  # noqa: BLE001  # memory logging is best-effort
             pass
 
 
@@ -87,7 +87,7 @@ def _load_slug_404_cache() -> dict[str, dict[str, float]]:
                 except (TypeError, ValueError):
                     continue
         return normalized
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, TypeError) as exc:
         logger.debug("Failed to load slug 404 cache: %s", exc)
         return {}
 
@@ -98,7 +98,7 @@ def _save_slug_404_cache(cache: dict[str, dict[str, float]]) -> None:
         SLUG_404_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(SLUG_404_CACHE_PATH, "w", encoding="utf-8") as f:
             json.dump(cache, f)
-    except Exception as exc:
+    except (OSError, TypeError) as exc:
         logger.debug("Failed to save slug 404 cache: %s", exc)
 
 
@@ -202,7 +202,7 @@ async def _fetch_all_apis_parallel(
                             "status_code": status_code,
                             "message": str(exc),
                         }
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001  # catch-all to record per-slug failure without crashing ingest
                         return [], {
                             "step": "ingest",
                             "source": source_name.lower(),
@@ -300,7 +300,7 @@ def _close_api_clients(*clients: Any) -> None:
         if callable(close):
             try:
                 close()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001  # client close is best-effort
                 logger.warning("Failed to close %s client: %s", client.__class__.__name__, exc)
 
 

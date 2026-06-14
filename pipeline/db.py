@@ -96,5 +96,5 @@ async def recreate_session_safely() -> bool:
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001  # best-effort: any recreation failure falls back to original engines
         return False
