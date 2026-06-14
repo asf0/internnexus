@@ -8,11 +8,13 @@ from pipeline.classification.mapping import (
     get_canonical_category,
     validate_category,
 )
-from pipeline.classification.service import (
-    JobClassifier,
+from pipeline.classification.parser import (
     _extract_canonical_category,
     _map_category_strict,
     _normalize_slug_token,
+)
+from pipeline.classification.service import (
+    JobClassifier,
     get_classifier,
     reset_classifier,
     reset_classifier_async,

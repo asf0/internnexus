@@ -34,7 +34,7 @@ CATEGORY_MAPPING: Final[dict[str, str | None]] = dict(_required("category_mappin
 INVALID_CATEGORIES: Final[set[str]] = set(_required("invalid_categories"))
 
 
-def get_canonical_category(category: str | None) -> str | None:
+def get_canonical_category(category: str | None, _log_unmapped: bool = True) -> str | None:
     """Map a category to its canonical form."""
     if not category:
         return None
@@ -55,6 +55,28 @@ def get_canonical_category(category: str | None) -> str | None:
 
     if normalized_category in CANONICAL_CATEGORIES:
         return normalized_category
+
+    # Family/prefix rules previously only in service._map_category_strict.
+    for prefix, canonical in (
+        ("legal_", "legal"),
+        ("hr_", "hr"),
+        ("employee_", "hr"),
+        ("patient_", "healthcare"),
+        ("clinical_", "healthcare"),
+    ):
+        if normalized_category.startswith(prefix):
+            return canonical
+
+    if normalized_category.startswith("field_") and "sales" in normalized_category:
+        return "sales"
+    if normalized_category.startswith("field_") and "care" in normalized_category:
+        return "healthcare"
+    if normalized_category.endswith("_sales"):
+        return "sales"
+    if normalized_category.endswith("_consulting") or normalized_category.endswith("_consultant"):
+        return "consulting"
+    if normalized_category.endswith("_training"):
+        return "education"
 
     for suffix in [
         "_engineering",
@@ -81,7 +103,8 @@ def get_canonical_category(category: str | None) -> str | None:
             if base in CANONICAL_CATEGORIES:
                 return base
 
-    _log_unmapped_category(normalized_category)
+    if _log_unmapped:
+        _log_unmapped_category(normalized_category)
     return None
 
 

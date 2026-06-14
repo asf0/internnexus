@@ -89,7 +89,7 @@ async def test_lmstudio_batch_classification_uses_one_request(monkeypatch):
     async def _get_client():
         return _Client()
 
-    monkeypatch.setattr(classifier, "_get_client", _get_client)
+    monkeypatch.setattr(classifier._client, "_get_client", _get_client)
 
     result = await classifier.classify_batch_with_reasons(
         [
@@ -138,8 +138,8 @@ async def test_batch_classification_falls_back_to_individual_on_bad_json(monkeyp
         individual_calls += len(jobs)
         return [("software_engineering", "ok", ""), ("finance", "ok", "")]
 
-    monkeypatch.setattr(classifier, "_classify_prompt_batch_with_reasons", _bad_batch)
-    monkeypatch.setattr(classifier, "_classify_batch_individually_with_reasons", _individual)
+    monkeypatch.setattr(classifier._client, "classify_prompt_batch_with_reasons", _bad_batch)
+    monkeypatch.setattr(classifier, "classify_batch_individually_with_reasons", _individual)
 
     result = await classifier.classify_batch_with_reasons(
         [("Software Engineer", "Build APIs"), ("Finance Analyst", "Analyze budgets")]
