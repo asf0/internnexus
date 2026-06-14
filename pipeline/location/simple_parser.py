@@ -368,6 +368,289 @@ _CITY_SUFFIX_PATTERN = re.compile(r"\s+(City|Town|Village|Municipality)$", re.IG
 _ZIP_PATTERN = re.compile(r"\s+\d{5}(-\d{4})?$")
 _TRAILING_STATE_PATTERN = re.compile(r",?\s*[A-Z]{2}\s*$")
 
+# Shared full-state/region lists used by extract_state() and infer_country_from_state().
+_US_STATES_FULL = [
+    "alabama",
+    "alaska",
+    "arizona",
+    "arkansas",
+    "california",
+    "colorado",
+    "connecticut",
+    "delaware",
+    "florida",
+    "georgia",
+    "hawaii",
+    "idaho",
+    "illinois",
+    "indiana",
+    "iowa",
+    "kansas",
+    "kentucky",
+    "louisiana",
+    "maine",
+    "maryland",
+    "massachusetts",
+    "michigan",
+    "minnesota",
+    "mississippi",
+    "missouri",
+    "montana",
+    "nebraska",
+    "nevada",
+    "new hampshire",
+    "new jersey",
+    "new mexico",
+    "new york",
+    "north carolina",
+    "north dakota",
+    "ohio",
+    "oklahoma",
+    "oregon",
+    "pennsylvania",
+    "rhode island",
+    "south carolina",
+    "south dakota",
+    "tennessee",
+    "texas",
+    "utah",
+    "vermont",
+    "virginia",
+    "washington",
+    "west virginia",
+    "wisconsin",
+    "wyoming",
+    "district of columbia",
+]
+
+_FRENCH_REGIONS = [
+    "île-de-france",
+    "auvergne-rhône-alpes",
+    "hauts-de-france",
+    "nouvelle-aquitaine",
+    "occitanie",
+    "grand est",
+    "provence-alpes-côte d'azur",
+    "pays de la loire",
+    "bretagne",
+    "normandie",
+    "bourgogne-franche-comté",
+    "centre-val de loire",
+    "corse",
+]
+
+_ITALIAN_REGIONS = [
+    "abruzzo",
+    "aosta valley",
+    "apulia",
+    "basilicata",
+    "calabria",
+    "campania",
+    "emilia-romagna",
+    "friuli-venezia giulia",
+    "lazio",
+    "liguria",
+    "lombardy",
+    "lombardia",
+    "marche",
+    "molise",
+    "piedmont",
+    "piemonte",
+    "sardinia",
+    "sardegna",
+    "sicily",
+    "sicilia",
+    "tuscany",
+    "toscana",
+    "trentino-alto adige",
+    "umbria",
+    "veneto",
+]
+
+_SPANISH_REGIONS = [
+    "andalusia",
+    "andalucía",
+    "aragon",
+    "aragón",
+    "asturias",
+    "balearic islands",
+    "islas baleares",
+    "basque country",
+    "país vasco",
+    "canary islands",
+    "islas canarias",
+    "cantabria",
+    "castile and león",
+    "castilla y león",
+    "castile-la mancha",
+    "castilla-la mancha",
+    "catalonia",
+    "catalunya",
+    "extremadura",
+    "galicia",
+    "la rioja",
+    "madrid",
+    "murcia",
+    "navarre",
+    "navarra",
+    "valencia",
+    "valencian community",
+]
+
+_MEXICAN_STATES = [
+    "aguascalientes",
+    "baja california",
+    "baja california sur",
+    "campeche",
+    "chiapas",
+    "chihuahua",
+    "coahuila",
+    "colima",
+    "durango",
+    "guanajuato",
+    "guerrero",
+    "hidalgo",
+    "jalisco",
+    "mexico",
+    "méxico",
+    "michoacán",
+    "morelos",
+    "nayarit",
+    "nuevo león",
+    "oaxaca",
+    "puebla",
+    "querétaro",
+    "quintana roo",
+    "san luis potosí",
+    "sinaloa",
+    "sonora",
+    "tabasco",
+    "tamaulipas",
+    "tlaxcala",
+    "veracruz",
+    "yucatán",
+    "zacatecas",
+    "ciudad de méxico",
+    "mexico city",
+]
+
+_BRAZILIAN_STATES = [
+    "acre",
+    "alagoas",
+    "amapá",
+    "amazonas",
+    "bahia",
+    "ceará",
+    "distrito federal",
+    "espírito santo",
+    "goiás",
+    "maranhão",
+    "mato grosso",
+    "mato grosso do sul",
+    "minas gerais",
+    "pará",
+    "paraíba",
+    "paraná",
+    "pernambuco",
+    "piauí",
+    "rio de janeiro",
+    "rio grande do norte",
+    "rio grande do sul",
+    "rondônia",
+    "roraima",
+    "santa catarina",
+    "são paulo",
+    "sergipe",
+    "tocantins",
+]
+
+_COUNTRY_NAMES_AS_STATES = frozenset(
+    [
+        COUNTRY_AUSTRALIA,
+        COUNTRY_CHINA,
+        COUNTRY_GERMANY,
+        COUNTRY_FRANCE,
+        COUNTRY_INDIA,
+        "Indonesia",
+        "Ireland",
+        "Israel",
+        COUNTRY_JAPAN,
+        "Korea",
+        COUNTRY_SOUTH_KOREA,
+        COUNTRY_NETHERLANDS,
+        "Portugal",
+        "Saudi Arabia",
+        "Singapore",
+        "Switzerland",
+        "Taiwan",
+        COUNTRY_UAE,
+        COUNTRY_UNITED_KINGDOM,
+        COUNTRY_UNITED_STATES,
+        "Vietnam",
+        "Argentina",
+        "Bolivia",
+        "Brazil",
+        "Colombia",
+        "Kuwait",
+        "Kazakhstan",
+        "Romania",
+        "Thailand",
+        "Hong Kong",
+    ]
+)
+
+_SINGLE_PART_COUNTRY_NAMES = {
+    "united states",
+    "us",
+    "usa",
+    "u.s.",
+    "u.s",
+    "united kingdom",
+    "uk",
+    "canada",
+    "australia",
+    "germany",
+    "france",
+    "india",
+    "japan",
+    "china",
+    "brazil",
+    "mexico",
+    "spain",
+    "italy",
+    "netherlands",
+    "singapore",
+    "switzerland",
+    "ireland",
+    "israel",
+    "south korea",
+    "taiwan",
+    "hong kong",
+    "sweden",
+    "norway",
+    "denmark",
+    "finland",
+    "belgium",
+    "austria",
+    "poland",
+    "portugal",
+    "argentina",
+    "chile",
+}
+
+_MAJOR_CITY_STATE_NAMES = {
+    "new york",
+    "washington",
+    "georgia",
+    "virginia",
+    "colorado",
+    "oregon",
+    "delhi",
+    "goa",
+    "gujarat",
+    "kerala",
+}
+
 
 def is_street_address(text: str) -> bool:
     """Check if text looks like a street address using pre-compiled pattern."""
@@ -544,6 +827,55 @@ def extract_city_before_state(text: str) -> str | None:
     return None
 
 
+def _strip_zip_code(text: str) -> str:
+    """Remove trailing ZIP code from text."""
+    return _ZIP_PATTERN.sub("", text).strip()
+
+
+def _lookup_special_state_mapping(text_clean: str) -> str | None:
+    """Check special state mappings, guarding against country names."""
+    if text_clean not in _STATE_NAME_MAPPINGS:
+        return None
+    mapped = _STATE_NAME_MAPPINGS[text_clean]
+    if mapped is None or mapped in _COUNTRY_NAMES_AS_STATES:
+        return None
+    return mapped
+
+
+def _lookup_state_abbreviation(text_clean: str, country_hint: str | None) -> str | None:
+    """Match two-letter uppercase abbreviation and expand it."""
+    match = _STATE_ABBR_PATTERN.search(text_clean)
+    if not match:
+        return None
+    state_abbr = match.group(1)
+    return expand_state_abbreviation(state_abbr, country_hint)
+
+
+def _match_full_state_name(text_clean: str) -> str | None:
+    """Match text against known full state/province/region names."""
+    if not text_clean or len(text_clean) <= 2:
+        return None
+
+    text_lower = text_clean.lower()
+    all_known_states = (
+        list(CANADIAN_PROVINCES)
+        + list(INDIAN_STATES)
+        + list(AUSTRALIAN_STATES)
+        + list(GERMAN_STATES)
+        + list(UK_REGIONS)
+        + _US_STATES_FULL
+        + _FRENCH_REGIONS
+        + _ITALIAN_REGIONS
+        + _SPANISH_REGIONS
+        + _MEXICAN_STATES
+        + _BRAZILIAN_STATES
+    )
+
+    if text_lower in all_known_states:
+        return text_clean.title()
+    return None
+
+
 def extract_state(text: str, country_hint: str | None = None) -> str | None:
     """Extract state from text using pre-compiled patterns and known state names.
 
@@ -557,278 +889,17 @@ def extract_state(text: str, country_hint: str | None = None) -> str | None:
     if not text:
         return None
 
-    # Remove zip code using pre-compiled pattern
-    text_clean = _ZIP_PATTERN.sub("", text)
-    text_clean = text_clean.strip()
+    text_clean = _strip_zip_code(text)
 
-    # Check special state mappings that are NOT countries
-    # (e.g., "Berlin-Brandenburg" -> "Berlin", "NSW" -> "New South Wales")
-    if text_clean in _STATE_NAME_MAPPINGS:
-        mapped = _STATE_NAME_MAPPINGS[text_clean]
-        # Don't return country names as states
-        if mapped is None or mapped in [
-            COUNTRY_AUSTRALIA,
-            COUNTRY_CHINA,
-            COUNTRY_GERMANY,
-            COUNTRY_FRANCE,
-            COUNTRY_INDIA,
-            "Indonesia",
-            "Ireland",
-            "Israel",
-            COUNTRY_JAPAN,
-            "Korea",
-            COUNTRY_SOUTH_KOREA,
-            COUNTRY_NETHERLANDS,
-            "Portugal",
-            "Saudi Arabia",
-            "Singapore",
-            "Switzerland",
-            "Taiwan",
-            COUNTRY_UAE,
-            COUNTRY_UNITED_KINGDOM,
-            COUNTRY_UNITED_STATES,
-            "Vietnam",
-            "Argentina",
-            "Bolivia",
-            "Brazil",
-            "Colombia",
-            "Kuwait",
-            "Kazakhstan",
-            "Romania",
-            "Thailand",
-            "Hong Kong",
-        ]:
-            return None
+    mapped = _lookup_special_state_mapping(text_clean)
+    if mapped is not None:
         return mapped
 
-    # Use pre-compiled state abbreviation pattern
-    match = _STATE_ABBR_PATTERN.search(text_clean)
-    if match:
-        state_abbr = match.group(1)
-        full_state = expand_state_abbreviation(state_abbr, country_hint)
-        if full_state:
-            return full_state
+    abbreviated = _lookup_state_abbreviation(text_clean, country_hint)
+    if abbreviated is not None:
+        return abbreviated
 
-    if text_clean and len(text_clean) > 2:
-        text_lower = text_clean.lower()
-
-        all_known_states = (
-            list(CANADIAN_PROVINCES)
-            + list(INDIAN_STATES)
-            + list(AUSTRALIAN_STATES)
-            + list(GERMAN_STATES)
-            + list(UK_REGIONS)
-        )
-
-        us_states = [
-            "alabama",
-            "alaska",
-            "arizona",
-            "arkansas",
-            "california",
-            "colorado",
-            "connecticut",
-            "delaware",
-            "florida",
-            "georgia",
-            "hawaii",
-            "idaho",
-            "illinois",
-            "indiana",
-            "iowa",
-            "kansas",
-            "kentucky",
-            "louisiana",
-            "maine",
-            "maryland",
-            "massachusetts",
-            "michigan",
-            "minnesota",
-            "mississippi",
-            "missouri",
-            "montana",
-            "nebraska",
-            "nevada",
-            "new hampshire",
-            "new jersey",
-            "new mexico",
-            "new york",
-            "north carolina",
-            "north dakota",
-            "ohio",
-            "oklahoma",
-            "oregon",
-            "pennsylvania",
-            "rhode island",
-            "south carolina",
-            "south dakota",
-            "tennessee",
-            "texas",
-            "utah",
-            "vermont",
-            "virginia",
-            "washington",
-            "west virginia",
-            "wisconsin",
-            "wyoming",
-            "district of columbia",
-        ]
-
-        french_regions = [
-            "île-de-france",
-            "auvergne-rhône-alpes",
-            "hauts-de-france",
-            "nouvelle-aquitaine",
-            "occitanie",
-            "grand est",
-            "provence-alpes-côte d'azur",
-            "pays de la loire",
-            "bretagne",
-            "normandie",
-            "bourgogne-franche-comté",
-            "centre-val de loire",
-            "corse",
-        ]
-
-        italian_regions = [
-            "abruzzo",
-            "aosta valley",
-            "apulia",
-            "basilicata",
-            "calabria",
-            "campania",
-            "emilia-romagna",
-            "friuli-venezia giulia",
-            "lazio",
-            "liguria",
-            "lombardy",
-            "lombardia",
-            "marche",
-            "molise",
-            "piedmont",
-            "piemonte",
-            "sardinia",
-            "sardegna",
-            "sicily",
-            "sicilia",
-            "tuscany",
-            "toscana",
-            "trentino-alto adige",
-            "umbria",
-            "veneto",
-        ]
-
-        spanish_regions = [
-            "andalusia",
-            "andalucía",
-            "aragon",
-            "aragón",
-            "asturias",
-            "balearic islands",
-            "islas baleares",
-            "basque country",
-            "país vasco",
-            "canary islands",
-            "islas canarias",
-            "cantabria",
-            "castile and león",
-            "castilla y león",
-            "castile-la mancha",
-            "castilla-la mancha",
-            "catalonia",
-            "catalunya",
-            "extremadura",
-            "galicia",
-            "la rioja",
-            "madrid",
-            "murcia",
-            "navarre",
-            "navarra",
-            "valencia",
-            "valencian community",
-        ]
-
-        mexican_states = [
-            "aguascalientes",
-            "baja california",
-            "baja california sur",
-            "campeche",
-            "chiapas",
-            "chihuahua",
-            "coahuila",
-            "colima",
-            "durango",
-            "guanajuato",
-            "guerrero",
-            "hidalgo",
-            "jalisco",
-            "mexico",
-            "méxico",
-            "michoacán",
-            "morelos",
-            "nayarit",
-            "nuevo león",
-            "oaxaca",
-            "puebla",
-            "querétaro",
-            "quintana roo",
-            "san luis potosí",
-            "sinaloa",
-            "sonora",
-            "tabasco",
-            "tamaulipas",
-            "tlaxcala",
-            "veracruz",
-            "yucatán",
-            "zacatecas",
-            "ciudad de méxico",
-            "mexico city",
-        ]
-
-        brazilian_states = [
-            "acre",
-            "alagoas",
-            "amapá",
-            "amazonas",
-            "bahia",
-            "ceará",
-            "distrito federal",
-            "espírito santo",
-            "goiás",
-            "maranhão",
-            "mato grosso",
-            "mato grosso do sul",
-            "minas gerais",
-            "pará",
-            "paraíba",
-            "paraná",
-            "pernambuco",
-            "piauí",
-            "rio de janeiro",
-            "rio grande do norte",
-            "rio grande do sul",
-            "rondônia",
-            "roraima",
-            "santa catarina",
-            "são paulo",
-            "sergipe",
-            "tocantins",
-        ]
-
-        all_known_states = (
-            us_states
-            + all_known_states
-            + french_regions
-            + italian_regions
-            + spanish_regions
-            + mexican_states
-            + brazilian_states
-        )
-
-        if text_lower in all_known_states:
-            return text_clean.title()
-
-    return None
+    return _match_full_state_name(text_clean)
 
 
 def infer_country_from_state(state: str | None) -> str | None:
@@ -841,60 +912,7 @@ def infer_country_from_state(state: str | None) -> str | None:
     if state_lower in CANADIAN_PROVINCES:
         return COUNTRY_CANADA
 
-    us_states = [
-        "alabama",
-        "alaska",
-        "arizona",
-        "arkansas",
-        "california",
-        "colorado",
-        "connecticut",
-        "delaware",
-        "florida",
-        "georgia",
-        "hawaii",
-        "idaho",
-        "illinois",
-        "indiana",
-        "iowa",
-        "kansas",
-        "kentucky",
-        "louisiana",
-        "maine",
-        "maryland",
-        "massachusetts",
-        "michigan",
-        "minnesota",
-        "mississippi",
-        "missouri",
-        "montana",
-        "nebraska",
-        "nevada",
-        "new hampshire",
-        "new jersey",
-        "new mexico",
-        "new york",
-        "north carolina",
-        "north dakota",
-        "ohio",
-        "oklahoma",
-        "oregon",
-        "pennsylvania",
-        "rhode island",
-        "south carolina",
-        "south dakota",
-        "tennessee",
-        "texas",
-        "utah",
-        "vermont",
-        "virginia",
-        "washington",
-        "west virginia",
-        "wisconsin",
-        "wyoming",
-        "district of columbia",
-    ]
-    if state_lower in us_states:
+    if state_lower in _US_STATES_FULL:
         return COUNTRY_UNITED_STATES
 
     if state_lower in INDIAN_STATES:
@@ -938,21 +956,7 @@ def clean_city_name(city: str | None) -> str | None:
     if city.lower() in _COUNTRIES_AS_CITIES:
         return None
 
-    # Check if city is actually a state/province/region
-    # But skip this check for major cities that share names with states
-    major_city_state_names = {
-        "new york",
-        "washington",
-        "georgia",
-        "virginia",
-        "colorado",
-        "oregon",
-        "delhi",
-        "goa",
-        "gujarat",
-        "kerala",
-    }
-    if city.lower() in _STATES_AS_CITIES and city.lower() not in major_city_state_names:
+    if city.lower() in _STATES_AS_CITIES and city.lower() not in _MAJOR_CITY_STATE_NAMES:
         return None
 
     # Check against invalid city patterns (multi-location, addresses, etc.)
@@ -974,7 +978,7 @@ def clean_city_name(city: str | None) -> str | None:
                 # Re-validate the extracted city
                 if city.lower() in _COUNTRIES_AS_CITIES:
                     return None
-                if city.lower() in _STATES_AS_CITIES and city.lower() not in major_city_state_names:
+                if city.lower() in _STATES_AS_CITIES and city.lower() not in _MAJOR_CITY_STATE_NAMES:
                     return None
 
     # Remove state abbreviation if present
@@ -991,7 +995,7 @@ def clean_city_name(city: str | None) -> str | None:
     # After cleaning, check again if it's a country/state
     if city.lower() in _COUNTRIES_AS_CITIES:
         return None
-    if city.lower() in _STATES_AS_CITIES and city.lower() not in major_city_state_names:
+    if city.lower() in _STATES_AS_CITIES and city.lower() not in _MAJOR_CITY_STATE_NAMES:
         return None
 
     return city if city else None
@@ -1368,13 +1372,9 @@ def infer_country_from_city(city: str | None) -> str | None:
     return international_cities.get(city_lower)
 
 
-def normalize_location(location: str | None) -> dict[str, Any]:
-    """
-    Normalize location string into city, state, country.
-
-    This is the main entry point - replaces the old geostring-based parser.
-    """
-    empty_result = {
+def _build_empty_result(location: str | None) -> dict[str, Any]:
+    """Return the default result dict for normalize_location."""
+    return {
         "full": location,
         "city": None,
         "state": None,
@@ -1384,270 +1384,211 @@ def normalize_location(location: str | None) -> dict[str, Any]:
         "is_multi_location": False,
     }
 
+
+def _detect_remote(location_clean: str, location_lower: str) -> dict[str, Any] | None:
+    """Detect remote-only and remote-with-country location forms."""
+    if has_multiple_remote_locations(location_clean):
+        return {"is_remote": True, "is_multi_location": True}
+    if location_lower == "remote":
+        return {"is_remote": True}
+    if location_lower.startswith("remote") and is_remote_pattern(location_clean):
+        return {"country": extract_country_from_text(location_clean), "is_remote": True}
+    return None
+
+
+def _split_and_clean_parts(location_clean: str) -> tuple[list[str], bool]:
+    """Split by comma, strip trailing remote/hybrid indicator, and collapse multi-location."""
+    parts = [p.strip() for p in location_clean.split(",")]
+    parts = [p for p in parts if p]
+
+    is_remote_job = False
+    if parts and parts[-1].lower() in {"remote", "hybrid", "virtual", "work from home", "wfh"}:
+        parts = parts[:-1]
+        is_remote_job = True
+
+    if len(parts) == 1 and (";" in parts[0] or "|" in parts[0]):
+        first_loc = parts[0].split(";")[0].split("|")[0].strip()
+        parts = [first_loc]
+
+    return parts, is_remote_job
+
+
+def _parse_one_part(
+    first_part: str, country: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Parse a single-part location into city/state/country."""
+    city: str | None = None
+    state: str | None = None
+
+    if is_street_address(first_part):
+        city = extract_city_from_street_address(first_part)
+        if not city:
+            city = extract_city_before_state(first_part)
+        state = extract_state(first_part)
+        return city, state, country
+
+    if is_fake_city(first_part):
+        return None, None, country
+
+    potential_country = extract_country_from_text(first_part)
+    if potential_country and first_part.lower() in _SINGLE_PART_COUNTRY_NAMES:
+        return None, None, potential_country
+
+    city_state_match = _CITY_STATE_PATTERN.match(first_part.strip())
+    if city_state_match:
+        potential_city = city_state_match.group(1).strip()
+        state_abbr = city_state_match.group(2)
+        if not is_fake_city(potential_city):
+            city = potential_city
+            inferred_country = infer_country_from_city(potential_city)
+            state = expand_state_abbreviation(state_abbr, inferred_country)
+        return city, state, country
+
+    inferred_country = infer_country_from_city(first_part)
+    if inferred_country:
+        return first_part, None, inferred_country
+
+    if extract_state(first_part):
+        return None, extract_state(first_part), country
+
+    return first_part, None, country
+
+
+def _parse_two_parts(
+    first: str, second: str, country: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Parse a two-part location into city/state/country."""
+    city: str | None = None
+    state: str | None = None
+
+    second_country = extract_country_from_text(second)
+    first_state = extract_state(first, second_country)
+    second_state = extract_state(second, second_country)
+    if first_state and second_state and first_state != second_state:
+        return None, None, COUNTRY_UNITED_STATES
+
+    if is_street_address(first):
+        city = extract_city_from_street_address(first)
+        state = extract_state(second, second_country)
+        if not city:
+            city = extract_city_before_state(second)
+        return city, state, country
+
+    state = extract_state(second, second_country)
+    if state:
+        return first if not is_fake_city(first) else None, state, country
+
+    if second_country and len(second.strip()) <= 20:
+        first_state = extract_state(first, second_country)
+        if first_state and infer_country_from_state(first_state) == second_country:
+            return None, first_state, second_country
+        return first if not is_fake_city(first) else None, None, second_country
+
+    return first if not is_fake_city(first) else None, None, country
+
+
+def _parse_three_or_more(
+    parts: list[str], country: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Parse a three-or-more-part location into city/state/country."""
+    detected_country = extract_country_from_text(parts[-1])
+
+    if is_street_address(parts[0]):
+        city = parts[1] if not is_fake_city(parts[1]) else None
+        state = extract_state(parts[2], detected_country) if len(parts) > 2 else None
+        return city, state, detected_country or country
+
+    city = parts[0] if not is_fake_city(parts[0]) else None
+    potential_state = extract_state(parts[1], detected_country)
+    if potential_state and city and potential_state.lower() == city.lower():
+        state = None
+    else:
+        state = potential_state
+
+    if not state and len(parts) > 2:
+        potential_country = extract_country_from_text(parts[2])
+        if potential_country:
+            country = potential_country
+
+    return city, state, detected_country or country
+
+
+def _infer_and_validate_country(
+    city: str | None,
+    state: str | None,
+    country: str | None,
+) -> tuple[str | None, str | None]:
+    """Infer country from state/city and clear city when it is actually a country/state."""
+    if not country:
+        country = infer_country_from_state(state)
+
+    inferred_from_city = None
+    if not country and city:
+        inferred_from_city = infer_country_from_city(city)
+
+    if city:
+        city_lower = city.lower()
+        if city_lower in _COUNTRIES_AS_CITIES:
+            if inferred_from_city:
+                country = inferred_from_city
+            city = None
+        elif city_lower in _STATES_AS_CITIES and city_lower not in _MAJOR_CITY_STATE_NAMES:
+            if inferred_from_city:
+                country = inferred_from_city
+            city = None
+
+    if not country and city:
+        country = infer_country_from_city(city)
+
+    return country, city
+
+
+def normalize_location(location: str | None) -> dict[str, Any]:
+    """
+    Normalize location string into city, state, country.
+
+    This is the main entry point - replaces the old geostring-based parser.
+    """
+    empty_result = _build_empty_result(location)
+
     if not location or not location.strip():
         return empty_result
 
     location_clean = location.strip()
     location_lower = location_clean.lower()
 
-    # Check for multiple remote locations
-    if has_multiple_remote_locations(location_clean):
-        return {
-            **empty_result,
-            "is_remote": True,
-            "is_multi_location": True,
-        }
+    remote_flags = _detect_remote(location_clean, location_lower)
+    if remote_flags is not None:
+        return {**empty_result, **remote_flags}
 
-    # Check for simple remote
-    if location_lower == "remote":
-        return {
-            **empty_result,
-            "is_remote": True,
-        }
-
-    # Check for remote with country (e.g., "Remote - US") - must start with "Remote"
-    if location_lower.startswith("remote") and is_remote_pattern(location_clean):
-        country = extract_country_from_text(location_clean)
-        return {
-            **empty_result,
-            "country": country,
-            "is_remote": True,
-        }
-
-    # Try to extract country from full location first
     country = extract_country_from_text(location_clean)
-
-    # Split by comma
-    parts = [p.strip() for p in location_clean.split(",")]
-    parts = [p for p in parts if p]
-
-    # Check if location ends with remote/hybrid indicator
-    is_remote_job = False
-    if parts and parts[-1].lower() in ["remote", "hybrid", "virtual", "work from home", "wfh"]:
-        parts = parts[:-1]
-        is_remote_job = True
-        if not parts:
-            return {
-                **empty_result,
-                "country": country,
-                "is_remote": True,
-            }
+    parts, is_remote_job = _split_and_clean_parts(location_clean)
 
     if not parts:
+        if is_remote_job:
+            return {**empty_result, "country": country, "is_remote": True}
         return empty_result
 
-    # Handle multi-location (take first only)
-    if len(parts) == 1 and (";" in parts[0] or "|" in parts[0]):
-        first_loc = parts[0].split(";")[0].split("|")[0].strip()
-        parts = [first_loc]
+    city: str | None = None
+    state: str | None = None
 
-    city = None
-    state = None
-
-    # Parse remaining parts
     if len(parts) == 1:
-        first_part = parts[0]
-
-        if is_street_address(first_part):
-            city = extract_city_from_street_address(first_part)
-            if not city:
-                city = extract_city_before_state(first_part)
-            state = extract_state(first_part)
-        elif is_fake_city(first_part):
-            city = None
-        else:
-            # Check if this single part is a known country name
-            potential_country = extract_country_from_text(first_part)
-            if potential_country and first_part.lower() in [
-                "united states",
-                "us",
-                "usa",
-                "u.s.",
-                "u.s",
-                "united kingdom",
-                "uk",
-                "canada",
-                "australia",
-                "germany",
-                "france",
-                "india",
-                "japan",
-                "china",
-                "brazil",
-                "mexico",
-                "spain",
-                "italy",
-                "netherlands",
-                "singapore",
-                "switzerland",
-                "ireland",
-                "israel",
-                "south korea",
-                "taiwan",
-                "hong kong",
-                "sweden",
-                "norway",
-                "denmark",
-                "finland",
-                "belgium",
-                "austria",
-                "poland",
-                "portugal",
-                "argentina",
-                "chile",
-            ]:
-                # Single country name - no city/state
-                country = potential_country
-                city = None
-                state = None
-            else:
-                # Check for "City TX" pattern using pre-compiled pattern
-                city_state_match = _CITY_STATE_PATTERN.match(first_part.strip())
-                if city_state_match:
-                    potential_city = city_state_match.group(1).strip()
-                    state_abbr = city_state_match.group(2)
-                    if not is_fake_city(potential_city):
-                        city = potential_city
-                        # Try to infer country from city for context
-                        inferred_country = infer_country_from_city(potential_city)
-                        state = expand_state_abbreviation(state_abbr, inferred_country)
-                else:
-                    # For single part, check if it's a major city that can infer country
-                    # (prefer city interpretation over state interpretation)
-                    inferred_country = infer_country_from_city(first_part)
-                    if inferred_country:
-                        city = first_part
-                        country = inferred_country
-                    # Check if this single part is a known state/province name
-                    elif extract_state(first_part):
-                        state = extract_state(first_part)
-                        city = None
-                    else:
-                        city = first_part
-
+        city, state, country = _parse_one_part(parts[0], country)
     elif len(parts) == 2:
-        first, second = parts[0], parts[1]
+        city, state, country = _parse_two_parts(parts[0], parts[1], country)
+    else:
+        city, state, country = _parse_three_or_more(parts, country)
 
-        # Detect country from second part first for context-aware state extraction
-        second_country = extract_country_from_text(second)
-
-        # Special case: two DIFFERENT US states (e.g., "California, Washington") - data bug
-        # Note: "New York, NY" is valid because city and state have the same name
-        first_state = extract_state(first, second_country)
-        second_state = extract_state(second, second_country)
-        if first_state and second_state and first_state != second_state:
-            # Two different states - this is ambiguous/bad data
-            return {
-                **empty_result,
-                "country": COUNTRY_UNITED_STATES,
-            }
-
-        if is_street_address(first):
-            city = extract_city_from_street_address(first)
-            state = extract_state(second, second_country)
-
-            if not city:
-                city = extract_city_before_state(second)
-        else:
-            # Try to extract state FIRST (important: CA, NY, etc. are state abbreviations)
-            state = extract_state(second, second_country)
-
-            if state:
-                # Second part is a state - use first part as city
-                city = first if not is_fake_city(first) else None
-            else:
-                # Check if second part is a country
-                if second_country and len(second.strip()) <= 20:
-                    # Check if first part is actually a state (e.g., "Pennsylvania, United States")
-                    first_state = extract_state(first, second_country)
-                    if first_state and infer_country_from_state(first_state) == second_country:
-                        # First part is a state in this country - use it as state, not city
-                        state = first_state
-                        city = None
-                        country = second_country
-                    else:
-                        city = first if not is_fake_city(first) else None
-                        country = second_country
-                        state = None
-                else:
-                    city = first if not is_fake_city(first) else None
-
-    elif len(parts) >= 3:
-        # First detect country from the last part to provide context for state abbreviation
-        detected_country = extract_country_from_text(parts[-1])
-
-        if is_street_address(parts[0]):
-            city = parts[1] if not is_fake_city(parts[1]) else None
-            state = extract_state(parts[2], detected_country) if len(parts) > 2 else None
-        else:
-            city = parts[0] if not is_fake_city(parts[0]) else None
-            potential_state = extract_state(parts[1], detected_country)
-
-            # Don't treat a repeated city name as a state
-            # (e.g., "Singapore, Singapore, Singapore" or "Tokyo, Tokyo, Japan")
-            if potential_state and city and potential_state.lower() == city.lower():
-                state = None
-            else:
-                state = potential_state
-
-            # Also check parts[2] for country if state wasn't found
-            if not state and len(parts) > 2:
-                potential_country = extract_country_from_text(parts[2])
-                if potential_country:
-                    country = potential_country
-
-            # Use detected country if we found one
-            if detected_country:
-                country = detected_country
-
-    # Normalize state name (fix DC variations, accents, etc.)
     if state:
         state = normalize_state_name(state)
 
-    # Clean city name
     if city:
         city = clean_city_name(city)
         if city and city.lower() not in location_lower:
             city = None
 
-    # Infer country - prefer state-based inference FIRST
-    # (e.g., "Vancouver, BC" should be Canada, not US)
-    if not country:
-        country = infer_country_from_state(state)
+    country, city = _infer_and_validate_country(city, state, country)
 
-    # Only infer from city if state didn't provide a country
-    inferred_from_city = None
-    if not country and city:
-        inferred_from_city = infer_country_from_city(city)
-
-    # If city is actually a country or state/region (not a real city), clear it
-    # Use the validation sets, NOT normalize_state_name() which incorrectly
-    # treats valid cities like "Vancouver" as invalid
-    if city:
-        city_lower = city.lower()
-        # Cities that share names with states should be kept (e.g., New York, Washington)
-        major_city_state_names = {
-            "new york",
-            "washington",
-            "delhi",
-            "goa",
-        }
-        if city_lower in _COUNTRIES_AS_CITIES:
-            # This is a country, not a city - clear it
-            if inferred_from_city:
-                country = inferred_from_city
-            city = None
-        elif city_lower in _STATES_AS_CITIES and city_lower not in major_city_state_names:
-            # This is a state/region, not a city - clear it
-            if inferred_from_city:
-                country = inferred_from_city
-            city = None
-
-    # Final fallback: infer from city if still no country
-    if not country and city:
-        country = infer_country_from_city(city)
-
-    # Build full location string
     full_parts = [p for p in [city, state, country] if p]
     full_location = ", ".join(full_parts) if full_parts else location_clean
 
