@@ -6,12 +6,17 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from internnexus_core.embedding import (
+    OLLAMA_PROVIDER,
+    embedding_provider_label,
+    normalize_embedding_provider,
+)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.config import get_settings
-from pipeline.runtime.config import get_config
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -56,16 +61,17 @@ async def check_database(session: AsyncSession | None = None) -> HealthCheckResu
 
 async def check_embedding_service() -> HealthCheckResult:
     settings = get_settings()
+    provider = normalize_embedding_provider(settings.embedding_provider)
 
-    if settings.embedding_provider == "ollama":
+    if provider == OLLAMA_PROVIDER:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{settings.ollama_base_url}/api/tags")
+                resp = await client.get(f"{settings.openai_base_url}/api/tags")
                 if resp.status_code == 200:
                     return HealthCheckResult(
                         name="Embedding Service (Ollama)",
                         healthy=True,
-                        message=f"Ollama server reachable at {settings.ollama_base_url}",
+                        message=f"Ollama server reachable at {settings.openai_base_url}",
                     )
                 return HealthCheckResult(
                     name="Embedding Service (Ollama)",
@@ -82,7 +88,7 @@ async def check_embedding_service() -> HealthCheckResult:
     return HealthCheckResult(
         name="Embedding Service",
         healthy=True,
-        message=f"Using {settings.embedding_provider} provider",
+        message=f"Using {embedding_provider_label(provider)} provider",
     )
 
 

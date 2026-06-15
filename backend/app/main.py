@@ -15,7 +15,7 @@ from app.api.admin import router as admin_router
 from app.api.jobs import router as jobs_router
 from app.api.matching import router as matching_router
 from app.api.users import router as users_router
-from app.cache.cache_service import close_redis_pool, get_redis
+from app.cache.cache_service import close_cache_service, get_redis
 from app.config import get_settings
 from app.db import async_engine
 from app.http_client.client import close_http_client
@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan events."""
     setup_query_timing(async_engine)
     yield
-    await close_redis_pool()
+    await close_cache_service()
     await close_http_client()
 
 

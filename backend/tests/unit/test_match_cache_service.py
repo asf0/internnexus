@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
 from app.api.schemas import MatchResult
+from app.cache.cache_service import close_cache_service
 from app.services.match_cache import MatchCacheService
 
 
@@ -95,3 +97,22 @@ async def test_resume_hash_mapping_roundtrip():
 
     assert ok is True
     assert cached == session_id
+
+
+@pytest.mark.asyncio
+async def test_default_services_share_in_memory_cache(monkeypatch):
+    monkeypatch.setattr("app.cache.cache_service.get_settings", lambda: SimpleNamespace(redis_url=""))
+    await close_cache_service()
+
+    try:
+        user_id = uuid4()
+        writer = MatchCacheService()
+        reader = MatchCacheService()
+
+        ok = await writer.cache_resume_session(user_id, "abc123", 0.5, "session-4", ttl=60)
+        cached = await reader.get_cached_session_for_resume(user_id, "abc123", 0.5)
+
+        assert ok is True
+        assert cached == "session-4"
+    finally:
+        await close_cache_service()

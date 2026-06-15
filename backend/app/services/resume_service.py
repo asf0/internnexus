@@ -4,7 +4,9 @@ import base64
 import hashlib
 import io
 import logging
+import multiprocessing
 import re
+from queue import Empty
 from typing import BinaryIO
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -17,6 +19,9 @@ logger = logging.getLogger(__name__)
 # Resource limits for PDF parsing to prevent crafted-file exhaustion.
 _MAX_PDF_PAGES = 50
 _MAX_EXTRACTED_TEXT_LENGTH = 1_000_000  # 1MB of text
+_PDF_PARSE_TIMEOUT_SECONDS = 10.0
+_PDF_WORKER_SHUTDOWN_SECONDS = 1.0
+_PDF_RESULT_QUEUE_TIMEOUT_SECONDS = 0.2
 
 _SAFE_RESUME_PROCESSING_MESSAGES = {
     "Cannot encrypt empty resume text",
@@ -27,6 +32,7 @@ _SAFE_RESUME_PROCESSING_MESSAGES = {
     "Only PDF and TXT files are accepted",
     "PDF has too many pages (max 50)",
     "Extracted text is too long",
+    "PDF parsing timed out",
 }
 _PDF_EXTRACTION_ERROR = "Could not extract text from PDF. Please upload a text-based PDF or TXT file."
 _TEXT_DECODE_ERROR = "Failed to decode text file"
@@ -114,7 +120,7 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
 
         file_obj.seek(0)
         pdf_bytes = file_obj.read()
-        text = (pdfminer_extract(io.BytesIO(pdf_bytes)) or "").strip()
+        text = (pdfminer_extract(io.BytesIO(pdf_bytes), maxpages=_MAX_PDF_PAGES) or "").strip()
         if text:
             if len(text) > _MAX_EXTRACTED_TEXT_LENGTH:
                 raise ResumeProcessingError("Extracted text is too long")
@@ -134,7 +140,12 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
             decoded = _decode_text_bytes(content)
             printable = "".join(c for c in decoded if c.isprintable() or c in "\n\r\t ")
             if len(printable.strip()) > 100:
-                return printable.strip()
+                printable = printable.strip()
+                if len(printable) > _MAX_EXTRACTED_TEXT_LENGTH:
+                    raise ResumeProcessingError("Extracted text is too long")
+                return printable
+    except ResumeProcessingError:
+        raise
     except Exception as exc:  # noqa: BLE001  # any text fallback failure is recorded for the final error
         logger.debug("text fallback failed to extract resume text", exc_info=exc)
         errors.append("text fallback failed")
@@ -142,6 +153,48 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
     raise ResumeProcessingError(
         "Could not extract text from PDF. " + "; ".join(errors) if errors else "Unknown parser error"
     )
+
+
+def _pdf_parse_worker(file_content: bytes, result_queue: multiprocessing.Queue) -> None:
+    try:
+        text = extract_text_from_pdf(io.BytesIO(file_content))
+    except ResumeProcessingError as exc:
+        result_queue.put(("resume_error", str(exc)))
+    except Exception:  # noqa: BLE001  # raw parser errors are intentionally hidden from clients
+        logger.exception("Unexpected PDF parser worker failure")
+        result_queue.put(("error", _PDF_EXTRACTION_ERROR))
+    else:
+        result_queue.put(("ok", text))
+
+
+def _extract_text_from_pdf_with_budget(file_content: bytes) -> str:
+    """Extract PDF text in a child process so parser timeouts are enforceable."""
+    context = multiprocessing.get_context()
+    result_queue = context.Queue(maxsize=1)
+    process = context.Process(target=_pdf_parse_worker, args=(file_content, result_queue))
+    process.start()
+    process.join(_PDF_PARSE_TIMEOUT_SECONDS)
+
+    try:
+        if process.is_alive():
+            process.terminate()
+            process.join(_PDF_WORKER_SHUTDOWN_SECONDS)
+            if process.is_alive() and hasattr(process, "kill"):
+                process.kill()
+                process.join(_PDF_WORKER_SHUTDOWN_SECONDS)
+            raise ResumeProcessingError("PDF parsing timed out")
+
+        try:
+            status, payload = result_queue.get(timeout=_PDF_RESULT_QUEUE_TIMEOUT_SECONDS)
+        except Empty as exc:
+            raise ResumeProcessingError(_PDF_EXTRACTION_ERROR) from exc
+
+        if status == "ok":
+            return str(payload)
+        raise ResumeProcessingError(str(payload))
+    finally:
+        result_queue.close()
+        result_queue.join_thread()
 
 
 def extract_resume_text(file_name: str, file_content: bytes) -> str:
@@ -159,7 +212,7 @@ def extract_resume_text(file_name: str, file_content: bytes) -> str:
     if lower.endswith(".pdf"):
         if not file_content.startswith(b"%PDF"):
             raise ResumeProcessingError("Invalid PDF file header")
-        text = extract_text_from_pdf(io.BytesIO(file_content))
+        text = _extract_text_from_pdf_with_budget(file_content)
         if not text:
             raise ResumeProcessingError("Resume text is empty")
         return text

@@ -1,161 +1,156 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+    push:
+        branches: [main]
+    workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: docker
-    container:
-      image: docker:24-cli
-    steps:
-      - name: Install Git
-        run: apk add --no-cache git curl
+    deploy:
+        runs-on: docker
+        container:
+            image: docker:24-cli
+        steps:
+            - name: Install Git
+              run: apk add --no-cache git curl
 
-      - name: Checkout
-        run: |
-          git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-          git fetch --depth 1 origin ${{ gitea.sha }}
-          git checkout --detach FETCH_HEAD
+            - name: Checkout
+              run: |
+                  git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+                  git fetch --depth 1 origin ${{ gitea.sha }}
+                  git checkout --detach FETCH_HEAD
 
-      - name: Create .env file
-        run: |
-          cat > .env << EOF
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          AUTH_SECRET=${{ secrets.AUTH_SECRET }}
-          OLLAMA_BASE_URL=${{ vars.OLLAMA_BASE_URL }}
-          EMBEDDING_PROVIDER=${{ vars.EMBEDDING_PROVIDER }}
-          EMBEDDING_MODEL=${{ vars.EMBEDDING_MODEL }}
-          CLASSIFICATION_MODEL=${{ vars.CLASSIFICATION_MODEL }}
-          CLOUDFLARED_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}
-          GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}
-          GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
-          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GREENHOUSE_API_URL=${{ vars.GREENHOUSE_API_URL }}
-          LEVER_API_URL=${{ vars.LEVER_API_URL }}
-          SIMPLIFY_JOBS_INTERN_URL=${{ vars.SIMPLIFY_JOBS_INTERN_URL }}
-          SIMPLIFY_JOBS_NEW_GRAD_URL=${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
-          NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
-          AUTH_URL=${{ vars.AUTH_URL }}
-          BACKEND_URL=${{ vars.BACKEND_URL }}
-          NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL }}
-          CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
-          OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY_B64 }}
-          OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PRIVATE_KEY_B64 }}
-          IMAGE_TAG=${{ gitea.sha }}
-          EOF
+            - name: Create .env file
+              run: |
+                  cat > .env << EOF
+                  POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+                  POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+                  POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+                  AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+                  OPENAI_BASE_URL=${{ vars.OPENAI_BASE_URL }}
+                  EMBEDDING_PROVIDER=${{ vars.EMBEDDING_PROVIDER }}
+                  EMBEDDING_MODEL=${{ vars.EMBEDDING_MODEL }}
+                  CLASSIFICATION_MODEL=${{ vars.CLASSIFICATION_MODEL }}
+                  CLOUDFLARED_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}
+                  GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}
+                  GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
+                  GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+                  GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+                  GREENHOUSE_API_URL=${{ vars.GREENHOUSE_API_URL }}
+                  LEVER_API_URL=${{ vars.LEVER_API_URL }}
+                  SIMPLIFY_JOBS_INTERN_URL=${{ vars.SIMPLIFY_JOBS_INTERN_URL }}
+                  SIMPLIFY_JOBS_NEW_GRAD_URL=${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
+                  NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+                  AUTH_URL=${{ vars.AUTH_URL }}
+                  BACKEND_URL=${{ vars.BACKEND_URL }}
+                  NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL }}
+                  CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
+                  OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PUBLIC_KEY_B64 }}
+                  OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${{ secrets.OAUTH_ENCRYPTION_PRIVATE_KEY_B64 }}
+                  IMAGE_TAG=${{ gitea.sha }}
+                  EOF
 
-      - name: Detect changed services
-        id: changes
-        run: |
-          set -e
-          # Get the list of changed files between previous commit and HEAD
-          if [ "${{ gitea.sha }}" != "" ]; then
-            PREV_COMMIT=$(git rev-parse HEAD~1 2>/dev/null || echo "HEAD")
-            CHANGED_FILES=$(git diff --name-only $PREV_COMMIT HEAD 2>/dev/null || echo "")
-          else
-            CHANGED_FILES="backend frontend pipeline"
-          fi
-          
-          # Check which services changed
-          REBUILD_BACKEND="false"
-          REBUILD_FRONTEND="false"
-          REBUILD_PIPELINE="false"
-          
-          if echo "$CHANGED_FILES" | grep -qE "^(backend/|\.gitea/workflows/deploy\.yml)"; then
-            REBUILD_BACKEND="true"
-          fi
-          
-          if echo "$CHANGED_FILES" | grep -qE "^(frontend/|\.gitea/workflows/deploy\.yml)"; then
-            REBUILD_FRONTEND="true"
-          fi
-          
-          if echo "$CHANGED_FILES" | grep -qE "^(pipeline/|\.gitea/workflows/deploy\.yml)"; then
-            REBUILD_PIPELINE="true"
-          fi
-          
-          echo "backend=$REBUILD_BACKEND" >> $GITHUB_OUTPUT
-          echo "frontend=$REBUILD_FRONTEND" >> $GITHUB_OUTPUT
-          echo "pipeline=$REBUILD_PIPELINE" >> $GITHUB_OUTPUT
-          
-          echo "Changed files detected:"
-          echo "$CHANGED_FILES"
-          echo ""
-          echo "Services to rebuild: backend=$REBUILD_BACKEND frontend=$REBUILD_FRONTEND pipeline=$REBUILD_PIPELINE"
+            - name: Detect changed services
+              id: changes
+              run: |
+                  set -e
+                  # Get the list of changed files between previous commit and HEAD
+                  if [ "${{ gitea.sha }}" != "" ]; then
+                    PREV_COMMIT=$(git rev-parse HEAD~1 2>/dev/null || echo "HEAD")
+                    CHANGED_FILES=$(git diff --name-only $PREV_COMMIT HEAD 2>/dev/null || echo "")
+                  else
+                    CHANGED_FILES="backend frontend pipeline"
+                  fi
 
-      - name: Deploy with Docker Compose
-        run: |
-          set -e
-          docker compose pull || true
-          # Start stateful deps first.
-          docker compose up -d db
-          
-          # Build and start app services based on what changed
-          BUILD_ARGS=""
-          [ "${{ steps.changes.outputs.backend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS backend"
-          [ "${{ steps.changes.outputs.frontend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS frontend"
-          [ "${{ steps.changes.outputs.pipeline }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS pipeline"
-          
-          if [ -z "$BUILD_ARGS" ]; then
-            echo "⚠️  No services changed. Starting containers without rebuild..."
-            docker compose up -d backend frontend pipeline
-          else
-            echo "🔨 Rebuilding changed services: $BUILD_ARGS"
-            docker compose up -d --build $BUILD_ARGS
-          fi
-          
-          docker compose up -d cloudflared
-          docker compose images
+                  # Check which services changed
+                  REBUILD_BACKEND="false"
+                  REBUILD_FRONTEND="false"
+                  REBUILD_PIPELINE="false"
 
-      - name: Health Check
-        run: |
-          set -e
-          sleep 20
-          docker exec internnexus-backend curl -f http://localhost:8000/health
-          docker exec internnexus-frontend curl -f http://localhost:3000/
+                  if echo "$CHANGED_FILES" | grep -qE "^(backend/|\.gitea/workflows/deploy\.yml)"; then
+                    REBUILD_BACKEND="true"
+                  fi
 
-      - name: Dump container logs on failure
-        if: failure()
-        run: |
-          echo "=== docker compose ps ==="
-          docker compose ps || true
-          echo "=== backend logs ==="
-          docker logs --tail 300 internnexus-backend || true
-          echo "=== pipeline logs ==="
-          docker logs --tail 300 internnexus-pipeline || true
-          echo "=== frontend logs ==="
-          docker logs --tail 200 internnexus-frontend || true
+                  if echo "$CHANGED_FILES" | grep -qE "^(frontend/|\.gitea/workflows/deploy\.yml)"; then
+                    REBUILD_FRONTEND="true"
+                  fi
 
-      - name: Tear down on failure
-        if: failure()
-        run: |
-          echo "DEPLOY FAILED — tearing down containers"
-          docker compose down || true
+                  if echo "$CHANGED_FILES" | grep -qE "^(pipeline/|\.gitea/workflows/deploy\.yml)"; then
+                    REBUILD_PIPELINE="true"
+                  fi
 
-      - name: Deploy failure summary
-        if: failure()
-        run: |
-          echo ""
-          echo "============================================"
-          echo "  DEPLOY FAILED"
-          echo "============================================"
-          echo ""
-          echo "Commit:  ${{ gitea.sha }}"
-          echo "Trigger: ${{ gitea.event_name }}"
-          echo "Branch:  ${{ gitea.ref_name }}"
-          echo ""
-          echo "Action required:"
-          echo "  1. Review container logs above"
-          echo "  2. Check service health endpoints"
-          echo "  3. Verify database connectivity"
-          echo "  4. Roll back manually if needed:"
-          echo "     docker compose down"
-          echo "     git checkout <previous-commit>"
-          echo "     docker compose up -d --build"
-          echo ""
-          echo "============================================"
+                  echo "backend=$REBUILD_BACKEND" >> $GITHUB_OUTPUT
+                  echo "frontend=$REBUILD_FRONTEND" >> $GITHUB_OUTPUT
+                  echo "pipeline=$REBUILD_PIPELINE" >> $GITHUB_OUTPUT
+
+                  echo "Changed files detected:"
+                  echo "$CHANGED_FILES"
+                  echo ""
+                  echo "Services to rebuild: backend=$REBUILD_BACKEND frontend=$REBUILD_FRONTEND pipeline=$REBUILD_PIPELINE"
+
+            - name: Deploy with Docker Compose
+              run: |
+                  set -e
+                  docker compose pull || true
+                  # Start stateful deps first.
+                  docker compose up -d db
+
+                  # Build and start app services based on what changed
+                  BUILD_ARGS=""
+                  [ "${{ steps.changes.outputs.backend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS backend"
+                  [ "${{ steps.changes.outputs.frontend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS frontend"
+                  [ "${{ steps.changes.outputs.pipeline }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS pipeline"
+
+                  if [ -z "$BUILD_ARGS" ]; then
+                    echo "⚠️  No services changed. Starting containers without rebuild..."
+                    docker compose up -d backend frontend pipeline
+                  else
+                    echo "🔨 Rebuilding changed services: $BUILD_ARGS"
+                    docker compose up -d --build $BUILD_ARGS
+                  fi
+
+                  docker compose up -d cloudflared
+                  docker compose images
+
+            - name: Health Check
+              run: |
+                  set -e
+                  sleep 20
+                  docker exec internnexus-backend curl -f http://localhost:8000/health
+                  docker exec internnexus-frontend curl -f http://localhost:3000/
+
+            - name: Dump container logs on failure
+              if: failure()
+              run: |
+                  echo "=== docker compose ps ==="
+                  docker compose ps || true
+                  echo "=== backend logs ==="
+                  docker logs --tail 300 internnexus-backend || true
+                  echo "=== pipeline logs ==="
+                  docker logs --tail 300 internnexus-pipeline || true
+                  echo "=== frontend logs ==="
+                  docker logs --tail 200 internnexus-frontend || true
+
+            - name: Deploy failure summary
+              if: failure()
+              run: |
+                  echo ""
+                  echo "============================================"
+                  echo "  DEPLOY FAILED"
+                  echo "============================================"
+                  echo ""
+                  echo "Commit:  ${{ gitea.sha }}"
+                  echo "Trigger: ${{ gitea.event_name }}"
+                  echo "Branch:  ${{ gitea.ref_name }}"
+                  echo ""
+                  echo "Action required:"
+                  echo "  1. Review container logs above"
+                  echo "  2. Check service health endpoints"
+                  echo "  3. Verify database connectivity"
+                  echo "  4. Roll back manually only after choosing a known-good commit:"
+                  echo "     git checkout <previous-commit>"
+                  echo "     docker compose up -d --build"
+                  echo ""
+                  echo "No automatic docker compose down was run; existing containers were left in place for inspection."
+                  echo ""
+                  echo "============================================"

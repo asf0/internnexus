@@ -7,11 +7,17 @@ service-local settings and delegates to the shared implementation.
 from __future__ import annotations
 
 from internnexus_core.embedding import (
+    OLLAMA_PROVIDER,
+    OPENAI_COMPATIBLE_PROVIDER,
     EmbeddingConfig,
     EmbeddingError,
-    QueryEmbeddingService as _CoreQueryEmbeddingService,
     RateLimitError,
     _is_retryable_exception,
+    embedding_provider_label,
+    normalize_embedding_provider,
+)
+from internnexus_core.embedding import (
+    QueryEmbeddingService as _CoreQueryEmbeddingService,
 )
 
 from app.config import get_settings
@@ -19,9 +25,13 @@ from app.config import get_settings
 __all__ = [
     "EmbeddingConfig",
     "EmbeddingError",
+    "OPENAI_COMPATIBLE_PROVIDER",
+    "OLLAMA_PROVIDER",
     "QueryEmbeddingService",
     "RateLimitError",
+    "embedding_provider_label",
     "_is_retryable_exception",
+    "normalize_embedding_provider",
 ]
 
 
@@ -39,7 +49,7 @@ class QueryEmbeddingService:
                 provider=settings.embedding_provider,
                 model=settings.embedding_model,
                 dimensions=settings.embedding_dimensions,
-                base_url=settings.ollama_base_url,
+                base_url=settings.openai_base_url,
             ),
             model=model,
         )
@@ -60,26 +70,26 @@ class QueryEmbeddingService:
     async def _embed_ollama_impl(self, text: str) -> list[float]:
         return await self._service._embed_ollama_impl(text)
 
-    async def _embed_lmstudio(self, text: str) -> list[float]:
-        return await self._service._embed_lmstudio(text)
+    async def _embed_openai_compatible(self, text: str) -> list[float]:
+        return await self._service._embed_openai_compatible(text)
 
-    async def _embed_lmstudio_impl(self, text: str) -> list[float]:
-        return await self._service._embed_lmstudio_impl(text)
+    async def _embed_openai_compatible_impl(self, text: str) -> list[float]:
+        return await self._service._embed_openai_compatible_impl(text)
 
-    async def _embed_many_lmstudio(self, texts: list[str], batch_size: int) -> list[list[float]]:
-        return await self._service._embed_many_lmstudio(texts, batch_size=batch_size)
+    async def _embed_many_openai_compatible(self, texts: list[str], batch_size: int) -> list[list[float]]:
+        return await self._service._embed_many_openai_compatible(texts, batch_size=batch_size)
 
-    async def _embed_lmstudio_many_impl(self, texts: list[str]) -> list[list[float]]:
-        return await self._service._embed_lmstudio_many_impl(texts)
+    async def _embed_openai_compatible_many_impl(self, texts: list[str]) -> list[list[float]]:
+        return await self._service._embed_openai_compatible_many_impl(texts)
 
     def _coerce_embedding_dimensions(self, embedding: list[float]) -> list[float]:
         return self._service._coerce_embedding_dimensions(embedding)
 
-    def _parse_lmstudio_embeddings(self, data: dict, expected_count: int) -> list[list[float]]:
-        return self._service._parse_lmstudio_embeddings(data, expected_count)
+    def _parse_openai_compatible_embeddings(self, data: dict, expected_count: int) -> list[list[float]]:
+        return self._service._parse_openai_compatible_embeddings(data, expected_count)
 
-    def _handle_lmstudio_http_status(self, exc) -> None:
-        return self._service._handle_lmstudio_http_status(exc)
+    def _handle_openai_compatible_http_status(self, exc) -> None:
+        return self._service._handle_openai_compatible_http_status(exc)
 
     # -- Expose internal attributes for test monkeypatching --
 

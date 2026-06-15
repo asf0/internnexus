@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     embedding_provider: str
     embedding_model: str
     embedding_dimensions: int = 2560
-    ollama_base_url: str
-    ollama_classification_url: str | None = None
+    openai_base_url: str
+    openai_classification_url: str | None = None
 
     classification_model: str | None = None
     classification_timeout_seconds: float = 90.0

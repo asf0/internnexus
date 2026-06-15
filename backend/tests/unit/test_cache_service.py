@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from app.cache.cache_service import (
     CacheService,
     InMemoryCacheService,
+    close_cache_service,
     get_cache_service,
 )
 
@@ -81,20 +83,33 @@ class TestInMemoryCacheService:
 class TestCacheFactory:
     """Tests for get_cache_service factory behavior."""
 
+    @pytest.fixture(autouse=True)
+    async def _reset_process_cache(self) -> None:
+        await close_cache_service()
+        yield
+        await close_cache_service()
+
     @pytest.mark.asyncio
     async def test_returns_in_memory_when_redis_url_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from app.config import Settings
-
-        def fake_get_settings() -> Settings:
-            return Settings(
-                postgres_db="test",
-                postgres_user="test",
-                postgres_password="test",
-                auth_secret="test-secret-at-least-32-characters-long",
-                redis_url="",
-            )
-
-        monkeypatch.setattr("app.cache.cache_service.get_settings", fake_get_settings)
+        monkeypatch.setattr(
+            "app.cache.cache_service.get_settings",
+            lambda: SimpleNamespace(redis_url=""),
+        )
         service = await get_cache_service()
         assert isinstance(service, InMemoryCacheService)
-        await service.close()
+
+    @pytest.mark.asyncio
+    async def test_in_memory_service_is_shared_across_factory_calls(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "app.cache.cache_service.get_settings",
+            lambda: SimpleNamespace(redis_url=""),
+        )
+
+        first = await get_cache_service()
+        second = await get_cache_service()
+
+        assert first is second
+        await first.set("shared:key", {"value": 42}, ttl=60)
+        assert await second.get("shared:key") == {"value": 42}

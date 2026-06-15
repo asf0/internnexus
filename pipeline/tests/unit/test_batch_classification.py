@@ -4,7 +4,6 @@ import json
 from types import SimpleNamespace
 
 import pytest
-
 from pipeline.classification import service
 
 
@@ -39,7 +38,7 @@ def test_extract_batch_categories_rejects_invalid_json():
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_batch_classification_uses_one_request(monkeypatch):
+async def test_openai_compatible_batch_classification_uses_one_request(monkeypatch):
     calls: list[tuple[str, dict[str, object]]] = []
 
     class _Response:
@@ -73,9 +72,9 @@ async def test_lmstudio_batch_classification_uses_one_request(monkeypatch):
         "get_settings",
         lambda: SimpleNamespace(
             resolved_classification_model="qwen3.6-35b-a3b:code",
-            ollama_base_url="http://192.168.0.4:8080",
-            ollama_classification_url="http://192.168.0.4:8080",
-            embedding_provider="lmstudio",
+            openai_base_url="http://192.168.0.4:8080",
+            openai_classification_url="http://192.168.0.4:8080",
+            embedding_provider="openai-compatible",
             classification_timeout_seconds=90.0,
             classification_max_concurrent=1,
             classification_batch_size=10,
@@ -114,9 +113,9 @@ async def test_batch_classification_falls_back_to_individual_on_bad_json(monkeyp
         "get_settings",
         lambda: SimpleNamespace(
             resolved_classification_model="model",
-            ollama_base_url="http://localhost:8080",
-            ollama_classification_url=None,
-            embedding_provider="lmstudio",
+            openai_base_url="http://localhost:8080",
+            openai_classification_url=None,
+            embedding_provider="openai-compatible",
             classification_timeout_seconds=90.0,
             classification_max_concurrent=1,
             classification_batch_size=10,

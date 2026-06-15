@@ -744,7 +744,7 @@ async def export_users_csv(
                 "has_password": str(user.hashed_password is not None),
                 "admin_role": _sanitize_csv_cell(admin_role),
                 "provider": _sanitize_csv_cell(provider),
-                "created_at": user.created_at.isoformat() if user.created_at else "",
+                "created_at": _sanitize_csv_cell(user.created_at.isoformat() if user.created_at else ""),
                 "notes": _sanitize_csv_cell(user.notes),
             }
         )

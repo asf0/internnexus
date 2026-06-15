@@ -1,163 +1,151 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main, develop]
-  workflow_dispatch:
-
-env:
-  POSTGRES_HOST: localhost
-  POSTGRES_PORT: "5432"
-  EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
-  EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
-  OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
-  CLASSIFICATION_MODEL: ${{ vars.CLASSIFICATION_MODEL }}
-  REDIS_URL: ${{ vars.REDIS_URL }}
-  GREENHOUSE_API_URL: ${{ vars.GREENHOUSE_API_URL }}
-  LEVER_API_URL: ${{ vars.LEVER_API_URL }}
-  SIMPLIFY_JOBS_INTERN_URL: ${{ vars.SIMPLIFY_JOBS_INTERN_URL }}
-  SIMPLIFY_JOBS_NEW_GRAD_URL: ${{ vars.SIMPLIFY_JOBS_NEW_GRAD_URL }}
+    pull_request:
+        branches: [main, develop]
+    workflow_dispatch:
 
 jobs:
-  backend:
-    name: Backend Checks
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.head_commit ||
-      contains(github.event.pull_request.changed_files.*.filename, 'backend/') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'backend/pyproject.toml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
-    runs-on: docker
-    container:
-      image: python:3.12-slim
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17
+    backend:
+        name: Backend Checks
+        runs-on: docker
+        container:
+            image: python:3.12-slim
+        services:
+            postgres:
+                image: pgvector/pgvector:pg18
+                env:
+                    POSTGRES_DB: test_db
+                    POSTGRES_USER: test
+                    POSTGRES_PASSWORD: test
+                options: >-
+                    --health-cmd "pg_isready -U test -d test_db"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
         env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        options: >-
-          --health-cmd "pg_isready -U test -d test_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      POSTGRES_DB: test_db
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      TEST_DATABASE_URL: postgresql+asyncpg://test:test@postgres:5432/test_db
-      AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
-      REDIS_URL: ""
-      EMBEDDING_PROVIDER: ollama
-      EMBEDDING_MODEL: test-embedding-model
-      OLLAMA_BASE_URL: http://localhost:11434
-    steps:
-      - name: Install Dependencies
-        run: apt-get update && apt-get install -y git libatomic1
+            POSTGRES_DB: test_db
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: test
+            POSTGRES_HOST: postgres
+            POSTGRES_PORT: "5432"
+            TEST_DATABASE_URL: postgresql+asyncpg://test:test@postgres:5432/test_db
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            REDIS_URL: ""
+            EMBEDDING_PROVIDER: openai
+            EMBEDDING_MODEL: test-embedding-model
+            OPENAI_BASE_URL: http://localhost:11434
+        steps:
+            - name: Install Dependencies
+              run: apt-get update && apt-get install -y git libatomic1
 
-      - name: Checkout
-        run: |
-          git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-          git fetch --depth 1 origin ${{ gitea.sha }}
-          git checkout --detach FETCH_HEAD
+            - name: Checkout
+              run: |
+                  git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+                  git fetch --depth 1 origin ${{ gitea.sha }}
+                  git checkout --detach FETCH_HEAD
 
-      - name: Install uv
-        run: pip install uv
+            - name: Install uv
+              run: pip install uv
 
-      - name: Sync dependencies
-        run: cd backend && uv sync --frozen --group dev
+            - name: Sync dependencies
+              run: cd backend && uv sync --frozen --group dev
 
-      - name: Lint (ruff)
-        run: cd backend && uv run ruff check app tests
+            - name: Lint (ruff)
+              run: cd backend && uv run ruff check app tests
 
-      - name: Run unit tests
-        run: cd backend && uv run pytest tests/unit -q --tb=short --cov=app --cov-report=term-missing
+            - name: Run unit tests
+              run: cd backend && uv run pytest tests/unit -q --tb=short --cov=app --cov-report=term-missing
 
-      - name: Run integration, E2E, and property tests
-        run: cd backend && uv run pytest tests/integration tests/e2e tests/property -q --tb=short
+            - name: Run integration, E2E, and property tests
+              run: cd backend && uv run pytest tests/integration tests/e2e tests/property -q --tb=short
 
-      - name: Validate imports
-        run: cd backend && uv run pytest tests/test_import_chains.py -q
+            - name: Validate imports
+              run: cd backend && uv run pytest tests/test_import_chains.py -q
 
-  frontend:
-    name: Frontend Checks
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.changed_files.*.filename, 'frontend/') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'frontend/package.json') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'frontend/pnpm-lock.yaml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
-    runs-on: docker
-    container:
-      image: node:22-slim
-    steps:
-      - name: Install Dependencies
-        run: apt-get update && apt-get install -y git
+    frontend:
+        name: Frontend Checks
+        runs-on: docker
+        container:
+            image: node:22-slim
+        env:
+            BACKEND_URL: http://localhost:8000
+            NEXT_PUBLIC_BASE_URL: http://localhost:3000
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            GH_CLIENT_ID: test-github-client-id
+            GH_CLIENT_SECRET: test-github-client-secret
+            GOOGLE_CLIENT_ID: test-google-client-id
+            GOOGLE_CLIENT_SECRET: test-google-client-secret
+        steps:
+            - name: Install Dependencies
+              run: apt-get update && apt-get install -y git
 
-      - name: Checkout
-        run: |
-          git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-          git fetch --depth 1 origin ${{ gitea.sha }}
-          git checkout --detach FETCH_HEAD
+            - name: Checkout
+              run: |
+                  git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+                  git fetch --depth 1 origin ${{ gitea.sha }}
+                  git checkout --detach FETCH_HEAD
 
-      - name: Install dependencies
-        run: corepack enable && cd frontend && pnpm install --frozen-lockfile
+            - name: Install dependencies
+              run: corepack enable && cd frontend && pnpm install --frozen-lockfile
 
-      - name: Type check (lint)
-        run: cd frontend && pnpm run lint
+            - name: Type check (lint)
+              run: cd frontend && pnpm run lint
 
-      - name: Run tests
-        run: cd frontend && pnpm test
+            - name: Run tests
+              run: cd frontend && pnpm test
 
-      - name: Build
-        run: cd frontend && pnpm run build
+            - name: Build
+              run: cd frontend && pnpm run build
 
-  pipeline:
-    name: Pipeline Checks
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pipeline/') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pipeline/pyproject.toml') ||
-      contains(github.event.pull_request.changed_files.*.filename, 'pipeline.yaml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
-    runs-on: docker
-    container:
-      image: python:3.12-slim
-    steps:
-      - name: Install Dependencies
-        run: apt-get update && apt-get install -y git
+    pipeline:
+        name: Pipeline Checks
+        runs-on: docker
+        container:
+            image: python:3.12-slim
+        env:
+            POSTGRES_DB: test
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: test
+            POSTGRES_HOST: localhost
+            POSTGRES_PORT: "5432"
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            REDIS_URL: ""
+            EMBEDDING_PROVIDER: ollama
+            EMBEDDING_MODEL: test-embedding-model
+            OPENAI_BASE_URL: http://localhost:11434
+            CLASSIFICATION_MODEL: test-classifier
+            GREENHOUSE_API_URL: https://boards-api.greenhouse.io/v1/boards
+            LEVER_API_URL: https://api.lever.co/v0/postings
+            SIMPLIFY_JOBS_INTERN_URL: https://example.com/intern
+            SIMPLIFY_JOBS_NEW_GRAD_URL: https://example.com/newgrad
+        steps:
+            - name: Install Dependencies
+              run: apt-get update && apt-get install -y git
 
-      - name: Checkout
-        run: |
-          git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-          git fetch --depth 1 origin ${{ gitea.sha }}
-          git checkout --detach FETCH_HEAD
+            - name: Checkout
+              run: |
+                  git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
+                  git fetch --depth 1 origin ${{ gitea.sha }}
+                  git checkout --detach FETCH_HEAD
 
-      - name: Install uv
-        run: pip install uv
+            - name: Install uv
+              run: pip install uv
 
-      - name: Sync dependencies
-        run: cd pipeline && uv sync --frozen --group dev
+            - name: Sync dependencies
+              run: cd pipeline && uv sync --frozen --group dev
 
-      - name: Lint (ruff)
-        run: cd pipeline && uv run ruff check .
+            - name: Lint (ruff)
+              run: cd pipeline && uv run ruff check .
 
-      - name: Run unit tests
-        run: cd pipeline && uv run pytest tests/unit -q --tb=short --cov=pipeline --cov-report=term-missing
+            - name: Run unit tests
+              run: cd pipeline && uv run pytest tests/unit -q --tb=short --cov=pipeline --cov-report=term-missing
 
-      - name: Validate imports
-        run: cd pipeline && uv run pytest tests/test_import_chains.py -q
+            - name: Validate imports
+              run: cd pipeline && uv run pytest tests/test_import_chains.py -q
 
-      - name: Validate CLI entry points
-        run: |
-          cd pipeline
-          uv run internnexus-pipeline --help
-          uv run internnexus-consolidate-categories --help
+            - name: Validate CLI entry points
+              run: |
+                  cd pipeline
+                  uv run internnexus-pipeline --help
+                  uv run internnexus-consolidate-categories --help

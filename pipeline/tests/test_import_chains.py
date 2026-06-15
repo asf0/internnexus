@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -26,8 +25,7 @@ after = list(sys.path)
 print("UNCHANGED" if before == after else "MUTATED")
 """
         result = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
-        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT)
 
         assert result.returncode == 0
         assert "UNCHANGED" in result.stdout
@@ -39,10 +37,7 @@ sys.path.insert(0, '.')
 import pipeline
 print("SUCCESS: pipeline module imports cleanly")
 """
-        result = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT
-        )
-
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT)
         assert result.returncode == 0, f"Pipeline import failed: {result.stderr}"
 
     def test_pipeline_console_entry_point(self):
@@ -54,7 +49,7 @@ print("SUCCESS: pipeline module imports cleanly")
             "POSTGRES_PORT": "5432",
             "EMBEDDING_PROVIDER": "ollama",
             "EMBEDDING_MODEL": "test-model",
-            "OLLAMA_BASE_URL": "http://localhost:11434",
+            "OPENAI_BASE_URL": "http://localhost:11434",
             "CLASSIFICATION_MODEL": "test-classifier",
             "AUTH_SECRET": "abcdefghijklmnopqrstuvwxyz123456",
             "REDIS_URL": "redis://localhost:6379/0",

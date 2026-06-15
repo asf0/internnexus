@@ -47,7 +47,7 @@ async def test_discover_companies_uses_searxng_results_and_persists(monkeypatch,
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -93,7 +93,7 @@ async def test_discover_companies_round_robins_pages_across_ats(monkeypatch, tmp
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=2,
         )
@@ -148,7 +148,7 @@ async def test_discover_companies_replaces_stale_output_after_complete_refresh(m
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -186,7 +186,7 @@ async def test_discover_companies_keeps_previous_output_when_complete_refresh_sh
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -218,7 +218,7 @@ async def test_discover_companies_keeps_previous_output_when_refresh_is_partial(
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -250,7 +250,7 @@ async def test_discover_companies_merges_successes_when_refresh_is_partial(monke
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -284,7 +284,7 @@ async def test_discover_companies_stops_after_searxng_failure(monkeypatch, tmp_p
         discovery=SimpleNamespace(
             enabled=True,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -314,7 +314,7 @@ async def test_discover_companies_reuses_existing_registry_when_disabled(monkeyp
         discovery=SimpleNamespace(
             enabled=False,
             timeout=5,
-            searxng_url="http://192.168.0.5:8080/search",
+            searxng_url="http://searxng:8080/search",
             query_delay_seconds=0.0,
             max_pages=None,
         )
@@ -350,21 +350,21 @@ async def test_search_searxng_accepts_base_or_search_endpoint():
 
     urls_from_base = await company_discovery._search_searxng(
         client,
-        "http://192.168.0.5:8080",
+        "http://searxng:8080",
         "site:jobs.lever.co",
         page=1,
     )
     urls_from_search = await company_discovery._search_searxng(
         client,
-        "http://192.168.0.5:8080/search",
+        "http://searxng:8080/search",
         "site:jobs.lever.co",
         page=3,
     )
 
     assert urls_from_base == ["https://jobs.lever.co/stripe/123"]
     assert urls_from_search == ["https://jobs.lever.co/stripe/123"]
-    assert calls[0] == ("http://192.168.0.5:8080/search", {"q": "site:jobs.lever.co", "format": "json", "pageno": 1})
-    assert calls[1] == ("http://192.168.0.5:8080/search", {"q": "site:jobs.lever.co", "format": "json", "pageno": 3})
+    assert calls[0] == ("http://searxng:8080/search", {"q": "site:jobs.lever.co", "format": "json", "pageno": 1})
+    assert calls[1] == ("http://searxng:8080/search", {"q": "site:jobs.lever.co", "format": "json", "pageno": 3})
 
 
 @pytest.mark.asyncio
@@ -383,7 +383,7 @@ async def test_search_searxng_treats_empty_unresponsive_engines_as_failure():
     with pytest.raises(RuntimeError, match="unresponsive engines"):
         await company_discovery._search_searxng(
             _FakeClient(),
-            "http://192.168.0.5:8080/search",
+            "http://searxng:8080/search",
             "site:jobs.ashbyhq.com",
             page=1,
         )

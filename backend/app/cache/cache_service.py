@@ -18,6 +18,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 _pool: Any | None = None
+_in_memory_service: InMemoryCacheService | None = None
 
 # In-memory cache defaults when Redis is not configured.
 _DEFAULT_IN_MEMORY_MAXSIZE = 1000
@@ -66,6 +67,16 @@ async def close_redis_pool() -> None:
         await _pool.disconnect()
         _pool = None
         logger.info("Redis connection pool closed")
+
+
+async def close_cache_service() -> None:
+    """Close process-level cache resources used by the application."""
+    global _in_memory_service
+    await close_redis_pool()
+    if _in_memory_service is not None:
+        await _in_memory_service.close()
+        _in_memory_service = None
+        logger.info("In-memory cache cleared")
 
 
 def _serialize(value: Any) -> str:
@@ -222,10 +233,13 @@ class InMemoryCacheService:
 
 async def get_cache_service() -> RedisService | InMemoryCacheService:
     """Return a cache service: Redis when configured, otherwise in-memory."""
+    global _in_memory_service
     settings = get_settings()
     if settings.redis_url:
         return RedisService()
-    return InMemoryCacheService()
+    if _in_memory_service is None:
+        _in_memory_service = InMemoryCacheService()
+    return _in_memory_service
 
 
 # Backward-compatible alias.

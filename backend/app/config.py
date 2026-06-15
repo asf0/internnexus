@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     embedding_provider: str
     embedding_model: str
     embedding_dimensions: int = 2560
-    ollama_base_url: str
+    openai_base_url: str
 
     # Auth/JWT configuration
     auth_secret: str

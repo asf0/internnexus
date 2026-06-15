@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+import asyncio
 
 import pytest
 
 from internnexus_core.embedding import (
     EmbeddingConfig,
     EmbeddingError,
+    OPENAI_COMPATIBLE_PROVIDER,
     QueryEmbeddingService,
     RateLimitError,
     _is_retryable_exception,
@@ -25,16 +26,15 @@ class TestEmbeddingConfig:
 
     def test_custom_values(self):
         cfg = EmbeddingConfig(
-            provider="lmstudio",
+            provider=OPENAI_COMPATIBLE_PROVIDER,
             model="custom-model",
             dimensions=1024,
             base_url="http://custom:8080",
         )
-        assert cfg.provider == "lmstudio"
+        assert cfg.provider == OPENAI_COMPATIBLE_PROVIDER
         assert cfg.model == "custom-model"
         assert cfg.dimensions == 1024
         assert cfg.base_url == "http://custom:8080"
-
 
 class TestRetryableException:
     def test_embedding_error_retryable(self):
@@ -47,9 +47,6 @@ class TestRetryableException:
         assert _is_retryable_exception(asyncio.CancelledError()) is False
 
 
-import asyncio
-
-
 class TestQueryEmbeddingService:
     def test_init_uses_default_config(self):
         service = QueryEmbeddingService()
@@ -60,13 +57,13 @@ class TestQueryEmbeddingService:
 
     def test_init_uses_custom_config(self):
         cfg = EmbeddingConfig(
-            provider="lmstudio",
+            provider=OPENAI_COMPATIBLE_PROVIDER,
             model="test-model",
             dimensions=512,
             base_url="http://test:8080",
         )
         service = QueryEmbeddingService(config=cfg)
-        assert service._provider == "lmstudio"
+        assert service._provider == OPENAI_COMPATIBLE_PROVIDER
         assert service._model == "test-model"
         assert service._dimensions == 512
         assert service._base_url == "http://test:8080"
@@ -83,7 +80,7 @@ class TestQueryEmbeddingService:
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_embedding_request_includes_dimensions(monkeypatch):
+async def test_openai_compatible_embedding_request_includes_dimensions(monkeypatch):
     calls: list[tuple[str, dict[str, object], float]] = []
 
     class _Response:
@@ -103,13 +100,13 @@ async def test_lmstudio_embedding_request_includes_dimensions(monkeypatch):
     monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
 
     cfg = EmbeddingConfig(
-        provider="lmstudio",
+        provider=OPENAI_COMPATIBLE_PROVIDER,
         model="qwen3-embedding-4b",
         dimensions=2,
         base_url="http://192.168.0.4:8080",
     )
     service = QueryEmbeddingService(config=cfg)
-    result = await service._embed_lmstudio_impl("software engineer intern")
+    result = await service._embed_openai_compatible_impl("software engineer intern")
 
     assert result == [0.1, 0.2]
     assert calls == [
@@ -126,7 +123,7 @@ async def test_lmstudio_embedding_request_includes_dimensions(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_embed_many_uses_one_index_ordered_request(monkeypatch):
+async def test_openai_compatible_embed_many_uses_one_index_ordered_request(monkeypatch):
     calls: list[tuple[str, dict[str, object], float]] = []
 
     class _Response:
@@ -152,7 +149,7 @@ async def test_lmstudio_embed_many_uses_one_index_ordered_request(monkeypatch):
     monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
 
     cfg = EmbeddingConfig(
-        provider="lmstudio",
+        provider=OPENAI_COMPATIBLE_PROVIDER,
         model="qwen3-embedding-4b",
         dimensions=2,
         base_url="http://192.168.0.4:8080",

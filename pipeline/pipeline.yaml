@@ -19,7 +19,7 @@ embeddings:
 discovery:
   enabled: true
   timeout: 15
-  searxng_url: "http://192.168.0.5:8080"
+  searxng_url: "http://searxng:8080"
   query_delay_seconds: 15.0
   max_pages: null
 

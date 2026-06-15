@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobClassifier:
-    """Async job classification service supporting Ollama and LM Studio."""
+    """Async job classification service supporting Ollama and OpenAI-compatible APIs."""
 
     def __init__(
         self,
@@ -42,8 +42,8 @@ class JobClassifier:
 
         Args:
             model: Model name (defaults to settings.classification_model)
-            base_url: API URL (defaults to settings.ollama_base_url)
-            provider: "ollama" or "lmstudio" (defaults to settings.embedding_provider)
+            base_url: API URL (defaults to settings.openai_base_url)
+            provider: "ollama" or "openai-compatible" (defaults to settings.embedding_provider)
             timeout: Request timeout in seconds
             max_concurrent: Maximum concurrent requests for batch processing
         """
@@ -74,9 +74,7 @@ class JobClassifier:
         category, _reason, _raw_output = await self._classify_job_with_reason(title, description)
         return category
 
-    async def _classify_job_with_reason(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_job_with_reason(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify a single job and return category, reason, and raw output sample."""
         return await self._client.classify_job_with_reason(title, description)
 
@@ -109,9 +107,7 @@ class JobClassifier:
         """Classify multiple jobs with optional progress callback."""
         return await self.classify_batch(jobs)
 
-    async def classify_batch_with_reasons(
-        self, jobs: list[tuple[str, str]]
-    ) -> list[tuple[str | None, str]]:
+    async def classify_batch_with_reasons(self, jobs: list[tuple[str, str]]) -> list[tuple[str | None, str]]:
         """Classify multiple jobs using true prompt batching with fallback.
 
         Args:

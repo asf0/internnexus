@@ -29,7 +29,7 @@ _ENV_DEFAULTS = {
     "EMBEDDING_PROVIDER": "ollama",
     "EMBEDDING_MODEL": "test-model",
     "EMBEDDING_DIMENSIONS": "2560",
-    "OLLAMA_BASE_URL": "http://localhost:11434",
+    "OPENAI_BASE_URL": "http://localhost:11434",
     "GREENHOUSE_API_URL": "https://example.com",
     "LEVER_API_URL": "https://example.com",
     "SIMPLIFY_JOBS_INTERN_URL": "https://example.com/intern",
@@ -38,12 +38,13 @@ _ENV_DEFAULTS = {
 for key, value in _ENV_DEFAULTS.items():
     os.environ.setdefault(key, value)
 
-from app.models import Job as BackendJob  # noqa: E402
-from app.models import PipelineCommand as BackendPipelineCommand  # noqa: E402
-from app.models import PipelineRun as BackendPipelineRun  # noqa: E402
 from pipeline.models import Job as PipelineJob  # noqa: E402
 from pipeline.models import PipelineCommand as PipelinePipelineCommand  # noqa: E402
 from pipeline.models import PipelineRun as PipelinePipelineRun  # noqa: E402
+
+from app.models import Job as BackendJob  # noqa: E402
+from app.models import PipelineCommand as BackendPipelineCommand  # noqa: E402
+from app.models import PipelineRun as BackendPipelineRun  # noqa: E402
 
 
 def _column_spec(model: Any) -> dict[str, str]:
@@ -56,8 +57,7 @@ def test_job_columns_match_pipeline():
     backend_columns = _column_spec(BackendJob)
     pipeline_columns = _column_spec(PipelineJob)
     assert backend_columns == pipeline_columns, (
-        f"Job column drift detected:\nbackend={backend_columns}\n"
-        f"pipeline={pipeline_columns}"
+        f"Job column drift detected:\nbackend={backend_columns}\npipeline={pipeline_columns}"
     )
 
 

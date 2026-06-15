@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
-from internnexus_core.embedding import EmbeddingConfig, QueryEmbeddingService
+from internnexus_core.embedding import (
+    OPENAI_COMPATIBLE_PROVIDER,
+    EmbeddingConfig,
+    QueryEmbeddingService,
+)
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_embedding_request_includes_configured_dimensions(monkeypatch):
+async def test_openai_compatible_embedding_request_includes_configured_dimensions(monkeypatch):
     calls: list[tuple[str, dict[str, object], float]] = []
 
     class _Response:
@@ -30,13 +32,13 @@ async def test_lmstudio_embedding_request_includes_configured_dimensions(monkeyp
     monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
 
     cfg = EmbeddingConfig(
-        provider="lmstudio",
+        provider=OPENAI_COMPATIBLE_PROVIDER,
         model="qwen3-embedding-4b",
         dimensions=2,
         base_url="http://192.168.0.4:8080",
     )
     service = QueryEmbeddingService(config=cfg)
-    result = await service._embed_lmstudio_impl("software engineer intern")
+    result = await service._embed_openai_compatible_impl("software engineer intern")
 
     assert result == [0.1, 0.2]
     assert calls == [
@@ -53,7 +55,7 @@ async def test_lmstudio_embedding_request_includes_configured_dimensions(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_embed_many_uses_one_index_ordered_request(monkeypatch):
+async def test_openai_compatible_embed_many_uses_one_index_ordered_request(monkeypatch):
     calls: list[tuple[str, dict[str, object], float]] = []
 
     class _Response:
@@ -79,7 +81,7 @@ async def test_lmstudio_embed_many_uses_one_index_ordered_request(monkeypatch):
     monkeypatch.setattr(core_embedding, "get_http_client", lambda: _Client())
 
     cfg = EmbeddingConfig(
-        provider="lmstudio",
+        provider=OPENAI_COMPATIBLE_PROVIDER,
         model="qwen3-embedding-4b",
         dimensions=2,
         base_url="http://192.168.0.4:8080",

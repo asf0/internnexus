@@ -7,6 +7,7 @@ import logging
 from typing import Any, NoReturn
 
 import httpx
+from internnexus_core.embedding import OPENAI_COMPATIBLE_PROVIDER, normalize_embedding_provider
 from tenacity import (
     before_sleep_log,
     retry,
@@ -68,7 +69,7 @@ _retry_decorator = retry(
 
 
 class ClassificationClient:
-    """Low-level async client for Ollama and LM Studio classification APIs."""
+    """Low-level async client for Ollama and OpenAI-compatible classification APIs."""
 
     def __init__(
         self,
@@ -82,24 +83,18 @@ class ClassificationClient:
         if settings is None:
             settings = get_settings()
         self._model = model or settings.resolved_classification_model
-        classification_url = settings.ollama_classification_url or settings.ollama_base_url
+        classification_url = settings.openai_classification_url or settings.openai_base_url
         self._base_url = (base_url or classification_url).rstrip("/")
-        self._provider = provider or settings.embedding_provider
-        configured_timeout = float(
-            getattr(settings, "classification_timeout_seconds", DEFAULT_TIMEOUT)
-        )
-        configured_concurrency = int(
-            getattr(settings, "classification_max_concurrent", MAX_CONCURRENT_REQUESTS)
-        )
+        configured_timeout = float(getattr(settings, "classification_timeout_seconds", DEFAULT_TIMEOUT))
+        configured_concurrency = int(getattr(settings, "classification_max_concurrent", MAX_CONCURRENT_REQUESTS))
         self._timeout = float(timeout) if timeout is not None else configured_timeout
-        self._max_concurrent = (
-            int(max_concurrent) if max_concurrent is not None else configured_concurrency
-        )
+        self._max_concurrent = int(max_concurrent) if max_concurrent is not None else configured_concurrency
         self.batch_size = int(getattr(settings, "classification_batch_size", 10))
         self.max_concurrent = self._max_concurrent
         self._keep_alive = str(getattr(settings, "classification_keep_alive", "30m"))
         self._num_predict = int(getattr(settings, "classification_num_predict", 20))
         self._client: httpx.AsyncClient | None = None
+        self._provider = normalize_embedding_provider(provider or settings.embedding_provider)
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -113,13 +108,11 @@ class ClassificationClient:
             await self._client.aclose()
             self._client = None
 
-    async def classify_job_with_reason(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def classify_job_with_reason(self, title: str, description: str) -> tuple[str | None, str, str]:
         """Classify a single job and return category, reason, and raw output sample."""
         try:
-            if self._provider == "lmstudio":
-                return await self._classify_lmstudio(title, description)
+            if self._provider == OPENAI_COMPATIBLE_PROVIDER:
+                return await self._classify_openai_compatible(title, description)
             return await self._classify_ollama(title, description)
         except asyncio.CancelledError:
             logger.warning("Classification request cancelled")
@@ -131,15 +124,11 @@ class ClassificationClient:
             logger.error("Unexpected classification error for '%s': %s", title, e)
             return None, "unexpected_error", ""
 
-    async def _classify_ollama(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_ollama(self, title: str, description: str) -> tuple[str | None, str, str]:
         return await self._classify_ollama_impl(title, description)
 
     @_retry_decorator
-    async def _classify_ollama_impl(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_ollama_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         system_prompt, user_prompt = _build_classification_prompts(title, description)
         prompt = f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}"
         client = await self._get_client()
@@ -179,15 +168,11 @@ class ClassificationClient:
         category, reason = _extract_canonical_category(raw_output)
         return category, reason, raw_output
 
-    async def _classify_lmstudio(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
-        return await self._classify_lmstudio_impl(title, description)
+    async def _classify_openai_compatible(self, title: str, description: str) -> tuple[str | None, str, str]:
+        return await self._classify_openai_compatible_impl(title, description)
 
     @_retry_decorator
-    async def _classify_lmstudio_impl(
-        self, title: str, description: str
-    ) -> tuple[str | None, str, str]:
+    async def _classify_openai_compatible_impl(self, title: str, description: str) -> tuple[str | None, str, str]:
         system_prompt, user_prompt = _build_classification_prompts(title, description)
         client = await self._get_client()
 
@@ -210,20 +195,20 @@ class ClassificationClient:
             raise
         except httpx.TimeoutException as exc:
             raise ClassificationError(
-                f"LM Studio classification timed out for '{title}': {exc}",
+                f"OpenAI-compatible API classification timed out for '{title}': {exc}",
                 retryable=True,
             ) from exc
         except httpx.RequestError as exc:
             raise ClassificationError(
-                f"LM Studio connection failed for '{title}': {exc}",
+                f"OpenAI-compatible API connection failed for '{title}': {exc}",
                 retryable=True,
             ) from exc
         except httpx.HTTPStatusError as exc:
-            self._handle_http_error(exc, title, "LM Studio")
+            self._handle_http_error(exc, title, "OpenAI-compatible API")
 
         choices = data.get("choices", [])
         if not choices:
-            logger.warning("No choices in LM Studio response for '%s'", title)
+            logger.warning("No choices in OpenAI-compatible API response for '%s'", title)
             return None, "empty_response", ""
 
         message = choices[0].get("message", {})
@@ -237,19 +222,15 @@ class ClassificationClient:
     ) -> list[tuple[str | None, str, str]]:
         if not jobs:
             return []
-        if self._provider == "lmstudio":
-            return await self._classify_lmstudio_batch(jobs)
+        if self._provider == OPENAI_COMPATIBLE_PROVIDER:
+            return await self._classify_openai_compatible_batch(jobs)
         return await self._classify_ollama_batch(jobs)
 
-    async def _classify_ollama_batch(
-        self, jobs: list[tuple[str, str]]
-    ) -> list[tuple[str | None, str, str]]:
+    async def _classify_ollama_batch(self, jobs: list[tuple[str, str]]) -> list[tuple[str | None, str, str]]:
         return await self._classify_ollama_batch_impl(jobs)
 
     @_retry_decorator
-    async def _classify_ollama_batch_impl(
-        self, jobs: list[tuple[str, str]]
-    ) -> list[tuple[str | None, str, str]]:
+    async def _classify_ollama_batch_impl(self, jobs: list[tuple[str, str]]) -> list[tuple[str | None, str, str]]:
         system_prompt, user_prompt = _build_batch_classification_prompts(jobs)
         prompt = f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}"
         client = await self._get_client()
@@ -288,13 +269,11 @@ class ClassificationClient:
         raw_output = data.get("response", "")
         return _extract_batch_categories(raw_output, len(jobs))
 
-    async def _classify_lmstudio_batch(
-        self, jobs: list[tuple[str, str]]
-    ) -> list[tuple[str | None, str, str]]:
-        return await self._classify_lmstudio_batch_impl(jobs)
+    async def _classify_openai_compatible_batch(self, jobs: list[tuple[str, str]]) -> list[tuple[str | None, str, str]]:
+        return await self._classify_openai_compatible_batch_impl(jobs)
 
     @_retry_decorator
-    async def _classify_lmstudio_batch_impl(
+    async def _classify_openai_compatible_batch_impl(
         self, jobs: list[tuple[str, str]]
     ) -> list[tuple[str | None, str, str]]:
         system_prompt, user_prompt = _build_batch_classification_prompts(jobs)
@@ -319,16 +298,16 @@ class ClassificationClient:
             raise
         except httpx.TimeoutException as exc:
             raise ClassificationError(
-                f"LM Studio batch classification timed out for {len(jobs)} jobs: {exc}",
+                f"OpenAI-compatible API batch classification timed out for {len(jobs)} jobs: {exc}",
                 retryable=True,
             ) from exc
         except httpx.RequestError as exc:
             raise ClassificationError(
-                f"LM Studio batch classification connection failed for {len(jobs)} jobs: {exc}",
+                f"OpenAI-compatible API batch classification connection failed for {len(jobs)} jobs: {exc}",
                 retryable=True,
             ) from exc
         except httpx.HTTPStatusError as exc:
-            self._handle_http_error(exc, f"batch:{len(jobs)}", "LM Studio")
+            self._handle_http_error(exc, f"batch:{len(jobs)}", "OpenAI-compatible API")
 
         choices = data.get("choices", [])
         if not choices:

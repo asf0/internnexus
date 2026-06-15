@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue)](https://www.postgresql.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue)](https://www.postgresql.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-11.x-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -42,7 +42,7 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
                             ▼
                ┌─────────────────────────────┐
                │        External Services    │
-               │  Ollama (embeddings)        │
+               │  OpenAI-compatible embeddings │
                │  Greenhouse / Lever / Ashby │
                └─────────────────────────────┘
 
@@ -51,9 +51,9 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 **Tech Stack:**
 - **Frontend**: Next.js 16, TypeScript, Tailwind CSS
 - **Backend**: FastAPI, SQLAlchemy 2.0, Pydantic
-- **Database**: PostgreSQL 17 + pgvector extension
+- **Database**: PostgreSQL 18 + pgvector extension
 - **Cache**: In-memory TTL cache (optional external Redis)
-- **AI**: Ollama or LM Studio (local embeddings)
+- **AI**: Ollama or an OpenAI-compatible API (embeddings)
 - **Geo**: pycountry (ISO country/state lookups)
 
 
@@ -66,7 +66,7 @@ InternNexus aggregates internship opportunities from multiple job boards (Greenh
 - [pnpm](https://pnpm.io/) (frontend package manager)
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.12+
-- Ollama or LM Studio (for embeddings)
+- OpenAI-compatible API or Ollama (for embeddings)
 
 ### 1. Clone & Setup
 ```bash
@@ -110,6 +110,44 @@ uv run internnexus-pipeline --skip-discover
 ```
 
 **Done!** Visit http://localhost:3000
+
+### Local Terminal Workflow
+
+For day-to-day development, run only Postgres in Docker and run the app services in terminals. Set `POSTGRES_HOST=localhost` in the repo root `.env` when using the local Docker database.
+
+```bash
+docker compose up -d db
+```
+
+Terminal 1:
+
+```bash
+cd backend
+uv run alembic -c alembic.ini upgrade head
+uv run uvicorn app.main:app --reload
+```
+
+Terminal 2:
+
+```bash
+cd pipeline
+uv run internnexus-pipeline --skip-discover
+```
+
+Terminal 3:
+
+```bash
+cd frontend
+pnpm dev
+```
+
+### Bootstrap Admin Access
+
+After signing in once with Google, promote your user from the local database. Replace the email value with the Google email you used to sign in.
+
+```bash
+docker exec jobs-db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "insert into admins (id, user_id, role, granted_by, notes) select gen_random_uuid(), id, '\''super_admin'\'', id, '\''local dev bootstrap'\'' from users where email = '\''you@example.com'\'' on conflict (user_id) do update set role = excluded.role, granted_by = excluded.granted_by, granted_at = now(), notes = excluded.notes;"'
+```
 
 ---
 
@@ -197,11 +235,13 @@ REDIS_URL=
 # Auth (min 32 characters)
 AUTH_SECRET=your-super-secret-key-min-32-chars
 
-# AI Provider (Ollama recommended)
+# AI Provider
 EMBEDDING_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
+OPENAI_BASE_URL=http://localhost:11434
 EMBEDDING_MODEL=nomic-embed-text
 ```
+
+Use `EMBEDDING_PROVIDER=openai-compatible` with an OpenAI-compatible embeddings endpoint.
 
 See `.env.example` for additional configuration options.
 
