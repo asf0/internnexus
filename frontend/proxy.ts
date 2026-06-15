@@ -17,9 +17,7 @@ function buildCsp(nonce: string): string {
     'https://pagead2.googlesyndication.com',
     'https://googleads.g.doubleclick.net',
   ];
-  if (isDev) {
-    scriptSrc.push("'unsafe-eval'");
-  }
+  scriptSrc.push("'unsafe-eval'");
 
   const connectSrc = ["'self'", 'https://*.asf0.dev'];
   if (isDev) {
