@@ -1,149 +1,173 @@
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    container_name: internnexus-db
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:5432:5432"
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+    db:
+        image: pgvector/pgvector:pg18
+        container_name: jobs-db
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:5432:5432"
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        volumes:
+            - db_data_pg18:/var/lib/postgresql
+            - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
 
-  backend:
-    image: internnexus-backend:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: internnexus-backend
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8000:8000"
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
-      - OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${OAUTH_ENCRYPTION_PUBLIC_KEY_B64}
-      - OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${OAUTH_ENCRYPTION_PRIVATE_KEY_B64}
-      - GH_CLIENT_ID=${GH_CLIENT_ID}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - CORS_ORIGINS=${CORS_ORIGINS}
-    depends_on:
-      db:
-        condition: service_healthy
-    command: ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    backend:
+        image: jobs-backend:${IMAGE_TAG:-latest}
+        build:
+            context: .
+            dockerfile: backend/Dockerfile
+        container_name: jobs-backend
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:8000:8000"
+        environment:
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_HOST=db
+            - POSTGRES_PORT=5432
+            - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+            - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
+            - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+            - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
+            - OAUTH_ENCRYPTION_PUBLIC_KEY_B64=${OAUTH_ENCRYPTION_PUBLIC_KEY_B64}
+            - OAUTH_ENCRYPTION_PRIVATE_KEY_B64=${OAUTH_ENCRYPTION_PRIVATE_KEY_B64}
+            - GH_CLIENT_ID=${GH_CLIENT_ID}
+            - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            - AUTH_SECRET=${AUTH_SECRET}
+            - CORS_ORIGINS=${CORS_ORIGINS}
+        depends_on:
+            db:
+                condition: service_healthy
+        command:
+            [
+                "sh",
+                "-c",
+                "alembic -c backend/alembic.ini upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000",
+            ]
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
-  pipeline:
-    image: internnexus-pipeline:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: pipeline/Dockerfile
-    container_name: internnexus-pipeline
-    restart: unless-stopped
-    command: ["internnexus-pipeline", "-c"]
-    deploy:
-      resources:
-        limits:
-          memory: 2.5G
-          cpus: '2.0'
-        reservations:
-          memory: 512M
-    mem_swappiness: 0
-    memswap_limit: 2560m
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - OLLAMA_CLASSIFICATION_URL=${OLLAMA_CLASSIFICATION_URL}
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
-      - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
-      - CLASSIFICATION_BATCH_SIZE=${CLASSIFICATION_BATCH_SIZE:-10}
-      - GREENHOUSE_API_URL=${GREENHOUSE_API_URL}
-      - LEVER_API_URL=${LEVER_API_URL}
-      - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
-      - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
-      - DATA_DIR=/app/data
-      - PIPELINE_MODE_POOL=2
-    volumes:
-      - ./data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import pipeline"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    pipeline:
+        image: jobs-pipeline:${IMAGE_TAG:-latest}
+        build:
+            context: .
+            dockerfile: pipeline/Dockerfile
+        container_name: jobs-pipeline
+        restart: unless-stopped
+        command: ["jobs-pipeline", "-c"]
+        deploy:
+            resources:
+                limits:
+                    memory: 2.5G
+                    cpus: "2.0"
+                reservations:
+                    memory: 512M
+        mem_swappiness: 0
+        memswap_limit: 2560m
+        environment:
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_HOST=db
+            - POSTGRES_PORT=5432
+            - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+            - OPENAI_CLASSIFICATION_URL=${OPENAI_CLASSIFICATION_URL}
+            - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
+            - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+            - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-2560}
+            - CLASSIFICATION_MODEL=${CLASSIFICATION_MODEL}
+            - CLASSIFICATION_BATCH_SIZE=${CLASSIFICATION_BATCH_SIZE:-10}
+            - GREENHOUSE_API_URL=${GREENHOUSE_API_URL}
+            - LEVER_API_URL=${LEVER_API_URL}
+            - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
+            - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
+            - DATA_DIR=/app/data
+            - PIPELINE_MODE_POOL=2
+        volumes:
+            - ./data:/app/data
+        depends_on:
+            db:
+                condition: service_healthy
+            searxng:
+                condition: service_started
+        healthcheck:
+            test: ["CMD", "python", "-c", "import pipeline"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
 
-  frontend:
-    image: internnexus-frontend:${IMAGE_TAG:-latest}
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - BACKEND_URL=${BACKEND_URL}
-        - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://jobfinder.asf0.dev}
-    container_name: internnexus-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - HOSTNAME=0.0.0.0
-      - BACKEND_URL=${BACKEND_URL}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
-      - AUTH_URL=${AUTH_URL}
-      - GH_CLIENT_ID=${GH_CLIENT_ID}
-      - GH_CLIENT_SECRET=${GH_CLIENT_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    frontend:
+        image: jobs-frontend:${IMAGE_TAG:-latest}
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+            args:
+                - BACKEND_URL=${BACKEND_URL}
+                - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://jobfinder.asf0.dev}
+        container_name: internnexus-frontend
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        environment:
+            - HOSTNAME=0.0.0.0
+            - BACKEND_URL=${BACKEND_URL}
+            - AUTH_SECRET=${AUTH_SECRET}
+            - NEXTAUTH_URL=${NEXTAUTH_URL}
+            - AUTH_URL=${AUTH_URL}
+            - GH_CLIENT_ID=${GH_CLIENT_ID}
+            - GH_CLIENT_SECRET=${GH_CLIENT_SECRET}
+            - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+        depends_on:
+            backend:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
-    depends_on:
-      frontend:
-        condition: service_healthy
-    networks:
-      - default
+    cloudflared:
+        image: cloudflare/cloudflared:latest
+        container_name: cloudflared
+        restart: unless-stopped
+        command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
 
+    searxng:
+        image: docker.io/searxng/searxng:latest
+        container_name: jobs-searxng
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:8080:8080"
+        volumes:
+            - ./searxng:/etc/searxng:rw
+            - searxng-data:/var/cache/searxng:rw
+        cap_drop:
+            - ALL
+        cap_add:
+            - CHOWN
+            - SETGID
+            - SETUID
+            - DAC_OVERRIDE
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "1"
 volumes:
-  db_data:
+    db_data_pg18:
+    searxng-data:

@@ -37,8 +37,8 @@ export interface LocationItem {
   label: string;
   count: number;
   type: 'country' | 'state' | 'city';
-  country?: string;
-  state?: string;
+  country?: string | null;
+  state?: string | null;
   children?: LocationItem[];
 }
 
