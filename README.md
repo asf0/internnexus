@@ -302,7 +302,8 @@ MIT License - see [LICENSE](LICENSE) file
 
 - [SimplifyJobs](https://github.com/SimplifyJobs) for job data sources
 - [FastAPI](https://fastapi.tiangolo.com/) for the excellent framework
-- [Ollama](https://ollama.com/) for local AI capabilities
+- [llama.cpp](https://github.com/ggml-ai/llama.cpp) for local AI capabilities
+
 
 ---
 
