@@ -66,7 +66,7 @@ services:
             dockerfile: pipeline/Dockerfile
         container_name: jobs-pipeline
         restart: unless-stopped
-        command: ["jobs-pipeline", "-c"]
+        command: ["internnexus-pipeline", "-c"]
         deploy:
             resources:
                 limits:
