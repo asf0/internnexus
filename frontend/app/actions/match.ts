@@ -1,6 +1,7 @@
 'use server';
 
-import { BackendError, backendFetch } from '@/lib/api.server';
+import { BackendError, backendFetch, createAuthHeaders } from '@/lib/api.server';
+import { getBackendToken } from '@/lib/auth.server';
 import { BACKEND_URL } from '@/lib/config';
 import { MatchFacetsResponseSchema, MatchResponseSchema } from '@/lib/schemas';
 import type { MatchFacetsResponse, MatchResponse } from '@/lib/types/job';
@@ -62,6 +63,11 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
       return emptyMatch('Resume file is required.');
     }
 
+    const token = await getBackendToken();
+    if (!token) {
+      return emptyMatch('Your session has expired. Please sign in again.');
+    }
+
     const body = new FormData();
     body.append('file', file, file.name);
 
@@ -69,6 +75,7 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
     try {
       response = await fetchWithTimeout(`${BACKEND_URL}/match`, {
         method: 'POST',
+        headers: createAuthHeaders(token),
         body,
       });
     } catch (error) {
@@ -96,10 +103,16 @@ export async function matchResume(formData: FormData): Promise<MatchResponse> {
 }
 
 export async function matchProfileResume(): Promise<MatchResponse> {
+  const token = await getBackendToken();
+  if (!token) {
+    return emptyMatch('Your session has expired. Please sign in again.');
+  }
+
   let response: Response;
   try {
     response = await fetchWithTimeout(`${BACKEND_URL}/match/profile`, {
       method: 'POST',
+      headers: createAuthHeaders(token),
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

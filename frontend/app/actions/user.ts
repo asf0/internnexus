@@ -107,7 +107,11 @@ export interface FetchUserResumeResult {
 
 export async function fetchUserResume(): Promise<FetchUserResumeResult> {
   try {
-    const resume = await backendFetch('/users/me/resume', { cache: 'no-store' }, UserResumeSchema);
+    const resume = await backendFetch(
+      '/users/me/resume',
+      { cache: 'no-store' },
+      UserResumeSchema.nullable()
+    );
     return { data: resume };
   } catch (error) {
     const message =
