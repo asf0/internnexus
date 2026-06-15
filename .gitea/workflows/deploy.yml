@@ -66,6 +66,7 @@ jobs:
                   REBUILD_BACKEND="false"
                   REBUILD_FRONTEND="false"
                   REBUILD_PIPELINE="false"
+                  RESTART_SEARXNG="false"
 
                   if echo "$CHANGED_FILES" | grep -qE "^(backend/|\.gitea/workflows/deploy\.yml)"; then
                     REBUILD_BACKEND="true"
@@ -79,14 +80,20 @@ jobs:
                     REBUILD_PIPELINE="true"
                   fi
 
+                  if echo "$CHANGED_FILES" | grep -qE "^(searxng/|docker-compose\.yml|\.gitea/workflows/deploy\.yml)"; then
+                    RESTART_SEARXNG="true"
+                  fi
+
                   echo "backend=$REBUILD_BACKEND" >> $GITHUB_OUTPUT
                   echo "frontend=$REBUILD_FRONTEND" >> $GITHUB_OUTPUT
                   echo "pipeline=$REBUILD_PIPELINE" >> $GITHUB_OUTPUT
+                  echo "searxng=$RESTART_SEARXNG" >> $GITHUB_OUTPUT
 
                   echo "Changed files detected:"
                   echo "$CHANGED_FILES"
                   echo ""
                   echo "Services to rebuild: backend=$REBUILD_BACKEND frontend=$REBUILD_FRONTEND pipeline=$REBUILD_PIPELINE"
+                  echo "Services to restart: searxng=$RESTART_SEARXNG"
 
             - name: Deploy with Docker Compose
               run: |
@@ -94,6 +101,7 @@ jobs:
                   docker compose pull || true
                   # Start stateful deps first.
                   docker compose up -d db
+                  docker compose up -d searxng
 
                   # Build and start app services based on what changed
                   BUILD_ARGS=""
@@ -107,6 +115,11 @@ jobs:
                   else
                     echo "🔨 Rebuilding changed services: $BUILD_ARGS"
                     docker compose up -d --build $BUILD_ARGS
+                  fi
+
+                  if [ "${{ steps.changes.outputs.searxng }}" = "true" ]; then
+                    echo "Restarting SearXNG to reload mounted config..."
+                    docker compose restart searxng
                   fi
 
                   docker compose up -d cloudflared
