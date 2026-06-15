@@ -50,6 +50,14 @@ jobs:
                   IMAGE_TAG=${{ gitea.sha }}
                   EOF
 
+            - name: Validate SearXNG config
+              run: |
+                  set -e
+                  test -f searxng/settings.yml
+                  grep -q "keep_only:" searxng/settings.yml
+                  grep -q -- "- google" searxng/settings.yml
+                  grep -q -- "- presearch" searxng/settings.yml
+
             - name: Detect changed services
               id: changes
               run: |
@@ -99,9 +107,16 @@ jobs:
               run: |
                   set -e
                   docker compose pull || true
+                  echo "Syncing SearXNG settings to the Docker host bind-mount path..."
+                  # The deploy job runs in a Docker CLI container; write through Docker so the host-side bind path exists.
+                  docker run --rm -i --user 0:0 --entrypoint sh \
+                    -v "$(pwd)/searxng:/target" \
+                    docker.io/searxng/searxng:latest \
+                    -c "mkdir -p /target && cat > /target/settings.yml && chmod 0644 /target/settings.yml" \
+                    < searxng/settings.yml
                   # Start stateful deps first.
                   docker compose up -d db
-                  docker compose up -d searxng
+                  docker compose up -d --force-recreate searxng
 
                   # Build and start app services based on what changed
                   BUILD_ARGS=""
@@ -120,6 +135,7 @@ jobs:
                   if [ "${{ steps.changes.outputs.searxng }}" = "true" ]; then
                     echo "Restarting SearXNG to reload mounted config..."
                     docker compose restart searxng
+                    docker compose restart pipeline
                   fi
 
                   docker compose up -d cloudflared
