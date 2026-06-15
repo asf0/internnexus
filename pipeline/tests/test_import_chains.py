@@ -24,7 +24,6 @@ import pipeline
 after = list(sys.path)
 print("UNCHANGED" if before == after else "MUTATED")
 """
-        result = subprocess.run(
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=PROJECT_ROOT)
 
         assert result.returncode == 0
