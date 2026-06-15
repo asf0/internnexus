@@ -116,7 +116,7 @@ jobs:
               run: |
                   set -e
                   sleep 20
-                  docker exec internnexus-backend curl -f http://localhost:8000/health
+                  docker exec jobs-backend curl -f http://localhost:8000/health
                   docker exec internnexus-frontend curl -f http://localhost:3000/
 
             - name: Dump container logs on failure
