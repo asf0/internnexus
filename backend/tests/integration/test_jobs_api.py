@@ -107,7 +107,7 @@ class TestJobsAPI:
         job_id = str(uuid4())
 
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             # Mock cache miss
@@ -150,7 +150,7 @@ class TestJobsAPI:
         # Arrange
         job_id = str(uuid4())
 
-        with patch("app.api.jobs.get_redis_service") as mock_get_cache:
+        with patch("app.api.jobs.get_cache_service") as mock_get_cache:
             mock_cache = AsyncMock()
             mock_cache.get.return_value = {
                 "id": job_id,
@@ -186,7 +186,7 @@ class TestJobsAPI:
         job_id = str(uuid4())
 
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             mock_cache = AsyncMock()
@@ -219,7 +219,7 @@ class TestJobsAPI:
         job_id = str(uuid4())
 
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             mock_cache = AsyncMock()
@@ -243,7 +243,7 @@ class TestJobsAPI:
         """Test getting list of companies."""
         # Arrange
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             mock_cache = AsyncMock()
@@ -267,7 +267,7 @@ class TestJobsAPI:
     async def test_get_companies_cached(self, client):
         """Test getting companies from cache."""
         # Arrange
-        with patch("app.api.jobs.get_redis_service") as mock_get_cache:
+        with patch("app.api.jobs.get_cache_service") as mock_get_cache:
             mock_cache = AsyncMock()
             mock_cache.get.return_value = ["Cached Company"]
             mock_get_cache.return_value = mock_cache
@@ -285,7 +285,7 @@ class TestJobsAPI:
         """Test getting list of job categories."""
         # Arrange
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             mock_cache = AsyncMock()
@@ -312,7 +312,7 @@ class TestJobsAPI:
         """Test getting location hierarchy."""
         # Arrange
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.LocationService") as mock_service_class,
         ):
             mock_cache = AsyncMock()

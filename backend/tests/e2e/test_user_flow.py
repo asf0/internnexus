@@ -212,7 +212,7 @@ class TestJobSearchWorkflow:
         job_id = str(uuid4())
 
         with (
-            patch("app.api.jobs.get_redis_service") as mock_get_cache,
+            patch("app.api.jobs.get_cache_service") as mock_get_cache,
             patch("app.api.jobs.JobRepository") as mock_repo_class,
         ):
             mock_cache = AsyncMock()

@@ -14,6 +14,10 @@ from app.config import get_settings
 _WHITESPACE_RE = re.compile(r"\s+")
 logger = logging.getLogger(__name__)
 
+# Resource limits for PDF parsing to prevent crafted-file exhaustion.
+_MAX_PDF_PAGES = 50
+_MAX_EXTRACTED_TEXT_LENGTH = 1_000_000  # 1MB of text
+
 _SAFE_RESUME_PROCESSING_MESSAGES = {
     "Cannot encrypt empty resume text",
     "Cannot decrypt empty resume text",
@@ -21,6 +25,8 @@ _SAFE_RESUME_PROCESSING_MESSAGES = {
     "Resume text is empty",
     "Invalid PDF file header",
     "Only PDF and TXT files are accepted",
+    "PDF has too many pages (max 50)",
+    "Extracted text is too long",
 }
 _PDF_EXTRACTION_ERROR = "Could not extract text from PDF. Please upload a text-based PDF or TXT file."
 _TEXT_DECODE_ERROR = "Failed to decode text file"
@@ -89,10 +95,16 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
 
         file_obj.seek(0)
         reader = PdfReader(file_obj)
+        if len(reader.pages) > _MAX_PDF_PAGES:
+            raise ResumeProcessingError(f"PDF has too many pages (max {_MAX_PDF_PAGES})")
         text_parts = [(page.extract_text() or "") for page in reader.pages]
         text = "\n".join(text_parts).strip()
         if text:
+            if len(text) > _MAX_EXTRACTED_TEXT_LENGTH:
+                raise ResumeProcessingError("Extracted text is too long")
             return text
+    except ResumeProcessingError:
+        raise
     except Exception as exc:  # noqa: BLE001  # any pypdf failure falls through to next parser
         logger.debug("pypdf failed to extract resume text", exc_info=exc)
         errors.append("pypdf parser failed")
@@ -104,7 +116,11 @@ def extract_text_from_pdf(file_obj: BinaryIO) -> str:
         pdf_bytes = file_obj.read()
         text = (pdfminer_extract(io.BytesIO(pdf_bytes)) or "").strip()
         if text:
+            if len(text) > _MAX_EXTRACTED_TEXT_LENGTH:
+                raise ResumeProcessingError("Extracted text is too long")
             return text
+    except ResumeProcessingError:
+        raise
     except ImportError:
         errors.append("pdfminer: not installed")
     except Exception as exc:  # noqa: BLE001  # any pdfminer failure falls through to next parser

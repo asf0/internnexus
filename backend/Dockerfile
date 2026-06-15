@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend project
+COPY packages/internnexus-core ./packages/internnexus-core
 COPY backend/ ./backend/
 
 # Install backend project

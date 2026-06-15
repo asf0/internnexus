@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from app.api.schemas import MatchResult
-from app.cache.redis_pool import CacheService, get_redis_service
+from app.cache.cache_service import CacheService, get_cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,10 @@ class MatchCacheService:
         """
         self._redis = cache_service
 
-    async def _get_redis(self) -> CacheService:
+    async def _get_cache(self) -> CacheService:
         """Get or create the cache service instance."""
         if self._redis is None:
-            self._redis = await get_redis_service()
+            self._redis = await get_cache_service()
         return self._redis
 
     def _make_key(self, user_id: UUID, session_id: str) -> str:
@@ -66,7 +66,7 @@ class MatchCacheService:
             logger.debug(f"No matches to cache for session {session_id}")
             return True
 
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_key(user_id, session_id)
 
         try:
@@ -101,7 +101,7 @@ class MatchCacheService:
             A tuple of (paginated_items, total_count) if found, None otherwise.
             Returns empty list if page is beyond available data.
         """
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_key(user_id, session_id)
 
         try:
@@ -156,7 +156,7 @@ class MatchCacheService:
         Returns:
             List of match data dictionaries if found, None otherwise.
         """
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_key(user_id, session_id)
 
         try:
@@ -186,7 +186,7 @@ class MatchCacheService:
         Returns:
             Total count of matches if found, None otherwise.
         """
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_key(user_id, session_id)
 
         try:
@@ -219,7 +219,7 @@ class MatchCacheService:
             True if deletion succeeded or key didn't exist,
             False if an error occurred.
         """
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_key(user_id, session_id)
 
         try:
@@ -242,7 +242,7 @@ class MatchCacheService:
         ttl: int = 1800,
     ) -> bool:
         """Store mapping from resume hash to a match session ID."""
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_resume_hash_key(user_id, resume_hash, min_score)
         try:
             return await redis.set(key, session_id, ttl=ttl)
@@ -257,7 +257,7 @@ class MatchCacheService:
         min_score: float,
     ) -> str | None:
         """Resolve a previous match session ID for the same user+resume hash."""
-        redis = await self._get_redis()
+        redis = await self._get_cache()
         key = self._make_resume_hash_key(user_id, resume_hash, min_score)
         try:
             cached = await redis.get(key)

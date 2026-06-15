@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy pipeline project
+COPY packages/internnexus-core ./packages/internnexus-core
 COPY pipeline/ ./pipeline/
 
 # Install pipeline project.

@@ -130,3 +130,32 @@ jobs:
           docker logs --tail 300 internnexus-pipeline || true
           echo "=== frontend logs ==="
           docker logs --tail 200 internnexus-frontend || true
+
+      - name: Tear down on failure
+        if: failure()
+        run: |
+          echo "DEPLOY FAILED — tearing down containers"
+          docker compose down || true
+
+      - name: Deploy failure summary
+        if: failure()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  DEPLOY FAILED"
+          echo "============================================"
+          echo ""
+          echo "Commit:  ${{ gitea.sha }}"
+          echo "Trigger: ${{ gitea.event_name }}"
+          echo "Branch:  ${{ gitea.ref_name }}"
+          echo ""
+          echo "Action required:"
+          echo "  1. Review container logs above"
+          echo "  2. Check service health endpoints"
+          echo "  3. Verify database connectivity"
+          echo "  4. Roll back manually if needed:"
+          echo "     docker compose down"
+          echo "     git checkout <previous-commit>"
+          echo "     docker compose up -d --build"
+          echo ""
+          echo "============================================"

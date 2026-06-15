@@ -14,7 +14,7 @@ from sqlalchemy.sql import Select
 
 from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse
-from app.cache.redis_pool import CacheService
+from app.cache.cache_service import CacheService
 from app.models import Job
 from app.repositories.job import JobRepository
 from app.services.posted_within import posted_within_cutoff

@@ -659,6 +659,25 @@ async def update_user_notes(
     return {"message": "User notes updated"}
 
 
+_FORMULA_PREFIX_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_csv_cell(value: str | None) -> str:
+    """Neutralize spreadsheet formula injection in CSV cells.
+
+    Prefixes values that could be interpreted as formulas by spreadsheet
+    applications (Excel, LibreOffice Calc, Google Sheets) with a single quote.
+    """
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        return str(value)
+    stripped = value.lstrip()
+    if stripped and stripped[0] in _FORMULA_PREFIX_CHARS:
+        return "'" + value
+    return value
+
+
 @router.get("/users/export")
 @limiter.limit(RATE_LIMITS["admin_read"])
 async def export_users_csv(
@@ -719,14 +738,14 @@ async def export_users_csv(
         writer.writerow(
             {
                 "id": str(user.id),
-                "email": user.email,
-                "name": user.name or "",
+                "email": _sanitize_csv_cell(user.email),
+                "name": _sanitize_csv_cell(user.name),
                 "is_active": str(not user.is_deleted),
                 "has_password": str(user.hashed_password is not None),
-                "admin_role": admin_role or "",
-                "provider": provider or "",
+                "admin_role": _sanitize_csv_cell(admin_role),
+                "provider": _sanitize_csv_cell(provider),
                 "created_at": user.created_at.isoformat() if user.created_at else "",
-                "notes": user.notes or "",
+                "notes": _sanitize_csv_cell(user.notes),
             }
         )
 

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.mappers import job_to_response
 from app.api.schemas import JobListResponse, JobResponse
 from app.auth.dependencies import get_optional_user
-from app.cache.redis_pool import CacheService, get_redis_service
+from app.cache.cache_service import CacheService, get_cache_service
 from app.db import get_db
 from app.models import JobClick, SavedJob, User
 from app.rate_limiter import RATE_LIMITS, limiter
@@ -44,14 +44,14 @@ class ClickResponse(BaseModel):
 
 async def get_job_search_service(
     db: AsyncSession = Depends(get_db),
-    cache: CacheService = Depends(get_redis_service),
+    cache: CacheService = Depends(get_cache_service),
 ) -> JobSearchService:
     """Get job search service instance."""
     return JobSearchService(db, cache)
 
 
 async def _get_cache_service_dependency() -> CacheService:
-    return await get_redis_service()
+    return await get_cache_service()
 
 
 

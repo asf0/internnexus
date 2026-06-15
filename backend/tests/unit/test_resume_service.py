@@ -50,3 +50,54 @@ def test_unknown_resume_processing_error_maps_to_generic_client_message() -> Non
     error = ResumeProcessingError("Unexpected parser stack trace: /private/tmp/file.pdf")
 
     assert resume_processing_client_message(error) == "Could not process resume. Please upload a valid PDF or TXT file."
+
+
+def test_pdf_with_too_many_pages_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    class ManyPagesPdfReader:
+        def __init__(self, _file_obj: object) -> None:
+            pass
+
+        @property
+        def pages(self) -> list:
+            return [None] * 100  # 100 pages, exceeds limit of 50
+
+    pypdf_module = ModuleType("pypdf")
+    pypdf_module.PdfReader = ManyPagesPdfReader
+    monkeypatch.setitem(sys.modules, "pypdf", pypdf_module)
+
+    pdfminer_module = ModuleType("pdfminer")
+    pdfminer_high_level = ModuleType("pdfminer.high_level")
+    pdfminer_high_level.extract_text = lambda _f: ""
+    monkeypatch.setitem(sys.modules, "pdfminer", pdfminer_module)
+    monkeypatch.setitem(sys.modules, "pdfminer.high_level", pdfminer_high_level)
+
+    with pytest.raises(ResumeProcessingError, match="too many pages"):
+        extract_text_from_pdf(io.BytesIO(b"%PDF fake content"))
+
+
+def test_pdf_with_oversized_text_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    huge_text = "x" * 2_000_000  # 2MB, exceeds limit of 1MB
+
+    class SinglePagePdfReader:
+        def __init__(self, _file_obj: object) -> None:
+            pass
+
+        @property
+        def pages(self) -> list:
+            class Page:
+                def extract_text(self) -> str:
+                    return huge_text
+            return [Page()]
+
+    pypdf_module = ModuleType("pypdf")
+    pypdf_module.PdfReader = SinglePagePdfReader
+    monkeypatch.setitem(sys.modules, "pypdf", pypdf_module)
+
+    pdfminer_module = ModuleType("pdfminer")
+    pdfminer_high_level = ModuleType("pdfminer.high_level")
+    pdfminer_high_level.extract_text = lambda _f: ""
+    monkeypatch.setitem(sys.modules, "pdfminer", pdfminer_module)
+    monkeypatch.setitem(sys.modules, "pdfminer.high_level", pdfminer_high_level)
+
+    with pytest.raises(ResumeProcessingError, match="too long"):
+        extract_text_from_pdf(io.BytesIO(b"%PDF fake content"))

@@ -6,16 +6,12 @@ on:
   workflow_dispatch:
 
 env:
-  POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-  POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
   POSTGRES_HOST: localhost
   POSTGRES_PORT: "5432"
   EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
   EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
   OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
   CLASSIFICATION_MODEL: ${{ vars.CLASSIFICATION_MODEL }}
-  AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
   REDIS_URL: ${{ vars.REDIS_URL }}
   GREENHOUSE_API_URL: ${{ vars.GREENHOUSE_API_URL }}
   LEVER_API_URL: ${{ vars.LEVER_API_URL }}
@@ -31,7 +27,8 @@ jobs:
       contains(github.event.pull_request.changed_files.*.filename, 'backend/') ||
       contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
       contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
+      contains(github.event.pull_request.changed_files.*.filename, 'backend/pyproject.toml') ||
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
     runs-on: docker
     container:
       image: python:3.12-slim
@@ -79,7 +76,7 @@ jobs:
         run: cd backend && uv run ruff check app tests
 
       - name: Run unit tests
-        run: cd backend && uv run pytest tests/unit -q --tb=short
+        run: cd backend && uv run pytest tests/unit -q --tb=short --cov=app --cov-report=term-missing
 
       - name: Run integration, E2E, and property tests
         run: cd backend && uv run pytest tests/integration tests/e2e tests/property -q --tb=short
@@ -93,7 +90,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.changed_files.*.filename, 'frontend/') ||
       contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
+      contains(github.event.pull_request.changed_files.*.filename, 'frontend/package.json') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'frontend/pnpm-lock.yaml') ||
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
     runs-on: docker
     container:
       image: node:22-slim
@@ -126,8 +125,9 @@ jobs:
       contains(github.event.pull_request.changed_files.*.filename, 'pipeline/') ||
       contains(github.event.pull_request.changed_files.*.filename, 'docker-compose.yml') ||
       contains(github.event.pull_request.changed_files.*.filename, 'pyproject.toml') ||
+      contains(github.event.pull_request.changed_files.*.filename, 'pipeline/pyproject.toml') ||
       contains(github.event.pull_request.changed_files.*.filename, 'pipeline.yaml') ||
-      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/ci.yml')
+      contains(github.event.pull_request.changed_files.*.filename, '.gitea/workflows/')
     runs-on: docker
     container:
       image: python:3.12-slim
@@ -151,7 +151,7 @@ jobs:
         run: cd pipeline && uv run ruff check .
 
       - name: Run unit tests
-        run: cd pipeline && uv run pytest tests/unit -q --tb=short
+        run: cd pipeline && uv run pytest tests/unit -q --tb=short --cov=pipeline --cov-report=term-missing
 
       - name: Validate imports
         run: cd pipeline && uv run pytest tests/test_import_chains.py -q

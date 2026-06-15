@@ -22,9 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.jobs import (
     ClickRequest,
     ClickResponse,
+    get_cache_service,
     get_db,
     get_optional_user,
-    get_redis_service,
     router,
 )
 from app.models import Job, JobClick, JobSource, User
@@ -49,7 +49,7 @@ def app(mock_db_session):
     async def _override_get_optional_user():
         return app.state.optional_user
 
-    async def _override_get_redis_service():
+    async def _override_get_cache_service():
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=None)
         mock_redis.set = AsyncMock(return_value=True)
@@ -57,7 +57,7 @@ def app(mock_db_session):
 
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_optional_user] = _override_get_optional_user
-    app.dependency_overrides[get_redis_service] = _override_get_redis_service
+    app.dependency_overrides[get_cache_service] = _override_get_cache_service
 
     yield app
     app.dependency_overrides.clear()
@@ -150,7 +150,7 @@ class TestClickTrackingSuccess:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=mock_authenticated_user),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository to return active job
             mock_repo = AsyncMock()
@@ -202,7 +202,7 @@ class TestClickTrackingSuccess:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository to return active job
             mock_repo = AsyncMock()
@@ -260,7 +260,7 @@ class TestClickTrackingErrors:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository to return None (job not found)
             mock_repo = AsyncMock()
@@ -300,7 +300,7 @@ class TestClickTrackingErrors:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository to return inactive job
             mock_repo = AsyncMock()
@@ -349,7 +349,7 @@ class TestUTMParameters:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -391,7 +391,7 @@ class TestUTMParameters:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -456,7 +456,7 @@ class TestIPHashing:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -499,7 +499,7 @@ class TestIPHashing:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -562,7 +562,7 @@ class TestRequestMetadata:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -601,7 +601,7 @@ class TestRequestMetadata:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -640,7 +640,7 @@ class TestRequestMetadata:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
@@ -680,7 +680,7 @@ class TestRequestMetadata:
             patch("app.api.jobs.get_db", return_value=mock_db_session),
             patch("app.api.jobs.get_optional_user", return_value=None),
             patch("app.api.jobs.JobRepository") as mock_repo_class,
-            patch("app.api.jobs.get_redis_service") as mock_redis,
+            patch("app.api.jobs.get_cache_service") as mock_redis,
         ):
             # Mock repository
             mock_repo = AsyncMock()
