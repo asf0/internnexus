@@ -96,7 +96,7 @@ services:
             - DATA_DIR=/app/data
             - PIPELINE_MODE_POOL=2
         volumes:
-            - ./data:/app/data
+            - pipeline_data:/app/data
         depends_on:
             db:
                 condition: service_healthy
@@ -176,3 +176,4 @@ services:
 volumes:
     db_data_pg18:
     searxng-data:
+    pipeline_data:

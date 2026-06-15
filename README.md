@@ -304,7 +304,6 @@ MIT License - see [LICENSE](LICENSE) file
 - [FastAPI](https://fastapi.tiangolo.com/) for the excellent framework
 - [llama.cpp](https://github.com/ggml-ai/llama.cpp) for local AI capabilities
 
-
 ---
 
 ## 📞 Support

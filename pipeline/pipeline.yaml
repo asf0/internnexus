@@ -1,28 +1,28 @@
 pipeline:
-  continuous_interval: 21600
-  backoff_on_error: 300
-  max_backoff_multiplier: 5
+    continuous_interval: 21600
+    backoff_on_error: 300
+    max_backoff_multiplier: 5
 
 api:
-  fetch_concurrency: 10
-  slug_404_cooldown_hours: 24
+    fetch_concurrency: 10
+    slug_404_cooldown_hours: 24
 
 cleanup:
-  process_all: false
-  parse_concurrency: 12
-  chunk_size: 5000
+    process_all: false
+    parse_concurrency: 12
+    chunk_size: 5000
 
 embeddings:
-  batch_size: 50
-  parallel_batches: 1
+    batch_size: 50
+    parallel_batches: 1
 
 discovery:
-  enabled: true
-  timeout: 15
-  searxng_url: "http://searxng:8080"
-  query_delay_seconds: 15.0
-  max_pages: null
+    enabled: true
+    timeout: 15
+    searxng_url: "http://searxng:8080"
+    query_delay_seconds: 15.0
+    max_pages: null
 
 health_check:
-  enabled: true
-  timeout: 10
+    enabled: true
+    timeout: 10
