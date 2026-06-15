@@ -23,7 +23,12 @@ def test_extract_company_slug_supports_supported_ats_domains():
         company_discovery.extract_company_slug("https://boards.greenhouse.io/embed/job_board?for=spacex", "greenhouse")
         == "spacex"
     )
-    assert company_discovery.extract_company_slug("https://boards.greenhouse.io/embed/job_board/js?for=journey", "greenhouse") is None
+    assert (
+        company_discovery.extract_company_slug(
+            "https://boards.greenhouse.io/embed/job_board/js?for=journey", "greenhouse"
+        )
+        is None
+    )
     assert company_discovery.extract_company_slug("https://jobs.ashbyhq.com/openai/abcd", "ashby") == "openai"
     assert company_discovery.extract_company_slug("https://example.com/openai/abcd", "ashby") is None
 
@@ -35,7 +40,6 @@ def test_build_search_queries_uses_site_country_and_apply_text():
     assert ("United States", "lever", 'site:jobs.lever.co United States intext:"apply"') in queries
     assert ("United States", "greenhouse", 'site:boards.greenhouse.io United States intext:"apply"') in queries
     assert ("United States", "ashby", 'site:jobs.ashbyhq.com United States intext:"apply"') in queries
-
 
 
 @pytest.mark.asyncio
@@ -125,7 +129,6 @@ async def test_discover_companies_round_robins_pages_across_ats(monkeypatch, tmp
         ('site:boards.greenhouse.io intext:"apply"', 2),
         ('site:jobs.ashbyhq.com intext:"apply"', 2),
     ]
-
 
 
 @pytest.mark.asyncio
@@ -275,7 +278,7 @@ async def test_discover_companies_merges_successes_when_refresh_is_partial(monke
 
 
 @pytest.mark.asyncio
-async def test_discover_companies_stops_after_searxng_failure(monkeypatch, tmp_path: Path):
+async def test_discover_companies_tries_all_queries_on_searxng_failure(monkeypatch, tmp_path: Path):
     output_path = tmp_path / "discovered_companies.json"
     progress_path = tmp_path / "discovery_progress.json"
     output_path.write_text(json.dumps({"lever": ["stable"], "greenhouse": [], "ashby": []}))
@@ -303,7 +306,9 @@ async def test_discover_companies_stops_after_searxng_failure(monkeypatch, tmp_p
 
     results = await company_discovery.discover_companies(output_path=output_path, progress_path=progress_path)
 
-    assert calls == 1
+    # A single failed query no longer aborts discovery; all page-1 queries are
+    # attempted before the "no progress" guard stops the run.
+    assert calls == 6
     assert results["lever"] == {"stable"}
     assert json.loads(progress_path.read_text())["metadata"]["status"] == "partial"
 
@@ -387,4 +392,3 @@ async def test_search_searxng_treats_empty_unresponsive_engines_as_failure():
             "site:jobs.ashbyhq.com",
             page=1,
         )
-

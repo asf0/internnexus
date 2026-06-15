@@ -8,10 +8,13 @@ to review and update.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final
+
+logger = logging.getLogger(__name__)
 
 _DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "category_mapping.json"
 
@@ -121,7 +124,12 @@ def _log_unmapped_category(category: str) -> None:
     if category not in unmapped:
         unmapped.add(category)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(json.dumps(sorted(unmapped), indent=2))
+        try:
+            log_path.write_text(json.dumps(sorted(unmapped), indent=2))
+        except (PermissionError, OSError) as exc:
+            logger.warning(
+                "Failed to write unmapped category to %s: %s", log_path, exc
+            )
 
 
 def get_all_category_variations() -> dict[str, list[str]]:

@@ -336,7 +336,7 @@ async def discover_companies(
     progress["metadata"]["status"] = "running"
     save_progress(progress, progress_file)
 
-    query_failed = False
+    any_query_failed = False
     page = 1
     async with httpx.AsyncClient(timeout=float(config.timeout)) as client:
         while max_pages is None or page <= max_pages:
@@ -360,12 +360,12 @@ async def discover_companies(
                 )
                 try:
                     urls = await _search_searxng(client, config.searxng_url, query, page=page)
-                except Exception as exc:  # noqa: BLE001  # any SearxNG failure stops this query/page
-                    query_failed = True
+                except Exception as exc:  # noqa: BLE001
+                    any_query_failed = True
                     logger.warning("Discovery query failed for %s (%s page %d): %s", scope, ats, page, exc)
                     if config.query_delay_seconds > 0:
                         await asyncio.sleep(config.query_delay_seconds)
-                    break
+                    continue
 
                 progressed = True
                 completed.add(page_key)
@@ -388,13 +388,13 @@ async def discover_companies(
                 if config.query_delay_seconds > 0:
                     await asyncio.sleep(config.query_delay_seconds)
 
-            if query_failed or all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
+            if all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
                 break
             if not progressed:
                 break
             page += 1
 
-    if query_failed:
+    if any_query_failed:
         progress["metadata"]["status"] = "partial"
     elif all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
         progress["metadata"]["status"] = "complete"

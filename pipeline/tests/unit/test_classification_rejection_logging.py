@@ -13,9 +13,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from pipeline.classification import JobClassifier
+from pipeline.classification.mapping import _log_unmapped_category
 from pipeline.classification.service import (
     _get_rejection_log_path,
     _rotate_rejection_logs,
+)
+from pipeline.classification.rejections import (
+    _append_rejection_events,
+    _write_unmapped_categories,
 )
 
 
@@ -116,3 +121,54 @@ def test_rejection_log_rotation_keeps_recent_files(tmp_path, monkeypatch):
     _rotate_rejection_logs()
 
     assert recent_log.exists()
+
+
+def _make_read_only(tmp_path: Path) -> Path:
+    """Return a read-only DATA_DIR equivalent that still allows reading."""
+    read_only_dir = tmp_path / "readonly"
+    read_only_dir.mkdir(parents=True, exist_ok=True)
+    # Remove write permission for owner/group/others.
+    read_only_dir.chmod(0o555)
+    return read_only_dir
+
+
+def test_write_unmapped_categories_is_resilient_to_permission_errors(
+    tmp_path, monkeypatch, caplog
+):
+    read_only_dir = _make_read_only(tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(read_only_dir))
+
+    with caplog.at_level("WARNING"):
+        added = _write_unmapped_categories({"some_new_category"})
+
+    assert added == 0
+    assert "Failed to write unmapped categories" in caplog.text
+    assert "Permission denied" in caplog.text or "Permission" in caplog.text
+
+
+def test_append_rejection_events_is_resilient_to_permission_errors(
+    tmp_path, monkeypatch, caplog
+):
+    read_only_dir = _make_read_only(tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(read_only_dir))
+
+    with caplog.at_level("WARNING"):
+        _append_rejection_events(
+            [{"reason": "empty_response", "title": "Role", "raw_output": ""}]
+        )
+
+    assert "Failed to write classification rejection events" in caplog.text
+    assert "Permission denied" in caplog.text or "Permission" in caplog.text
+
+
+def test_log_unmapped_category_is_resilient_to_permission_errors(
+    tmp_path, monkeypatch, caplog
+):
+    read_only_dir = _make_read_only(tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(read_only_dir))
+
+    with caplog.at_level("WARNING"):
+        _log_unmapped_category("unmapped_category")
+
+    assert "Failed to write unmapped category" in caplog.text
+    assert "Permission denied" in caplog.text or "Permission" in caplog.text

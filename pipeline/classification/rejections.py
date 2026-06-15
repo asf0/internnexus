@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,6 +13,8 @@ from pipeline.classification.parser import (
     CANDIDATE_TOKEN_PATTERN,
     _normalize_slug_token,
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_REJECTION_SAMPLES_PER_BATCH = 5
 REJECTION_LOG_RETENTION_DAYS = 7
@@ -83,7 +86,13 @@ def _write_unmapped_categories(candidates: set[str]) -> int:
     added = len(existing) - before
     if added:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(json.dumps(sorted(existing), indent=2) + "\n")
+        try:
+            log_path.write_text(json.dumps(sorted(existing), indent=2) + "\n")
+        except (PermissionError, OSError) as exc:
+            logger.warning(
+                "Failed to write unmapped categories to %s: %s", log_path, exc
+            )
+            return 0
     return added
 
 
@@ -118,6 +127,11 @@ def _append_rejection_events(events: list[dict[str, str]]) -> None:
     _rotate_rejection_logs()
     log_path = _get_rejection_log_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as fh:
-        for event in events:
-            fh.write(json.dumps(event, ensure_ascii=True) + "\n")
+    try:
+        with log_path.open("a", encoding="utf-8") as fh:
+            for event in events:
+                fh.write(json.dumps(event, ensure_ascii=True) + "\n")
+    except (PermissionError, OSError) as exc:
+        logger.warning(
+            "Failed to write classification rejection events to %s: %s", log_path, exc
+        )
