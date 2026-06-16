@@ -17,7 +17,7 @@ embeddings:
     parallel_batches: 1
 
 discovery:
-    enabled: true
+    enabled: false
     timeout: 15
     searxng_url: "http://searxng:8080"
     query_delay_seconds: 15.0

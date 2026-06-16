@@ -69,6 +69,14 @@ rntemp/
 scripts/
 .roo/
 
+# Temporary discovery merge artifacts
+greenhouse.csv
+lever.csv
+ashby.csv
+discovery_progress_server.json
+discovered_companies.json
+merge_discovery.py
+
 tests/
 !backend/tests/
 !backend/tests/**
