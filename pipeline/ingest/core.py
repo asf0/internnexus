@@ -581,7 +581,7 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
     if deduplicate and len(unique_jobs) < len(jobs):
         logger.info(f"Deduped {len(jobs) - len(unique_jobs)} jobs within batch ({len(unique_jobs)} unique)")
 
-    BATCH_SIZE = 250
+    BATCH_SIZE = 1000
     total_upserted = 0
 
     for i in range(0, len(unique_jobs), BATCH_SIZE):
