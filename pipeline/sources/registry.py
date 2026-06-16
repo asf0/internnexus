@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DISCOVERY_FILE = Path(__file__).parent.parent / "discovery" / "output" / "discovered_companies.json"
+DEFAULT_DISCOVERY_DIR = Path(__file__).parent.parent / "discovery" / "output"
+DISCOVERY_FILE = Path(os.environ.get("DISCOVERY_OUTPUT_DIR", str(DEFAULT_DISCOVERY_DIR))) / "discovered_companies.json"
 COMMON_COMPANIES_FILE = Path(__file__).parent.parent / "data" / "companies.json"
 
 
