@@ -8,7 +8,7 @@ import logging
 import os
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -353,6 +353,186 @@ async def fetch_api_jobs(
     logger.info(f"Fetched {len(greenhouse_jobs)} Greenhouse, {len(lever_jobs)} Lever, {len(ashby_jobs)} Ashby jobs")
 
     return greenhouse_jobs, lever_jobs, ashby_jobs
+
+
+async def _fetch_source_jobs_streamed(
+    source_name: str,
+    slugs: list[str],
+    fetch_func: Callable[[str], list[JobSchema]],
+    *,
+    chunk_size: int = 500,
+    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
+    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    run_id: str | None = None,
+) -> AsyncIterator[list[JobSchema]]:
+    """Fetch jobs for a single source in chunks, yielding each chunk as it completes.
+
+    This bounds peak memory to roughly one chunk of jobs plus a small set of
+    concurrent coroutines, instead of materializing results for all slugs at once.
+    """
+    now_ts = time.time()
+    slug_404_cache = _load_slug_404_cache()
+    source_cache = slug_404_cache.setdefault(source_name.lower(), {})
+    active_slugs: list[str] = []
+    suppressed_count = 0
+
+    for slug in slugs:
+        expires_at = source_cache.get(slug)
+        if expires_at and expires_at > now_ts:
+            suppressed_count += 1
+            continue
+        active_slugs.append(slug)
+
+    if suppressed_count > 0:
+        logger.info(
+            "%s: suppressing %d slug(s) currently in 404 cooldown",
+            source_name,
+            suppressed_count,
+        )
+
+    if not active_slugs:
+        return
+
+    semaphore = asyncio.Semaphore(max(1, api_fetch_concurrency))
+    cache_lock = asyncio.Lock()
+    fetch_errors: list[SlugFetchError] = []
+
+    async def _fetch_one(slug: str) -> tuple[list[JobSchema], SlugFetchError | None]:
+        async with semaphore:
+            try:
+                return await asyncio.to_thread(fetch_func, slug), None
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code if exc.response is not None else 0
+                if status_code == 404:
+                    cooldown_until = time.time() + (max(1, not_found_cooldown_hours) * 3600)
+                    async with cache_lock:
+                        slug_404_cache.setdefault(source_name.lower(), {})[slug] = cooldown_until
+                    logger.info(
+                        "%s slug '%s' returned 404; skipping for %dh",
+                        source_name,
+                        slug,
+                        max(1, not_found_cooldown_hours),
+                    )
+                    return [], {
+                        "step": "ingest",
+                        "source": source_name.lower(),
+                        "slug": slug,
+                        "run_id": run_id,
+                        "error_type": "http_404",
+                        "status_code": 404,
+                        "message": str(exc),
+                        "cooldown_until": cooldown_until,
+                    }
+                return [], {
+                    "step": "ingest",
+                    "source": source_name.lower(),
+                    "slug": slug,
+                    "run_id": run_id,
+                    "error_type": "http_error",
+                    "status_code": status_code,
+                    "message": str(exc),
+                }
+            except Exception as exc:  # noqa: BLE001  # catch-all to record per-slug failure without crashing ingest
+                return [], {
+                    "step": "ingest",
+                    "source": source_name.lower(),
+                    "slug": slug,
+                    "run_id": run_id,
+                    "error_type": "exception",
+                    "status_code": None,
+                    "message": str(exc),
+                }
+
+    for i in range(0, len(active_slugs), chunk_size):
+        batch_slugs = active_slugs[i : i + chunk_size]
+        results = await asyncio.gather(*[_fetch_one(slug) for slug in batch_slugs])
+        chunk_jobs: list[JobSchema] = []
+        for source_jobs, error in results:
+            chunk_jobs.extend(source_jobs)
+            if error is not None:
+                fetch_errors.append(error)
+        yield chunk_jobs
+
+    slug_404_cache = _prune_slug_404_cache(slug_404_cache)
+    _save_slug_404_cache(slug_404_cache)
+
+    if fetch_errors:
+        per_source: dict[str, int] = {}
+        for error in fetch_errors:
+            per_source[error["source"]] = per_source.get(error["source"], 0) + 1
+        logger.warning(
+            "%s fetch error summary: total=%d per_source=%s",
+            source_name,
+            len(fetch_errors),
+            per_source,
+            extra={
+                "step": "ingest",
+                "source": source_name.lower(),
+                "slug": "*",
+                "run_id": run_id,
+            },
+        )
+
+
+async def fetch_and_ingest_streamed(
+    db: AsyncSession,
+    *,
+    chunk_size: int = 500,
+    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
+    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    run_id: str | None = None,
+) -> int:
+    """Fetch jobs from all sources in chunks and upsert each chunk immediately.
+
+    Processes sources sequentially and yields control back to the event loop after
+    every chunk so memory stays bounded regardless of total job count.
+    """
+    gh_slugs = get_greenhouse_slugs()
+    lever_slugs = get_lever_slugs()
+    ashby_slugs = get_ashby_slugs()
+
+    logger.info(
+        "Fetching %d Greenhouse, %d Lever, %d Ashby companies in streamed chunks of %d slugs...",
+        len(gh_slugs),
+        len(lever_slugs),
+        len(ashby_slugs),
+        chunk_size,
+    )
+
+    greenhouse = GreenhouseClient()
+    lever = LeverClient()
+    ashby = AshbyClient()
+
+    total_fetched = 0
+    try:
+        for source_name, slugs, client in (
+            ("Greenhouse", gh_slugs, greenhouse),
+            ("Lever", lever_slugs, lever),
+            ("Ashby", ashby_slugs, ashby),
+        ):
+            source_total = 0
+            chunk_index = 0
+            async for chunk in _fetch_source_jobs_streamed(
+                source_name=source_name,
+                slugs=slugs,
+                fetch_func=client.fetch_jobs,
+                chunk_size=chunk_size,
+                api_fetch_concurrency=api_fetch_concurrency,
+                not_found_cooldown_hours=not_found_cooldown_hours,
+                run_id=run_id,
+            ):
+                if chunk:
+                    await upsert_jobs(db, chunk, deduplicate=False)
+                    total_fetched += len(chunk)
+                    source_total += len(chunk)
+                chunk_index += 1
+                await asyncio.sleep(0)
+            logger.info("Fetched %d %s jobs in %d chunk(s)", source_total, source_name, chunk_index)
+    finally:
+        _close_api_clients(greenhouse, lever, ashby)
+
+    logger.info("Streamed ingestion complete: %d jobs processed", total_fetched)
+    return total_fetched
 
 
 async def mark_all_jobs_inactive(session: AsyncSession) -> int:

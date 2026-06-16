@@ -178,3 +178,55 @@ async def test_fetch_all_apis_parallel_logs_aggregate_failures_with_context(monk
     }
     assert {getattr(record, "slug", None) for record in slug_error_records} == {"gh-1", "lv-1"}
     assert {getattr(record, "run_id", None) for record in slug_error_records} == {"run-agg"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monkeypatch):
+    saved_cache: dict[str, dict[str, float]] = {}
+    fetched_slugs: list[str] = []
+
+    class _MixedClient:
+        def close(self) -> None:
+            return None
+
+        def fetch_jobs(self, slug: str):
+            fetched_slugs.append(slug)
+            if slug == "missing":
+                raise _http_status_error(404)
+            if slug == "broken":
+                raise RuntimeError("boom")
+            return [
+                JobSchema(
+                    source="greenhouse",
+                    title=f"Job at {slug}",
+                    company=slug,
+                    location="Remote",
+                    apply_url=f"https://example.com/{slug}",
+                    description_text="desc",
+                )
+            ]
+
+    monkeypatch.setattr(pipeline, "_load_slug_404_cache", lambda: {})
+    monkeypatch.setattr(
+        pipeline,
+        "_save_slug_404_cache",
+        lambda cache: saved_cache.update(cache),
+    )
+
+    chunks = []
+    async for chunk in pipeline._fetch_source_jobs_streamed(
+        source_name="Greenhouse",
+        slugs=["a", "b", "missing", "broken"],
+        fetch_func=_MixedClient().fetch_jobs,
+        chunk_size=2,
+        not_found_cooldown_hours=2,
+        run_id="run-stream",
+    ):
+        chunks.append(chunk)
+
+    assert len(chunks) == 2
+    assert len(chunks[0]) == 2  # a, b
+    assert len(chunks[1]) == 0  # missing (404), broken (exception)
+    assert {job.company for job in chunks[0]} == {"a", "b"}
+    assert "missing" in saved_cache.get("greenhouse", {})
+    assert fetched_slugs == ["a", "b", "missing", "broken"]
