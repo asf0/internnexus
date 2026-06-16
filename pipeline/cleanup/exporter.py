@@ -65,7 +65,7 @@ async def _process_test_mode_chunked(
     since,
     process_all,
     limit: int | None,
-    location_cache_max_size: int = 10_000,
+    location_cache_max_size: int = 50_000,
 ) -> int:
     repo = SQLAlchemyJobRepository(session)
     output_dir = Path(__file__).parent.parent / "output"
@@ -112,8 +112,9 @@ async def _process_test_mode_chunked(
                 continue
 
             if location not in unique_locations:
+                cache_size_before = len(unique_locations)
                 unique_locations[location] = await _parse_location_only(location)
-                if len(unique_locations) % 500 == 0:
+                if len(unique_locations) // 500 > cache_size_before // 500:
                     logger.info(f"Normalized {len(unique_locations)} unique locations...")
 
             parsed_result = unique_locations[location]
