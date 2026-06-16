@@ -70,12 +70,9 @@ services:
         deploy:
             resources:
                 limits:
-                    memory: 2.5G
                     cpus: "2.0"
                 reservations:
                     memory: 512M
-        mem_swappiness: 0
-        memswap_limit: 2560m
         environment:
             - POSTGRES_DB=${POSTGRES_DB}
             - POSTGRES_USER=${POSTGRES_USER}
