@@ -94,6 +94,7 @@ services:
             - SIMPLIFY_JOBS_INTERN_URL=${SIMPLIFY_JOBS_INTERN_URL}
             - SIMPLIFY_JOBS_NEW_GRAD_URL=${SIMPLIFY_JOBS_NEW_GRAD_URL}
             - DATA_DIR=/app/data
+            - DISCOVERY_OUTPUT_DIR=/app/data/discovery
             - PIPELINE_MODE_POOL=2
         volumes:
             - pipeline_data:/app/data

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(__file__).parent / "output"
+OUTPUT_DIR = Path(os.environ.get("DISCOVERY_OUTPUT_DIR", str(Path(__file__).parent / "output")))
 DISCOVERED_COMPANIES_FILE = OUTPUT_DIR / "discovered_companies.json"
 PROGRESS_FILE = OUTPUT_DIR / "discovery_progress.json"
 
