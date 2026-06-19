@@ -22,13 +22,17 @@ except ImportError:
     HAS_PSUTIL = False
 
 import httpx
-from sqlalchemy import case, update
+from sqlalchemy import case
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.repositories.sqlalchemy_repo import (
     Job,
     JobSource,
+)
+from pipeline.repositories.sync_ops import (
+    batched_mark_all_inactive,
+    batched_reactivate_inactive,
 )
 from pipeline.sources.registry import get_greenhouse_slugs, get_lever_slugs, get_ashby_slugs
 from pipeline.sources.greenhouse import GreenhouseClient
@@ -542,15 +546,14 @@ async def mark_all_jobs_inactive(session: AsyncSession) -> int:
     jobs as inactive. Jobs that still exist in the API will be re-activated
     during upsert. Jobs that no longer exist will stay inactive and be deleted.
 
+    Delegates to the shared batched sync operation which uses id-ordered
+    ``FOR UPDATE SKIP LOCKED`` batching to prevent deadlocks and limit the
+    lock-holding window. Each batch is retried on transient DB conflicts.
+
     Returns:
         Number of jobs marked inactive
     """
-    result = await session.execute(update(Job).where(Job.is_active.is_(True), Job.source != JobSource.manual).values(is_active=False))
-    await session.commit()
-    count = result.rowcount
-    if count > 0:
-        logger.info(f"Marked {count} jobs as inactive (preparing for sync)")
-    return count
+    return await batched_mark_all_inactive(session)
 
 
 async def reactivate_inactive_jobs(session: AsyncSession) -> int:
@@ -558,17 +561,13 @@ async def reactivate_inactive_jobs(session: AsyncSession) -> int:
 
     This is a rollback helper for the mass inactive mark. It is intentionally
     broad because the sync marker is currently only represented by is_active.
+
+    Delegates to the shared batched sync operation for deadlock safety.
+
+    Returns:
+        Number of jobs reactivated
     """
-    result = await session.execute(
-        update(Job)
-        .where(Job.is_active.is_(False), Job.source != JobSource.manual)
-        .values(is_active=True)
-    )
-    await session.commit()
-    count = result.rowcount
-    if count > 0:
-        logger.warning("Reactivated %s inactive jobs after unsafe sync guard triggered", count)
-    return count
+    return await batched_reactivate_inactive(session)
 
 
 async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool = True) -> None:

@@ -17,6 +17,7 @@ from pipeline.runtime import (
     run_health_checks,
 )
 from pipeline.runtime.steps import PIPELINE_STEPS
+from pipeline.runtime.sync_lock import job_sync_lock, null_sync_lock
 
 logger = logging.getLogger(__name__)
 
@@ -448,44 +449,51 @@ class PipelineRunner:
                 elif state:
                     await state.mark_step_complete("discover")
 
-            if not start_from_step or PIPELINE_STEPS.index("sync_inactive") >= PIPELINE_STEPS.index(start_from_step or "sync_inactive"):
-                self.current_step = "sync_inactive"
-                self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
+            sync_steps_will_run = (
+                start_from_step is None
+                or PIPELINE_STEPS.index(start_from_step) <= PIPELINE_STEPS.index("delete_inactive")
+            )
+            lock_ctx = job_sync_lock() if sync_steps_will_run else null_sync_lock()
 
-            if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(start_from_step or "ingest"):
-                self.current_step = "ingest"
-                jobs_count, batch_start_time = await self.step_ingest(state)
-                self.results["jobs_fetched"] = jobs_count
+            async with lock_ctx:
+                if not start_from_step or PIPELINE_STEPS.index("sync_inactive") >= PIPELINE_STEPS.index(start_from_step or "sync_inactive"):
+                    self.current_step = "sync_inactive"
+                    self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
 
-            if not start_from_step or PIPELINE_STEPS.index("delete_inactive") >= PIPELINE_STEPS.index(
-                start_from_step or "delete_inactive"
-            ):
-                self.current_step = "delete_inactive"
-                missing_sync_context = (
-                    start_from_step in {"ingest", "delete_inactive"}
-                    and self.results["jobs_marked_inactive"] == 0
-                )
-                unsafe_partial_sync = _is_unsafe_delete_inactive_sync(
-                    self.results["jobs_marked_inactive"],
-                    self.results["jobs_fetched"],
-                )
-                if missing_sync_context or unsafe_partial_sync:
-                    logger.error(
-                        (
-                            "Skipping delete_inactive because the sync is unsafe "
-                            "(start_from_step=%s, fetched=%d, marked_inactive=%d). "
-                            "Reactivating inactive jobs to avoid a destructive partial sync."
-                        ),
-                        start_from_step,
-                        self.results["jobs_fetched"],
-                        self.results["jobs_marked_inactive"],
+                if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(start_from_step or "ingest"):
+                    self.current_step = "ingest"
+                    jobs_count, batch_start_time = await self.step_ingest(state)
+                    self.results["jobs_fetched"] = jobs_count
+
+                if not start_from_step or PIPELINE_STEPS.index("delete_inactive") >= PIPELINE_STEPS.index(
+                    start_from_step or "delete_inactive"
+                ):
+                    self.current_step = "delete_inactive"
+                    missing_sync_context = (
+                        start_from_step in {"ingest", "delete_inactive"}
+                        and self.results["jobs_marked_inactive"] == 0
                     )
-                    await self.rollback_sync_inactive()
-                    if state:
-                        await state.mark_step_complete("delete_inactive")
-                    self.results["inactive_jobs_deleted"] = 0
-                else:
-                    self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
+                    unsafe_partial_sync = _is_unsafe_delete_inactive_sync(
+                        self.results["jobs_marked_inactive"],
+                        self.results["jobs_fetched"],
+                    )
+                    if missing_sync_context or unsafe_partial_sync:
+                        logger.error(
+                            (
+                                "Skipping delete_inactive because the sync is unsafe "
+                                "(start_from_step=%s, fetched=%d, marked_inactive=%d). "
+                                "Reactivating inactive jobs to avoid a destructive partial sync."
+                            ),
+                            start_from_step,
+                            self.results["jobs_fetched"],
+                            self.results["jobs_marked_inactive"],
+                        )
+                        await self.rollback_sync_inactive()
+                        if state:
+                            await state.mark_step_complete("delete_inactive")
+                        self.results["inactive_jobs_deleted"] = 0
+                    else:
+                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
 
             if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(start_from_step or "cleanup"):
                 self.current_step = "cleanup"

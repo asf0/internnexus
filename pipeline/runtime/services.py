@@ -11,6 +11,7 @@ from pipeline.classification import reset_classifier_async
 from pipeline.embeddings.enrichment import reset_embedder
 from pipeline.location.cache import close_location_cache
 from pipeline.runtime.commands import claim_next_pending_command, mark_command_completed, mark_command_failed
+from pipeline.runtime.sync_lock import job_sync_lock
 
 logger = logging.getLogger(__name__)
 
@@ -99,17 +100,22 @@ async def resolve_resume_run_id(*, resume_requested: bool, get_incomplete_run, l
     return None
 
 
+_SYNC_STEPS = {"sync_inactive", "ingest", "delete_inactive"}
+
+
 async def run_selected_step(runner, args) -> None:
     if args.step == "discover":
         await runner.step_discover(None)
-    elif args.step == "sync_inactive":
-        await runner.step_sync_inactive(None)
-    elif args.step == "ingest":
-        await runner.step_ingest(None)
-        if args.delete_inactive:
-            await runner.step_delete_inactive(None)
-    elif args.step == "delete_inactive":
-        await runner.step_delete_inactive(None)
+    elif args.step in _SYNC_STEPS:
+        async with job_sync_lock():
+            if args.step == "sync_inactive":
+                await runner.step_sync_inactive(None)
+            elif args.step == "ingest":
+                await runner.step_ingest(None)
+                if args.delete_inactive:
+                    await runner.step_delete_inactive(None)
+            elif args.step == "delete_inactive":
+                await runner.step_delete_inactive(None)
     elif args.step == "cleanup":
         await runner.step_cleanup(None, test_mode=args.test, limit=args.limit)
     elif args.step == "classify":

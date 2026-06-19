@@ -11,7 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import func, select, text, update
 
 from pipeline.db import AsyncSessionLocal
 from pipeline.models import (
@@ -22,6 +22,10 @@ from pipeline.models import (
 )
 from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate
 from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
+from pipeline.repositories.sync_ops import (
+    batched_delete_inactive,
+    batched_mark_all_inactive,
+)
 
 __all__ = [
     "AsyncSessionLocal",
@@ -361,13 +365,12 @@ class SQLAlchemyJobRepository:
         we mark all jobs as inactive. Jobs that still exist in the
         API will be re-activated during upsert.
 
+        Delegates to the shared batched sync operation for deadlock safety.
+
         Returns:
             Number of jobs marked inactive
         """
-        stmt = update(Job).where(Job.is_active.is_(True), Job.source != JobSource.manual).values(is_active=False)
-        result = await self._session.execute(stmt)
-        await self._session.commit()
-        return _rowcount(result)
+        return await batched_mark_all_inactive(self._session)
 
     async def delete_inactive_jobs(self) -> int:
         """Delete all jobs marked as inactive.
@@ -376,13 +379,12 @@ class SQLAlchemyJobRepository:
         any jobs that remain inactive were not found in the APIs
         and should be deleted.
 
+        Delegates to the shared batched sync operation for deadlock safety.
+
         Returns:
             Number of jobs deleted
         """
-        stmt = delete(Job).where(Job.is_active.is_(False), Job.source != JobSource.manual)
-        result = await self._session.execute(stmt)
-        await self._session.commit()
-        return _rowcount(result)
+        return await batched_delete_inactive(self._session)
 
     async def get_total_count(
         self,
