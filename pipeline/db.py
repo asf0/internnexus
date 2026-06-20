@@ -22,8 +22,8 @@ class Base(DeclarativeBase):
 settings = get_settings()
 
 _pipeline_pool_size = int(os.getenv("PIPELINE_MODE_POOL", "0")) or None
-_async_pool_size = _pipeline_pool_size if _pipeline_pool_size else 20
-_async_overflow = _pipeline_pool_size if _pipeline_pool_size else 20
+_async_pool_size = _pipeline_pool_size if _pipeline_pool_size else 5
+_async_overflow = _pipeline_pool_size if _pipeline_pool_size else 5
 _sync_pool_size = max(1, _async_pool_size // 2)
 _sync_overflow = max(1, _async_overflow // 2)
 

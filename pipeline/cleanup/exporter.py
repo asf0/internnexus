@@ -65,7 +65,7 @@ async def _process_test_mode_chunked(
     since,
     process_all,
     limit: int | None,
-    location_cache_max_size: int = 50_000,
+    location_cache_max_size: int = 10_000,
 ) -> int:
     repo = SQLAlchemyJobRepository(session)
     output_dir = Path(__file__).parent.parent / "output"

@@ -50,7 +50,7 @@ async def _process_production_mode_chunked(
     limit: int | None,
     parse_concurrency: int = 12,
     chunk_size: int = 5000,
-    location_cache_max_size: int = 50_000,
+    location_cache_max_size: int = 10_000,
 ) -> int:
     repo = SQLAlchemyJobRepository(session)
     unique_locations: LRUDict[str, dict] = LRUDict(max_size=location_cache_max_size)
@@ -168,7 +168,7 @@ async def cleanup_locations(
     limit: int | None = None,
     parse_concurrency: int = 12,
     chunk_size: int = 5000,
-    location_cache_max_size: int = 50_000,
+    location_cache_max_size: int = 10_000,
 ) -> int:
     logger.info("=" * 60)
     logger.info("STEP 3: Cleaning up locations...")

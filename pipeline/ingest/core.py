@@ -364,7 +364,7 @@ async def _fetch_source_jobs_streamed(
     slugs: list[str],
     fetch_func: Callable[[str], list[JobSchema]],
     *,
-    chunk_size: int = 500,
+    chunk_size: int = 100,
     api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
     not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
     run_id: str | None = None,
@@ -530,6 +530,7 @@ async def fetch_and_ingest_streamed(
                     total_fetched += len(chunk)
                     source_total += len(chunk)
                 chunk_index += 1
+                _log_memory_usage(chunk_index)
                 await asyncio.sleep(0)
             logger.info("Fetched %d %s jobs in %d chunk(s)", source_total, source_name, chunk_index)
     finally:
