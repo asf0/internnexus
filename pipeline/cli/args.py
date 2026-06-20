@@ -14,8 +14,8 @@ Examples:
   internnexus-pipeline -c --interval 3600   # Run continuously every hour
   internnexus-pipeline --step ingest        # Only fetch new jobs
   internnexus-pipeline --step ingest --delete-inactive  # Fetch + delete inactive
-  internnexus-pipeline --step sync_inactive # Mark all jobs inactive
-  internnexus-pipeline --step delete_inactive # Delete inactive jobs
+  internnexus-pipeline --step sync_inactive # Deprecated: no-op in last_seen sync model
+  internnexus-pipeline --step delete_inactive # Delete inactive jobs not seen this run
   internnexus-pipeline --step embed         # Only generate embeddings
   internnexus-pipeline --dry-run            # Preview without changes
   internnexus-pipeline --resume             # Resume failed run

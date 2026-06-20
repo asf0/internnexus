@@ -23,9 +23,9 @@ Run modes:
 Examples:
   internnexus-pipeline                                  # Run full pipeline once
   internnexus-pipeline --step ingest                    # Only fetch new jobs
-  internnexus-pipeline --step ingest --delete-inactive  # Fetch + delete inactive jobs
-  internnexus-pipeline --step sync_inactive             # Mark all jobs as inactive
-  internnexus-pipeline --step delete_inactive           # Delete jobs marked as inactive
+  internnexus-pipeline --step ingest --delete-inactive  # Fetch + delete stale jobs
+  internnexus-pipeline --step sync_inactive             # Deprecated: no-op in last_seen sync model
+  internnexus-pipeline --step delete_inactive           # Delete inactive jobs not seen this run
   internnexus-pipeline --step cleanup                   # Normalize locations
   internnexus-pipeline --step cleanup --all             # Re-process ALL locations
   internnexus-pipeline --step cleanup --test            # Test mode: CSV output only
