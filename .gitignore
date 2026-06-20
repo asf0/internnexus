@@ -68,6 +68,8 @@ my-react-native-app/
 rntemp/
 scripts/
 .roo/
+/package-lock.json
+docs/*-plan.md
 
 # Temporary discovery merge artifacts
 greenhouse.csv

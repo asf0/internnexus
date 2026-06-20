@@ -13,7 +13,7 @@
 
 Try the live app to search internships, apply filters, and test resume-based job matching.
 
-InternNexus aggregates internship opportunities from multiple job boards (Greenhouse, Lever) and provides intelligent filtering, categorization, and AI-powered resume matching.
+InternNexus aggregates internship opportunities from multiple job boards (Greenhouse, Lever, Ashby) and provides intelligent filtering, categorization, visa sponsorship search, and AI-powered resume matching.
 
 ---
 
@@ -306,14 +306,4 @@ MIT License - see [LICENSE](LICENSE) file
 
 ---
 
-## 📞 Support
-
-Python services now have independent project roots: `backend/` and `pipeline/`. There is no shared Python package between them; the PostgreSQL schema and backend admin API are the integration contracts.
-
-- 📖 Documentation (coming soon)
-- 🐛 [Issue Tracker](../../issues)
-- 💬 [Discussions](../../discussions)
-
----
-
-**Built with ❤️ for job seekers everywhere**
+**Built for job seekers everywhere**
