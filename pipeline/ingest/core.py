@@ -31,7 +31,7 @@ from pipeline.repositories.sqlalchemy_repo import (
     JobSource,
 )
 from pipeline.repositories.sync_ops import (
-    batched_mark_all_inactive,
+    batched_mark_stale_jobs_inactive,
     batched_reactivate_inactive,
 )
 from pipeline.sources.registry import get_greenhouse_slugs, get_lever_slugs, get_ashby_slugs
@@ -541,27 +541,41 @@ async def fetch_and_ingest_streamed(
 
 
 async def mark_all_jobs_inactive(session: AsyncSession) -> int:
-    """Mark all active jobs as inactive before ingestion.
+    """No-op in the last_seen sync model.
 
-    This is part of the sync model: before fetching from APIs, we mark all
-    jobs as inactive. Jobs that still exist in the API will be re-activated
-    during upsert. Jobs that no longer exist will stay inactive and be deleted.
-
-    Delegates to the shared batched sync operation which uses id-ordered
-    ``FOR UPDATE SKIP LOCKED`` batching to prevent deadlocks and limit the
-    lock-holding window. Each batch is retried on transient DB conflicts.
+    Kept for backward compatibility and CLI/resume compatibility. The actual
+    inactive marking now happens after ingestion via ``mark_stale_jobs_inactive``
+    based on ``last_seen < batch_start_time``.
 
     Returns:
-        Number of jobs marked inactive
+        0
     """
-    return await batched_mark_all_inactive(session)
+    logger.debug("mark_all_jobs_inactive is deprecated; sync model uses last_seen")
+    return 0
+
+
+async def mark_stale_jobs_inactive(session: AsyncSession, batch_start_time: datetime) -> int:
+    """Mark active non-manual jobs that were not seen this run as inactive.
+
+    Uses the ``last_seen`` timestamp set during upsert to identify stale jobs.
+    Jobs with ``last_seen >= batch_start_time`` were fetched/updated this run
+    and stay active. Jobs with older ``last_seen`` are marked inactive.
+
+    Args:
+        session: SQLAlchemy async session.
+        batch_start_time: Timestamp captured at the start of ingestion.
+
+    Returns:
+        Number of jobs marked inactive.
+    """
+    return await batched_mark_stale_jobs_inactive(session, batch_start_time)
 
 
 async def reactivate_inactive_jobs(session: AsyncSession) -> int:
     """Reactivate non-manual jobs after an unsafe sync is detected.
 
-    This is a rollback helper for the mass inactive mark. It is intentionally
-    broad because the sync marker is currently only represented by is_active.
+    This is a rollback helper for the sync model. It is intentionally broad
+    because the sync marker is currently only represented by is_active.
 
     Delegates to the shared batched sync operation for deadlock safety.
 

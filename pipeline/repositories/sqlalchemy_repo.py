@@ -24,7 +24,6 @@ from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationU
 from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
 from pipeline.repositories.sync_ops import (
     batched_delete_inactive,
-    batched_mark_all_inactive,
 )
 
 __all__ = [
@@ -359,32 +358,29 @@ class SQLAlchemyJobRepository:
         await self._session.commit()
 
     async def mark_all_jobs_inactive(self) -> int:
-        """Mark all active jobs as inactive.
+        """No-op in the last_seen sync model.
 
-        This is part of the sync model: before fetching from APIs,
-        we mark all jobs as inactive. Jobs that still exist in the
-        API will be re-activated during upsert.
-
-        Delegates to the shared batched sync operation for deadlock safety.
+        Kept for backward compatibility. The actual stale-job marking is done
+        after ingestion via ``batched_mark_stale_jobs_inactive``.
 
         Returns:
-            Number of jobs marked inactive
+            0
         """
-        return await batched_mark_all_inactive(self._session)
+        return 0
 
-    async def delete_inactive_jobs(self) -> int:
-        """Delete all jobs marked as inactive.
+    async def delete_inactive_jobs(self, batch_start_time: datetime) -> int:
+        """Delete inactive jobs that were not seen this run.
 
-        After marking all jobs inactive and re-ingesting from APIs,
-        any jobs that remain inactive were not found in the APIs
-        and should be deleted.
+        Uses ``last_seen < batch_start_time`` to ensure only jobs from prior
+        runs are deleted, providing a safety buffer against partial ingests.
 
-        Delegates to the shared batched sync operation for deadlock safety.
+        Args:
+            batch_start_time: Timestamp captured at the start of ingestion.
 
         Returns:
             Number of jobs deleted
         """
-        return await batched_delete_inactive(self._session)
+        return await batched_delete_inactive(self._session, batch_start_time)
 
     async def get_total_count(
         self,

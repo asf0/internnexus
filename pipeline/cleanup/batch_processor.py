@@ -212,7 +212,10 @@ async def cleanup_locations(
             await session.close()
 
 
-async def delete_inactive_jobs(session: AsyncSession | None = None) -> int:
+async def delete_inactive_jobs(
+    session: AsyncSession | None = None,
+    batch_start_time: datetime | None = None,
+) -> int:
     logger.info("=" * 60)
     logger.info("STEP: Deleting inactive jobs (sync model)...")
     logger.info("=" * 60)
@@ -223,7 +226,7 @@ async def delete_inactive_jobs(session: AsyncSession | None = None) -> int:
 
     try:
         repo = SQLAlchemyJobRepository(session)
-        deleted_count = await repo.delete_inactive_jobs()
+        deleted_count = await repo.delete_inactive_jobs(batch_start_time)
         if deleted_count == 0:
             logger.info("No inactive jobs to delete")
             return 0

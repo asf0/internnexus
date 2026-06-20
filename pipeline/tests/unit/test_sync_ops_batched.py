@@ -14,6 +14,7 @@ from pipeline.repositories.sync_ops import (
     _batched_sync_op,
     batched_delete_inactive,
     batched_mark_all_inactive,
+    batched_mark_stale_jobs_inactive,
     batched_reactivate_inactive,
 )
 
@@ -109,6 +110,39 @@ class TestBatchedSyncOp:
         await _batched_sync_op(session, "SELECT 1", batch_size=5000)
         assert session.executed_params[0] == {"n": 5000}
 
+    @pytest.mark.asyncio
+    async def test_extra_params_passed_through(self):
+        from datetime import datetime, timezone
+
+        session = _FakeSession([10])
+        batch_start = datetime.now(timezone.utc)
+        await _batched_sync_op(session, "SELECT 1", params={"batch_start_time": batch_start})
+        assert session.executed_params[0] == {"n": 5000, "batch_start_time": batch_start}
+
+
+class TestBatchedMarkStaleInactive:
+    @pytest.mark.asyncio
+    async def test_delegates_with_correct_sql(self):
+        from datetime import datetime, timezone
+
+        session = _FakeSession([10])
+        batch_start = datetime.now(timezone.utc)
+        total = await batched_mark_stale_jobs_inactive(session, batch_start)
+        assert total == 10
+        sql = session.executed_sql[0]
+        assert "is_active IS TRUE" in sql
+        assert "source <> 'manual'" in sql
+        assert "last_seen < :batch_start_time" in sql
+        assert "FOR UPDATE SKIP LOCKED" in sql
+        assert "UPDATE jobs SET is_active = false" in sql
+
+    @pytest.mark.asyncio
+    async def test_no_log_when_zero(self):
+        from datetime import datetime, timezone
+
+        session = _FakeSession([0])
+        await batched_mark_stale_jobs_inactive(session, datetime.now(timezone.utc))
+
 
 class TestBatchedMarkAllInactive:
     @pytest.mark.asyncio
@@ -144,11 +178,15 @@ class TestBatchedReactivateInactive:
 class TestBatchedDeleteInactive:
     @pytest.mark.asyncio
     async def test_delegates_with_correct_sql(self):
+        from datetime import datetime, timezone
+
         session = _FakeSession([30])
-        total = await batched_delete_inactive(session)
+        batch_start = datetime.now(timezone.utc)
+        total = await batched_delete_inactive(session, batch_start)
         assert total == 30
         sql = session.executed_sql[0]
         assert "is_active IS FALSE" in sql
+        assert "last_seen < :batch_start_time" in sql
         assert "DELETE FROM jobs" in sql
         assert "FOR UPDATE SKIP LOCKED" in sql
 
@@ -162,10 +200,10 @@ class TestConstants:
 
     def test_sql_templates_use_skip_locked_and_order_by(self):
         for sql in [
-            sync_ops._MARK_INACTIVE_SQL,
+            sync_ops._MARK_STALE_SQL,
             sync_ops._REACTIVATE_SQL,
             sync_ops._DELETE_INACTIVE_SQL,
         ]:
             assert "FOR UPDATE SKIP LOCKED" in sql
-            assert "ORDER BY id" in sql
+            assert "ORDER BY" in sql
             assert "source <> 'manual'" in sql

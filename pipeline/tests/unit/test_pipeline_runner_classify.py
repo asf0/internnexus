@@ -264,6 +264,7 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
     runner.step_discover = _ok
     runner.step_sync_inactive = _ok
     runner.step_ingest = _ingest
+    runner.step_mark_stale_jobs = _ok
     runner.step_delete_inactive = _ok
     runner.step_cleanup = _ok
     runner.step_classify = _classify_fail
@@ -405,6 +406,7 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
     runner.step_discover = _record("discover")
     runner.step_sync_inactive = _record("sync_inactive")
     runner.step_ingest = _record("ingest")
+    runner.step_mark_stale_jobs = _record("mark_stale_jobs")
     runner.step_delete_inactive = _record("delete_inactive")
     runner.step_cleanup = _record("cleanup")
     runner.step_classify = _record("classify")
@@ -422,6 +424,7 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
         "discover",
         "sync_inactive",
         "ingest",
+        "mark_stale_jobs",
         "delete_inactive",
         "cleanup",
         "classify",
@@ -495,6 +498,7 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
     runner.step_discover = _discover
     runner.step_sync_inactive = _sync_inactive
     runner.step_ingest = _ingest
+    runner.step_mark_stale_jobs = _sync_inactive
     runner.step_delete_inactive = _delete
     runner.rollback_sync_inactive = _rollback
     runner.step_cleanup = _zero
@@ -565,6 +569,7 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
         get_incomplete_run_func=_get_incomplete_run,
     )
     runner.step_ingest = _ingest
+    runner.step_mark_stale_jobs = _zero
     runner.step_delete_inactive = _delete
     runner.rollback_sync_inactive = _rollback
     runner.step_cleanup = _zero
@@ -640,6 +645,7 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
     runner.step_discover = _zero
     runner.step_sync_inactive = _zero
     runner.step_ingest = _ingest
+    runner.step_mark_stale_jobs = _zero
     runner.step_delete_inactive = _zero
     runner.step_cleanup = _zero
     runner.step_classify = _zero_pair

@@ -4,6 +4,7 @@ from pipeline.ingest.core import (
     fetch_api_jobs,
     fingerprint_for,
     mark_all_jobs_inactive,
+    mark_stale_jobs_inactive,
     reactivate_inactive_jobs,
     upsert_jobs,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "fetch_api_jobs",
     "fingerprint_for",
     "mark_all_jobs_inactive",
+    "mark_stale_jobs_inactive",
     "reactivate_inactive_jobs",
     "upsert_jobs",
 ]

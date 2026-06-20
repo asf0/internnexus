@@ -151,23 +151,21 @@ class JobRepository(Protocol):
         ...
 
     async def mark_all_jobs_inactive(self) -> int:
-        """Mark all active jobs as inactive.
+        """No-op in the last_seen sync model.
 
-        This is part of the sync model: before fetching from APIs,
-        we mark all jobs as inactive. Jobs that still exist in the
-        API will be re-activated during upsert.
+        Kept for backward compatibility.
 
         Returns:
-            Number of jobs marked inactive
+            0
         """
         ...
 
-    async def delete_inactive_jobs(self) -> int:
-        """Delete all jobs marked as inactive.
+    async def delete_inactive_jobs(self, batch_start_time: datetime) -> int:
+        """Delete inactive jobs that were not seen this run.
 
-        After marking all jobs inactive and re-ingesting from APIs,
-        any jobs that remain inactive were not found in the APIs
-        and should be deleted.
+        Args:
+            batch_start_time: Jobs with ``last_seen`` older than this are
+                eligible for deletion.
 
         Returns:
             Number of jobs deleted

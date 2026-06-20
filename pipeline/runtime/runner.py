@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from pipeline.cleanup import cleanup_locations, delete_inactive_jobs
 from pipeline.embeddings import generate_embeddings
-from pipeline.ingest import fetch_and_ingest, mark_all_jobs_inactive, reactivate_inactive_jobs
+from pipeline.ingest import fetch_and_ingest, mark_all_jobs_inactive, mark_stale_jobs_inactive, reactivate_inactive_jobs
 from pipeline.runtime import (
     PipelineStateManager,
     get_config,
@@ -347,7 +347,7 @@ class PipelineRunner:
         return success, errors
 
     async def step_sync_inactive(self, state: PipelineStateManager | None) -> int:
-        """Mark all jobs as inactive before ingestion (sync model)."""
+        """No-op in the last_seen sync model; kept for resume compatibility."""
         step_start = time.time()
         step_name = "sync_inactive"
 
@@ -355,12 +355,8 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would mark all jobs as inactive")
             return 0
 
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
-
-        async with AsyncSessionLocal() as session:
-            logger.info("Starting sync_inactive mass update...")
-            count = await mark_all_jobs_inactive(session)
-            logger.info(f"sync_inactive mass update marked {count} jobs")
+        logger.info("sync_inactive is deprecated; using last_seen sync model")
+        count = await mark_all_jobs_inactive(None)  # no-op
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'sync_inactive' completed in {self.step_times[step_name]:.1f}s")
@@ -371,7 +367,40 @@ class PipelineRunner:
 
         return count
 
-    async def step_delete_inactive(self, state: PipelineStateManager | None) -> int:
+    async def step_mark_stale_jobs(
+        self,
+        state: PipelineStateManager | None,
+        batch_start_time: datetime,
+    ) -> int:
+        """Mark jobs that were not seen this run as inactive."""
+        step_start = time.time()
+        step_name = "mark_stale_jobs"
+
+        if self.dry_run:
+            logger.info("[DRY RUN] Would mark stale jobs as inactive")
+            return 0
+
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            logger.info("Marking stale jobs inactive (last_seen < %s)...", batch_start_time.isoformat())
+            count = await mark_stale_jobs_inactive(session, batch_start_time)
+            logger.info("Marked %d stale jobs as inactive", count)
+
+        self.step_times[step_name] = time.time() - step_start
+        logger.info(f"Step 'mark_stale_jobs' completed in {self.step_times[step_name]:.1f}s")
+        _log_step_rate(step_name, self.step_times[step_name], count)
+
+        if state:
+            await state.mark_step_complete(step_name)
+
+        return count
+
+    async def step_delete_inactive(
+        self,
+        state: PipelineStateManager | None,
+        batch_start_time: datetime,
+    ) -> int:
         """Delete jobs that remain inactive after ingestion (sync model)."""
         step_start = time.time()
         step_name = "delete_inactive"
@@ -380,7 +409,7 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would delete inactive jobs")
             return 0
 
-        count = await delete_inactive_jobs()
+        count = await delete_inactive_jobs(batch_start_time=batch_start_time)
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'delete_inactive' completed in {self.step_times[step_name]:.1f}s")
         _log_step_rate(step_name, self.step_times[step_name], count)
@@ -458,7 +487,8 @@ class PipelineRunner:
             async with lock_ctx:
                 if not start_from_step or PIPELINE_STEPS.index("sync_inactive") >= PIPELINE_STEPS.index(start_from_step or "sync_inactive"):
                     self.current_step = "sync_inactive"
-                    self.results["jobs_marked_inactive"] = await self.step_sync_inactive(state)
+                    # Deprecated: no-op in last_seen sync model.
+                    await self.step_sync_inactive(state)
 
                 if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(start_from_step or "ingest"):
                     self.current_step = "ingest"
@@ -469,6 +499,16 @@ class PipelineRunner:
                     start_from_step or "delete_inactive"
                 ):
                     self.current_step = "delete_inactive"
+
+                    # Mark stale jobs inactive before deletion. Skip if we are
+                    # resuming from a point after ingestion already ran.
+                    if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
+                        start_from_step or "ingest"
+                    ):
+                        self.results["jobs_marked_inactive"] = await self.step_mark_stale_jobs(
+                            state, batch_start_time
+                        )
+
                     missing_sync_context = (
                         start_from_step in {"ingest", "delete_inactive"}
                         and self.results["jobs_marked_inactive"] == 0
@@ -493,7 +533,10 @@ class PipelineRunner:
                             await state.mark_step_complete("delete_inactive")
                         self.results["inactive_jobs_deleted"] = 0
                     else:
-                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state)
+                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(
+                            state, batch_start_time
+                        )
+
 
             if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(start_from_step or "cleanup"):
                 self.current_step = "cleanup"
