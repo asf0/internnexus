@@ -35,10 +35,25 @@ def log_memory_usage(label: str = "") -> None:
             logger.debug(f"Could not log memory usage: {e}")
 
 
+def trim_process_memory(label: str) -> None:
+    """Return freed Python/native heap memory to the OS when possible."""
+    gc.collect()
+
+    import ctypes as _ctypes
+    import sys as _sys
+
+    if _sys.platform == "linux":
+        try:
+            _ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:  # noqa: BLE001  # malloc_trim is best-effort memory optimization
+            pass
+
+    log_memory_usage(label)
+
+
 async def cleanup_step_resources(label: str = "") -> None:
     """Release heavyweight per-step resources without disposing DB engines."""
     logger.debug("Cleaning up step resources%s", f" for {label}" if label else "")
-    import gc
 
     from pipeline.classification import reset_classifier_async
     from pipeline.embeddings.enrichment import reset_embedder
@@ -50,20 +65,10 @@ async def cleanup_step_resources(label: str = "") -> None:
 
     try:
         reset_embedder()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Error resetting embedder after step: {e}")
-    gc.collect()
 
-    import ctypes as _ctypes
-    import sys as _sys
-
-    if _sys.platform == "linux":
-        try:
-            _ctypes.CDLL("libc.so.6").malloc_trim(0)
-        except Exception:  # noqa: BLE001
-            pass
-
-    log_memory_usage(f"after step cleanup {label}".strip())
+    trim_process_memory(f"after step cleanup {label}".strip())
 
 
 async def cleanup_resources() -> None:
@@ -106,18 +111,8 @@ async def cleanup_resources() -> None:
     except Exception as e:  # noqa: BLE001  # cleanup must continue even if one resource fails
         logger.warning(f"Error disposing database engines: {e}")
 
-    # Force garbage collection
-    gc.collect()
-    # On Linux/Docker, return fragmented pymalloc heap arenas to the OS
-    import ctypes as _ctypes
-    import sys as _sys
-
-    if _sys.platform == "linux":
-        try:
-            _ctypes.CDLL("libc.so.6").malloc_trim(0)
-        except Exception:  # noqa: BLE001  # malloc_trim is best-effort memory optimization
-            pass
-    log_memory_usage("after cleanup")
+    # Force garbage collection and return fragmented native heap pages to the OS.
+    trim_process_memory("after cleanup")
     logger.debug("Resource cleanup completed")
 
 

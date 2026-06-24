@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from pipeline.cleanup import cleanup_locations, delete_inactive_jobs
 from pipeline.embeddings import generate_embeddings
-from pipeline.ingest import fetch_and_ingest, mark_all_jobs_inactive, mark_stale_jobs_inactive, reactivate_inactive_jobs
+from pipeline.ingest import fetch_and_ingest, mark_stale_jobs_inactive, reactivate_inactive_jobs
 from pipeline.runtime import (
     PipelineStateManager,
     get_config,
@@ -16,7 +16,7 @@ from pipeline.runtime import (
     print_health_report,
     run_health_checks,
 )
-from pipeline.runtime.services import cleanup_step_resources, log_memory_usage
+from pipeline.runtime.services import cleanup_step_resources, log_memory_usage, trim_process_memory
 from pipeline.runtime.steps import PIPELINE_STEPS
 from pipeline.runtime.sync_lock import job_sync_lock, null_sync_lock
 
@@ -176,6 +176,7 @@ class PipelineRunner:
             await state.mark_step_complete(step_name)
 
         log_memory_usage("after ingest")
+        trim_process_memory("after ingest trim")
         return jobs_count, batch_start
 
     async def step_cleanup(
@@ -208,7 +209,8 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
-        log_memory_usage("after cleanup")
+        log_memory_usage("after location cleanup")
+        trim_process_memory("after location cleanup trim")
         return count
 
     async def step_embed(self, state: PipelineStateManager | None) -> tuple[int, int]:
@@ -365,7 +367,7 @@ class PipelineRunner:
             return 0
 
         logger.info("sync_inactive is deprecated; using last_seen sync model")
-        count = await mark_all_jobs_inactive(None)  # no-op
+        count = 0
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'sync_inactive' completed in {self.step_times[step_name]:.1f}s")
@@ -516,6 +518,8 @@ class PipelineRunner:
                     if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
                         start_from_step or "ingest"
                     ):
+                        if batch_start_time is None:
+                            raise RuntimeError("Cannot mark stale jobs without an ingest batch start time")
                         self.results["jobs_marked_inactive"] = await self.step_mark_stale_jobs(state, batch_start_time)
 
                     missing_sync_context = (
@@ -541,6 +545,8 @@ class PipelineRunner:
                             await state.mark_step_complete("delete_inactive")
                         self.results["inactive_jobs_deleted"] = 0
                     else:
+                        if batch_start_time is None:
+                            raise RuntimeError("Cannot delete inactive jobs without an ingest batch start time")
                         self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state, batch_start_time)
 
             if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(
