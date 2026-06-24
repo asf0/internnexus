@@ -5,10 +5,10 @@ import gc
 import logging
 from types import SimpleNamespace
 
-from pipeline.db import dispose_engines
-from pipeline.http_client import close_http_client
 from pipeline.classification import reset_classifier_async
+from pipeline.db import dispose_engines
 from pipeline.embeddings.enrichment import reset_embedder
+from pipeline.http_client import close_http_client
 from pipeline.location.cache import close_location_cache
 from pipeline.runtime.commands import claim_next_pending_command, mark_command_completed, mark_command_failed
 from pipeline.runtime.sync_lock import job_sync_lock
@@ -33,6 +33,37 @@ def log_memory_usage(label: str = "") -> None:
             logger.info(f"Memory usage{' (' + label + ')' if label else ''}: {mem_mb:.2f} MB")
         except Exception as e:  # noqa: BLE001  # memory logging is best-effort
             logger.debug(f"Could not log memory usage: {e}")
+
+
+async def cleanup_step_resources(label: str = "") -> None:
+    """Release heavyweight per-step resources without disposing DB engines."""
+    logger.debug("Cleaning up step resources%s", f" for {label}" if label else "")
+    import gc
+
+    from pipeline.classification import reset_classifier_async
+    from pipeline.embeddings.enrichment import reset_embedder
+
+    try:
+        await reset_classifier_async()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Error resetting classifier after step: {e}")
+
+    try:
+        reset_embedder()
+    except Exception as e:
+        logger.warning(f"Error resetting embedder after step: {e}")
+    gc.collect()
+
+    import ctypes as _ctypes
+    import sys as _sys
+
+    if _sys.platform == "linux":
+        try:
+            _ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:  # noqa: BLE001
+            pass
+
+    log_memory_usage(f"after step cleanup {label}".strip())
 
 
 async def cleanup_resources() -> None:
@@ -78,8 +109,9 @@ async def cleanup_resources() -> None:
     # Force garbage collection
     gc.collect()
     # On Linux/Docker, return fragmented pymalloc heap arenas to the OS
-    import sys as _sys
     import ctypes as _ctypes
+    import sys as _sys
+
     if _sys.platform == "linux":
         try:
             _ctypes.CDLL("libc.so.6").malloc_trim(0)
@@ -119,9 +151,15 @@ async def run_selected_step(runner, args) -> None:
     elif args.step == "cleanup":
         await runner.step_cleanup(None, test_mode=args.test, limit=args.limit)
     elif args.step == "classify":
-        await runner.step_classify(None, limit=args.limit)
+        try:
+            await runner.step_classify(None, limit=args.limit)
+        finally:
+            await cleanup_step_resources("classify")
     elif args.step == "embed":
-        await runner.step_embed(None)
+        try:
+            await runner.step_embed(None)
+        finally:
+            await cleanup_step_resources("embed")
 
 
 async def run_pipeline_command(runner, command, logger) -> None:

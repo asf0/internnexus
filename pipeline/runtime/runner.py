@@ -16,6 +16,7 @@ from pipeline.runtime import (
     print_health_report,
     run_health_checks,
 )
+from pipeline.runtime.services import cleanup_step_resources, log_memory_usage
 from pipeline.runtime.steps import PIPELINE_STEPS
 from pipeline.runtime.sync_lock import job_sync_lock, null_sync_lock
 
@@ -151,6 +152,7 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
+        log_memory_usage("after discovery")
         return count
 
     async def step_ingest(self, state: PipelineStateManager | None) -> tuple[int, datetime]:
@@ -173,6 +175,7 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
+        log_memory_usage("after ingest")
         return jobs_count, batch_start
 
     async def step_cleanup(
@@ -205,6 +208,7 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
+        log_memory_usage("after cleanup")
         return count
 
     async def step_embed(self, state: PipelineStateManager | None) -> tuple[int, int]:
@@ -226,6 +230,8 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
+        log_memory_usage("after embed")
+
         return success, errors
 
     async def step_classify(self, state: PipelineStateManager | None, limit: int | None = None) -> tuple[int, int]:
@@ -237,9 +243,10 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would classify jobs without categories")
             return 0, 0
 
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
-        from sqlalchemy import func, select
+        from sqlalchemy import func, select, update
+
         from pipeline.classification import get_classifier, reset_classifier_async
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
 
         success, errors = 0, 0
 
@@ -265,7 +272,7 @@ class PipelineRunner:
                 while processed < total_jobs:
                     batch_limit = min(self.classify_commit_batch_size, total_jobs - processed)
                     batch_query = (
-                        select(Job)
+                        select(Job.id, Job.title, Job.description_text)
                         .where(Job.job_category.is_(None))
                         .order_by(
                             Job.posted_at.desc().nulls_last(),
@@ -276,8 +283,8 @@ class PipelineRunner:
                     if attempted_job_ids:
                         batch_query = batch_query.where(Job.id.notin_(attempted_job_ids))
                     batch_result = await session.execute(batch_query)
-                    chunk = batch_result.scalars().all()
-                    if not chunk:
+                    rows = batch_result.all()
+                    if not rows:
                         logger.warning(
                             "Classification stopped early at %d/%d jobs; no uncategorized rows returned after excluding %d attempted rows",
                             processed,
@@ -286,23 +293,23 @@ class PipelineRunner:
                         )
                         break
 
-                    inputs = [(j.title, j.description_text or "") for j in chunk]
+                    inputs = [(row.title, row.description_text or "") for row in rows]
+                    # inputs = [(j.title, j.description_text or "") for j in chunk]
                     categories_with_reason = await classifier.classify_batch_with_reasons(inputs)
 
                     batch_success = 0
                     batch_errors = 0
                     failed_entries: list[tuple[object | None, str]] = []
-                    for job, (category, reason) in zip(chunk, categories_with_reason):
-                        job_id = getattr(job, "id", None)
+                    for row, (category, reason) in zip(rows, categories_with_reason):
                         if category:
-                            job.job_category = category
+                            await session.execute(update(Job).where(Job.id == row.id).values(job_category=category))
                             success += 1
                             batch_success += 1
                         else:
                             # Only track failures — they stay NULL and could re-appear in the query
-                            if job_id is not None:
-                                attempted_job_ids.add(job_id)
-                            failed_entries.append((job_id, reason))
+                            if row.id is not None:
+                                attempted_job_ids.add(row.id)
+                                failed_entries.append((row.id, reason))
                             errors += 1
                             batch_errors += 1
 
@@ -316,8 +323,8 @@ class PipelineRunner:
 
                     await session.commit()
                     session.expunge_all()  # free Job ORM objects (incl. description_text) immediately
-                    processed += len(chunk)
-                    batch_success_rate = (batch_success / len(chunk)) * 100 if chunk else 0.0
+                    processed += len(rows)
+                    batch_success_rate = (batch_success / len(rows)) * 100 if rows else 0.0
                     cumulative_success_rate = (success / processed) * 100 if processed else 0.0
                     logger.info(
                         (
@@ -343,6 +350,8 @@ class PipelineRunner:
 
         if state:
             await state.mark_step_complete(step_name)
+
+        log_memory_usage("after classify")
 
         return success, errors
 
@@ -477,20 +486,22 @@ class PipelineRunner:
                     self.results["companies_verified"] = await self.step_discover(state)
                 elif state:
                     await state.mark_step_complete("discover")
-
-            sync_steps_will_run = (
-                start_from_step is None
-                or PIPELINE_STEPS.index(start_from_step) <= PIPELINE_STEPS.index("delete_inactive")
-            )
+            sync_steps_will_run = start_from_step is None or PIPELINE_STEPS.index(
+                start_from_step
+            ) <= PIPELINE_STEPS.index("delete_inactive")
             lock_ctx = job_sync_lock() if sync_steps_will_run else null_sync_lock()
 
             async with lock_ctx:
-                if not start_from_step or PIPELINE_STEPS.index("sync_inactive") >= PIPELINE_STEPS.index(start_from_step or "sync_inactive"):
+                if not start_from_step or PIPELINE_STEPS.index("sync_inactive") >= PIPELINE_STEPS.index(
+                    start_from_step or "sync_inactive"
+                ):
                     self.current_step = "sync_inactive"
                     # Deprecated: no-op in last_seen sync model.
                     await self.step_sync_inactive(state)
 
-                if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(start_from_step or "ingest"):
+                if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
+                    start_from_step or "ingest"
+                ):
                     self.current_step = "ingest"
                     jobs_count, batch_start_time = await self.step_ingest(state)
                     self.results["jobs_fetched"] = jobs_count
@@ -505,13 +516,10 @@ class PipelineRunner:
                     if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
                         start_from_step or "ingest"
                     ):
-                        self.results["jobs_marked_inactive"] = await self.step_mark_stale_jobs(
-                            state, batch_start_time
-                        )
+                        self.results["jobs_marked_inactive"] = await self.step_mark_stale_jobs(state, batch_start_time)
 
                     missing_sync_context = (
-                        start_from_step in {"ingest", "delete_inactive"}
-                        and self.results["jobs_marked_inactive"] == 0
+                        start_from_step in {"ingest", "delete_inactive"} and self.results["jobs_marked_inactive"] == 0
                     )
                     unsafe_partial_sync = _is_unsafe_delete_inactive_sync(
                         self.results["jobs_marked_inactive"],
@@ -533,28 +541,35 @@ class PipelineRunner:
                             await state.mark_step_complete("delete_inactive")
                         self.results["inactive_jobs_deleted"] = 0
                     else:
-                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(
-                            state, batch_start_time
-                        )
+                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state, batch_start_time)
 
-
-            if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(start_from_step or "cleanup"):
+            if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(
+                start_from_step or "cleanup"
+            ):
                 self.current_step = "cleanup"
                 self.results["locations_cleaned"] = await self.step_cleanup(
                     state, test_mode=self.test_mode, limit=self.limit
                 )
 
-            if not start_from_step or PIPELINE_STEPS.index("classify") >= PIPELINE_STEPS.index(start_from_step or "classify"):
+            if not start_from_step or PIPELINE_STEPS.index("classify") >= PIPELINE_STEPS.index(
+                start_from_step or "classify"
+            ):
                 self.current_step = "classify"
-                success, errors = await self.step_classify(state, limit=self.limit)
-                self.results["jobs_classified"] = success
-                self.results["classification_errors"] = errors
+                try:
+                    success, errors = await self.step_classify(state, limit=self.limit)
+                    self.results["jobs_classified"] = success
+                    self.results["classification_errors"] = errors
+                finally:
+                    await cleanup_step_resources("classify")
 
             if not start_from_step or PIPELINE_STEPS.index("embed") >= PIPELINE_STEPS.index(start_from_step or "embed"):
                 self.current_step = "embed"
-                success, errors = await self.step_embed(state)
-                self.results["embeddings_success"] = success
-                self.results["embeddings_errors"] = errors
+                try:
+                    success, errors = await self.step_embed(state)
+                    self.results["embeddings_success"] = success
+                    self.results["embeddings_errors"] = errors
+                finally:
+                    await cleanup_step_resources("embed")
 
             if state:
                 await state.mark_completed(self.results)

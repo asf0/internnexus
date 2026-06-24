@@ -85,6 +85,10 @@ select = ["E", "F", "W"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
+extraPaths = [
+    "..",
+    "../packages/internnexus-core",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

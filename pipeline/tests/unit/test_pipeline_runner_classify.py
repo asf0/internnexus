@@ -22,9 +22,18 @@ class _FakeSort:
         return self
 
 
+class _FakeEqPredicate:
+    def __init__(self, column, value):
+        self.column = column
+        self.value = value
+
+
 class _FakeColumn:
     def __init__(self, name: str):
         self.name = name
+
+    def __eq__(self, other):
+        return _FakeEqPredicate(self.name, other)
 
     def is_(self, _value):
         return self
@@ -53,6 +62,8 @@ class _FakeJobModel:
     classification_attempts = _FakeColumn("classification_attempts")
     posted_at = _FakeColumn("posted_at")
     id = _FakeColumn("id")
+    title = _FakeColumn("title")
+    description_text = _FakeColumn("description_text")
 
 
 class _FakeQuery:
@@ -93,6 +104,23 @@ class _FakeResult:
         return list(self._items)
 
 
+class _FakeUpdate:
+    def __init__(self, model):
+        self.model = model
+        self.update_values = {}
+        self.job_id = None
+
+    def where(self, *_args):
+        for arg in _args:
+            if isinstance(arg, _FakeEqPredicate) and arg.column == "id":
+                self.job_id = arg.value
+        return self
+
+    def values(self, **kwargs):
+        self.update_values.update(kwargs)
+        return self
+
+
 class _FakeSession:
     def __init__(self, jobs):
         self.jobs = jobs
@@ -104,7 +132,15 @@ class _FakeSession:
     async def __aexit__(self, _exc_type, _exc, _tb):
         return None
 
-    async def execute(self, query: _FakeQuery):
+    async def execute(self, query):
+        if isinstance(query, _FakeUpdate):
+            for job in self.jobs:
+                if getattr(job, "id", None) == query.job_id:
+                    for key, value in query.update_values.items():
+                        setattr(job, key, value)
+                    break
+            return _FakeResult()
+
         if query.kind == "count":
             remaining = sum(1 for job in self.jobs if job.job_category is None)
             return _FakeResult(scalar_value=remaining)
@@ -135,7 +171,7 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
 
     class _FakeClassifier:
         async def classify_batch(self, inputs):
-            categories = ["software_engineering"] * len(inputs)
+            categories: list[str | None] = ["software_engineering"] * len(inputs)
             if inputs and inputs[0][0] == "E":
                 categories[0] = None
             return categories
@@ -144,8 +180,8 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
             categories = await self.classify_batch(inputs)
             return [(category, "ok" if category else "no_mappable_token") for category in categories]
 
-    def fake_select(target):
-        return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
+    def fake_select(*targets):
+        return _FakeQuery("count" if targets and targets[0] is _FAKE_COUNT else "jobs")
 
     _FAKE_COUNT = object()
     monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 2)
@@ -157,6 +193,7 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
     monkeypatch.setattr("sqlalchemy.select", fake_select)
     monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
     monkeypatch.setattr("sqlalchemy.or_", lambda *args: args[0] if args else None)
+    monkeypatch.setattr("sqlalchemy.update", lambda model: _FakeUpdate(model))
 
     def _get_classifier():
         return _FakeClassifier()
@@ -190,8 +227,8 @@ async def test_step_classify_does_not_starve_new_rows_when_first_row_fails(monke
                     results.append(("software_engineering", "ok"))
             return results
 
-    def fake_select(target):
-        return _FakeQuery("count" if target is _FAKE_COUNT else "jobs")
+    def fake_select(*targets):
+        return _FakeQuery("count" if targets[0] is _FAKE_COUNT else "jobs")
 
     _FAKE_COUNT = object()
     monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 1)
@@ -205,6 +242,7 @@ async def test_step_classify_does_not_starve_new_rows_when_first_row_fails(monke
 
     monkeypatch.setattr("pipeline.classification.get_classifier", lambda: _FakeClassifier())
     monkeypatch.setattr("pipeline.classification.reset_classifier", lambda: None)
+    monkeypatch.setattr("sqlalchemy.update", lambda model: _FakeUpdate(model))
 
     runner = run_pipeline.PipelineRunner()
     success, errors = await runner.step_classify(state=None)
@@ -656,4 +694,3 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
     assert state_calls == [None]
     assert runner_module.PipelineStateManager is original_state_manager
     assert runner_module.get_incomplete_run is original_get_incomplete_run
-

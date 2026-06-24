@@ -7,22 +7,22 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from uuid import UUID
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from pipeline.embedding import (
+from internnexus_core.embedding import (
     EmbeddingError,
-    QueryEmbeddingService as EmbeddingService,
     RateLimitError,
 )
+from internnexus_core.text import clean_text_for_embedding
+from pipeline.embedding import QueryEmbeddingService as EmbeddingService
 from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
-from pipeline.text import clean_text_for_embedding
-from pipeline.runtime.config import get_config
 from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
+from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,14 @@ async def _fetch_jobs_by_ids(db: AsyncSession, job_ids: list[UUID]) -> list[Job]
     """Fetch specific jobs by ID for retry."""
     if not job_ids:
         return []
-    result = await db.execute(select(Job).where(Job.id.in_(job_ids)).options(defer(Job.description_embedding)))
+    result = await db.execute(
+        select(Job)
+        .where(Job.id.in_(job_ids))
+        .options(
+            defer(Job.description_embedding),
+            defer(Job.search_vector),
+        )
+    )
     jobs = result.scalars().all()
     return list(jobs)
 
@@ -374,6 +381,7 @@ async def _process_with_semaphore(
 ) -> tuple[int, int, int, list[tuple[Job, BaseException]]]:
     """Process a batch with semaphore-controlled concurrency."""
     import gc
+
     from pipeline.embeddings.enrichment import reset_embedder
 
     async with semaphore:

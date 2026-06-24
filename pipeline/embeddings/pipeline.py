@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pipeline.embedding import QueryEmbeddingService as EmbeddingService
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
-
 from pipeline.embeddings.batch_processor import (
     _classify_error,
     _fetch_job_ids_batch,
@@ -21,6 +19,7 @@ from pipeline.embeddings.retry_handler import (
     _log_exhausted_retries,
     _process_retry_queue,
 )
+from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +29,7 @@ logger = logging.getLogger(__name__)
 PARALLEL_BATCHES = 2
 MAX_EMPTY_BATCHES = 3
 PROGRESS_LOG_EVERY_BATCHES = 5
+MAX_RETRY_QUEUE_MULTIPLIER = 5
 
 
 async def generate_embeddings(
@@ -193,6 +193,14 @@ async def _process_batches(
         total_success, total_errors, total_skipped = _accumulate_results(
             results, total_success, total_errors, total_skipped, retry_queue, batch_size
         )
+        retry_queue_limit = batch_size * parallel_batches * MAX_RETRY_QUEUE_MULTIPLIER
+        if len(retry_queue) >= retry_queue_limit:
+            logger.warning(
+                "Stopping embedding collection early because retry queue reached %d jobs; "
+                "provider may be failing systemically",
+                len(retry_queue),
+            )
+            break
         batches_since_progress_log += len(pending_batches)
         if batches_since_progress_log >= PROGRESS_LOG_EVERY_BATCHES:
             await _log_progress(db, total_success, total_errors, total_skipped)
