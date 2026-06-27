@@ -1,28 +1,179 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from 'use-debounce';
 
+const CONTROLLED_KEYS = [
+  'search',
+  'company',
+  'location',
+  'category',
+  'job_type',
+  'work_mode',
+  'posted_within',
+  'saved_only',
+  'matched',
+] as const;
+
+type ToolbarFilterKey = (typeof CONTROLLED_KEYS)[number];
+
+type ToolbarFilterDraft = Record<ToolbarFilterKey, string>;
+
+type SearchParamReader = {
+  get(name: string): string | null;
+};
+
+function draftFromSearchParams(searchParams: SearchParamReader): ToolbarFilterDraft {
+  return {
+    search: searchParams.get('search') || '',
+    company: searchParams.get('company') || '',
+    location: searchParams.get('location') || '',
+    category: searchParams.get('category') || '',
+    job_type: searchParams.get('job_type') || '',
+    work_mode: searchParams.get('work_mode') || '',
+    posted_within: searchParams.get('posted_within') || '',
+    saved_only: searchParams.get('saved_only') || '',
+    matched: searchParams.get('matched') || '',
+  };
+}
+
+function isToolbarFilterKey(key: string): key is ToolbarFilterKey {
+  return (CONTROLLED_KEYS as readonly string[]).includes(key);
+}
+
+function buildQueryStringFromDraft(draft: ToolbarFilterDraft, baseQuery: string): string {
+  const params = new URLSearchParams(baseQuery);
+
+  for (const key of CONTROLLED_KEYS) {
+    params.delete(key);
+  }
+
+  for (const key of CONTROLLED_KEYS) {
+    if (draft[key]) {
+      params.set(key, draft[key]);
+    }
+  }
+
+  params.delete('page');
+  params.delete('selected');
+  return params.toString();
+}
+
 export function useToolbarFilters() {
-  const router = useRouter();
+  const { push } = useRouter();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const [isPending, startTransition] = useTransition();
 
-  const [showFilters, setShowFilters] = useState(false);
-  const currentSearch = searchParams.get('search') || '';
-  const [searchInput, setSearchInput] = useState(currentSearch);
-  const [debouncedSearch] = useDebounce(searchInput, 400);
-  const isInitialMount = useRef(true);
+  const initialDraft = draftFromSearchParams(searchParams);
+  const [draft, setDraft] = useState<ToolbarFilterDraft>(initialDraft);
+  const draftRef = useRef(initialDraft);
+  const [searchInput, setSearchInputState] = useState(initialDraft.search);
+  const searchInputRef = useRef(initialDraft.search);
+  const baseQueryRef = useRef(searchParamsString);
+  const locallyPushedQueriesRef = useRef(new Set<string>());
+  const suppressDebouncedSearchRef = useRef(false);
 
-  const companyStr = searchParams.get('company') || '';
-  const locationStr = searchParams.get('location') || '';
-  const categoryStr = searchParams.get('category') || '';
-  const jobTypeStr = searchParams.get('job_type') || '';
-  const workModeStr = searchParams.get('work_mode') || '';
-  const currentPostedWithin = searchParams.get('posted_within') || '';
-  const currentSavedOnly = searchParams.get('saved_only') === '1';
-  const isMatched = searchParams.get('matched') === 'true';
+  const [showFilters, setShowFilters] = useState(false);
+  const [debouncedSearch] = useDebounce(searchInput, 400);
+
+  const setDraftState = useCallback((nextDraft: ToolbarFilterDraft) => {
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+  }, []);
+
+  const setSearchInput = useCallback((value: string) => {
+    searchInputRef.current = value;
+    setSearchInputState(value);
+  }, []);
+
+  const rememberLocallyPushedQuery = useCallback((queryString: string) => {
+    const pendingQueries = locallyPushedQueriesRef.current;
+    pendingQueries.add(queryString);
+
+    if (pendingQueries.size > 20) {
+      const oldestQuery = pendingQueries.values().next().value;
+      if (oldestQuery !== undefined) {
+        pendingQueries.delete(oldestQuery);
+      }
+    }
+  }, []);
+
+  const pushDraft = useCallback(
+    (nextDraft: ToolbarFilterDraft) => {
+      const queryString = buildQueryStringFromDraft(nextDraft, baseQueryRef.current);
+      baseQueryRef.current = queryString;
+      rememberLocallyPushedQuery(queryString);
+
+      startTransition(() => {
+        push(queryString ? `/?${queryString}` : '/');
+      });
+    },
+    [push, rememberLocallyPushedQuery]
+  );
+
+  const updateFilter = useCallback(
+    (key: string, value: string) => {
+      if (!isToolbarFilterKey(key)) {
+        return;
+      }
+
+      const nextDraft: ToolbarFilterDraft = {
+        ...draftRef.current,
+        [key]: key === 'search' ? value.trim() : value,
+      };
+
+      if (key !== 'search') {
+        nextDraft.search = searchInputRef.current.trim();
+      }
+
+      setDraftState(nextDraft);
+      pushDraft(nextDraft);
+    },
+    [pushDraft, setDraftState]
+  );
+
+  const updateMultiSelect = useCallback(
+    (key: string, values: string[]) => {
+      updateFilter(key, values.join('|'));
+    },
+    [updateFilter]
+  );
+
+  useEffect(() => {
+    baseQueryRef.current = searchParamsString;
+
+    if (locallyPushedQueriesRef.current.delete(searchParamsString)) {
+      return;
+    }
+
+    const nextDraft = draftFromSearchParams(new URLSearchParams(searchParamsString));
+    suppressDebouncedSearchRef.current = true;
+    setDraftState(nextDraft);
+    setSearchInput(nextDraft.search);
+  }, [searchParamsString, setDraftState, setSearchInput]);
+
+  useEffect(() => {
+    if (suppressDebouncedSearchRef.current) {
+      suppressDebouncedSearchRef.current = false;
+      return;
+    }
+
+    const normalizedSearch = debouncedSearch.trim();
+    if (normalizedSearch !== draftRef.current.search) {
+      updateFilter('search', normalizedSearch);
+    }
+  }, [debouncedSearch, updateFilter]);
+
+  const companyStr = draft.company;
+  const locationStr = draft.location;
+  const categoryStr = draft.category;
+  const jobTypeStr = draft.job_type;
+  const workModeStr = draft.work_mode;
+  const currentPostedWithin = draft.posted_within;
+  const currentSavedOnly = draft.saved_only === '1';
+  const isMatched = draft.matched === 'true';
 
   const currentCompanies = useMemo(() => companyStr.split('|').filter(Boolean), [companyStr]);
   const currentLocations = useMemo(() => locationStr.split('|').filter(Boolean), [locationStr]);
@@ -38,7 +189,7 @@ export function useToolbarFilters() {
       jobTypes: currentJobTypes,
       workModes: currentWorkModes,
       postedWithin: currentPostedWithin,
-      search: currentSearch,
+      search: draft.search,
     }),
     [
       currentCompanies,
@@ -47,24 +198,11 @@ export function useToolbarFilters() {
       currentJobTypes,
       currentWorkModes,
       currentPostedWithin,
-      currentSearch,
+      draft.search,
     ]
   );
 
   const [debouncedFilters] = useDebounce(filterValues, 300);
-
-  useEffect(() => {
-    if (debouncedSearch !== currentSearch) {
-      updateFilter('search', debouncedSearch);
-    }
-  }, [debouncedSearch, currentSearch]);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      setSearchInput(currentSearch);
-    }
-  }, [currentSearch]);
 
   const activeFilterCount = [
     currentCompanies.length > 0,
@@ -77,28 +215,17 @@ export function useToolbarFilters() {
     isMatched,
   ].filter(Boolean).length;
 
-  const updateFilter = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    params.delete('page');
-    startTransition(() => {
-      router.push(`/?${params.toString()}`);
-    });
-  };
+  const clearFilters = useCallback(() => {
+    const emptyDraft = draftFromSearchParams(new URLSearchParams());
+    setSearchInput('');
+    setDraftState(emptyDraft);
+    baseQueryRef.current = '';
+    rememberLocallyPushedQuery('');
 
-  const updateMultiSelect = (key: string, values: string[]) => {
-    updateFilter(key, values.join('|'));
-  };
-
-  const clearFilters = () => {
     startTransition(() => {
-      router.push('/');
+      push('/');
     });
-  };
+  }, [push, rememberLocallyPushedQuery, setDraftState, setSearchInput]);
 
   return {
     isPending,
