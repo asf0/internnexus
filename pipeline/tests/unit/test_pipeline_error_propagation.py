@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pipeline.ingest import core as pipeline
 from pipeline.domain import JobSchema
+from pipeline.runtime.config import ApiConfig, IngestConfig
 
 
 def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
@@ -159,18 +160,14 @@ async def test_fetch_all_apis_parallel_logs_aggregate_failures_with_context(monk
         )
 
     assert len(errors) == 2
-    summary_records = [
-        record for record in caplog.records if "API fetch error summary" in record.getMessage()
-    ]
+    summary_records = [record for record in caplog.records if "API fetch error summary" in record.getMessage()]
     assert len(summary_records) == 1
     assert getattr(summary_records[0], "step", None) == "ingest"
     assert getattr(summary_records[0], "source", None) == "all"
     assert getattr(summary_records[0], "slug", None) == "*"
     assert getattr(summary_records[0], "run_id", None) == "run-agg"
 
-    slug_error_records = [
-        record for record in caplog.records if "Slug fetch failed" in record.getMessage()
-    ]
+    slug_error_records = [record for record in caplog.records if "Slug fetch failed" in record.getMessage()]
     assert len(slug_error_records) == 2
     assert {getattr(record, "source", None) for record in slug_error_records} == {
         "greenhouse",
@@ -219,6 +216,7 @@ async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monke
         slugs=["a", "b", "missing", "broken"],
         fetch_func=_MixedClient().fetch_jobs,
         chunk_size=2,
+        api_fetch_concurrency=ApiConfig().fetch_concurrency,
         not_found_cooldown_hours=2,
         run_id="run-stream",
     ):
@@ -230,3 +228,43 @@ async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monke
     assert {job.company for job in chunks[0]} == {"a", "b"}
     assert "missing" in saved_cache.get("greenhouse", {})
     assert fetched_slugs == ["a", "b", "missing", "broken"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_source_jobs_streamed_uses_configured_window(monkeypatch):
+    api_config = ApiConfig()
+    config = IngestConfig()
+
+    async def run_inline(func, *args):
+        return func(*args)
+
+    def fetch_jobs(slug: str):
+        return [
+            JobSchema(
+                source="greenhouse",
+                title=f"Job at {slug}",
+                company=slug,
+                location="Remote",
+                apply_url=f"https://example.com/{slug}",
+                description_text="desc",
+            )
+        ]
+
+    monkeypatch.setattr(pipeline.asyncio, "to_thread", run_inline)
+    monkeypatch.setattr(pipeline, "_load_slug_404_cache", lambda: {})
+    monkeypatch.setattr(pipeline, "_save_slug_404_cache", lambda _cache: None)
+
+    chunk_lengths = []
+    slugs = [f"company-{index}" for index in range(config.slug_chunk_size + 1)]
+    async for chunk in pipeline._fetch_source_jobs_streamed(
+        source_name="Greenhouse",
+        slugs=slugs,
+        fetch_func=fetch_jobs,
+        chunk_size=config.slug_chunk_size,
+        api_fetch_concurrency=api_config.fetch_concurrency,
+        not_found_cooldown_hours=api_config.slug_404_cooldown_hours,
+    ):
+        chunk_lengths.append(len(chunk))
+
+    assert chunk_lengths == [config.slug_chunk_size, 1]
+    assert config.upsert_batch_size == 1000

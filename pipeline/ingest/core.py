@@ -40,12 +40,22 @@ from pipeline.sources.lever import LeverClient
 from pipeline.sources.ashby import AshbyClient
 from pipeline.domain import JobSchema
 from pipeline.ingest.deduplication import deduplicate_jobs
+from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
-API_FETCH_CONCURRENCY = 10
-NOT_FOUND_COOLDOWN_HOURS = 24
 SLUG_404_MAX_ENTRIES_PER_SOURCE = 500
 SLUG_404_CACHE_PATH = Path(__file__).resolve().parents[1] / "output" / "slug_404_cache.json"
+
+
+def _resolve_api_settings(
+    api_fetch_concurrency: int | None,
+    not_found_cooldown_hours: int | None,
+) -> tuple[int, int]:
+    config = get_config().api
+    return (
+        config.fetch_concurrency if api_fetch_concurrency is None else api_fetch_concurrency,
+        config.slug_404_cooldown_hours if not_found_cooldown_hours is None else not_found_cooldown_hours,
+    )
 
 
 def _log_memory_usage(batch_num: int | None = None) -> None:
@@ -109,9 +119,7 @@ def _prune_slug_404_cache(
     now_ts = time.time()
     pruned: dict[str, dict[str, float]] = {}
     for source, entries in cache.items():
-        active = {
-            slug: expires_at for slug, expires_at in entries.items() if expires_at > now_ts
-        }
+        active = {slug: expires_at for slug, expires_at in entries.items() if expires_at > now_ts}
         if not active:
             continue
         if len(active) > max_entries:
@@ -153,8 +161,8 @@ def fingerprint_for(job: JobSchema) -> str:
 
 async def _fetch_all_apis_parallel(
     *,
-    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
-    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    api_fetch_concurrency: int | None = None,
+    not_found_cooldown_hours: int | None = None,
     run_id: str | None = None,
     include_errors: bool = False,
 ) -> (
@@ -162,6 +170,11 @@ async def _fetch_all_apis_parallel(
     | tuple[list[JobSchema], list[JobSchema], list[JobSchema], list[SlugFetchError]]
 ):
     """Fetch from all ATS APIs in parallel using thread pool."""
+    api_fetch_concurrency, not_found_cooldown_hours = _resolve_api_settings(
+        api_fetch_concurrency,
+        not_found_cooldown_hours,
+    )
+
     greenhouse = GreenhouseClient()
     lever = LeverClient()
     ashby = AshbyClient()
@@ -330,8 +343,8 @@ def _close_api_clients(*clients: Any) -> None:
 
 async def fetch_api_jobs(
     *,
-    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
-    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    api_fetch_concurrency: int | None = None,
+    not_found_cooldown_hours: int | None = None,
     run_id: str | None = None,
 ) -> tuple[list[JobSchema], list[JobSchema], list[JobSchema]]:
     """Fetch jobs from all 3 ATS platforms in parallel.
@@ -364,9 +377,9 @@ async def _fetch_source_jobs_streamed(
     slugs: list[str],
     fetch_func: Callable[[str], list[JobSchema]],
     *,
-    chunk_size: int = 100,
-    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
-    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    chunk_size: int,
+    api_fetch_concurrency: int,
+    not_found_cooldown_hours: int,
     run_id: str | None = None,
 ) -> AsyncIterator[list[JobSchema]]:
     """Fetch jobs for a single source in chunks, yielding each chunk as it completes.
@@ -455,7 +468,9 @@ async def _fetch_source_jobs_streamed(
             chunk_jobs.extend(source_jobs)
             if error is not None:
                 fetch_errors.append(error)
+        del results
         yield chunk_jobs
+        del chunk_jobs
 
     slug_404_cache = _prune_slug_404_cache(slug_404_cache)
     _save_slug_404_cache(slug_404_cache)
@@ -481,9 +496,10 @@ async def _fetch_source_jobs_streamed(
 async def fetch_and_ingest_streamed(
     db: AsyncSession,
     *,
-    chunk_size: int = 500,
-    api_fetch_concurrency: int = API_FETCH_CONCURRENCY,
-    not_found_cooldown_hours: int = NOT_FOUND_COOLDOWN_HOURS,
+    chunk_size: int,
+    upsert_batch_size: int,
+    api_fetch_concurrency: int,
+    not_found_cooldown_hours: int,
     run_id: str | None = None,
 ) -> int:
     """Fetch jobs from all sources in chunks and upsert each chunk immediately.
@@ -525,12 +541,19 @@ async def fetch_and_ingest_streamed(
                 not_found_cooldown_hours=not_found_cooldown_hours,
                 run_id=run_id,
             ):
-                if chunk:
-                    await upsert_jobs(db, chunk, deduplicate=False)
-                    total_fetched += len(chunk)
-                    source_total += len(chunk)
+                chunk_job_count = len(chunk)
+                if chunk_job_count:
+                    await upsert_jobs(
+                        db,
+                        chunk,
+                        deduplicate=False,
+                        batch_size=upsert_batch_size,
+                    )
+                    total_fetched += chunk_job_count
+                    source_total += chunk_job_count
                 chunk_index += 1
                 _log_memory_usage(chunk_index)
+                del chunk
                 await asyncio.sleep(0)
             logger.info("Fetched %d %s jobs in %d chunk(s)", source_total, source_name, chunk_index)
     finally:
@@ -585,21 +608,29 @@ async def reactivate_inactive_jobs(session: AsyncSession) -> int:
     return await batched_reactivate_inactive(session)
 
 
-async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool = True) -> None:
+async def upsert_jobs(
+    db: AsyncSession,
+    jobs: list[JobSchema],
+    deduplicate: bool = True,
+    *,
+    batch_size: int | None = None,
+) -> None:
     """Upsert jobs to database using async session."""
     if not jobs:
         return
+
+    if batch_size is None:
+        batch_size = get_config().ingest.upsert_batch_size
 
     unique_jobs = deduplicate_jobs(jobs) if deduplicate else jobs
 
     if deduplicate and len(unique_jobs) < len(jobs):
         logger.info(f"Deduped {len(jobs) - len(unique_jobs)} jobs within batch ({len(unique_jobs)} unique)")
 
-    BATCH_SIZE = 1000
     total_upserted = 0
 
-    for i in range(0, len(unique_jobs), BATCH_SIZE):
-        batch = unique_jobs[i : i + BATCH_SIZE]
+    for i in range(0, len(unique_jobs), batch_size):
+        batch = unique_jobs[i : i + batch_size]
         rows = []
 
         for job in batch:
@@ -669,7 +700,7 @@ async def upsert_jobs(db: AsyncSession, jobs: list[JobSchema], deduplicate: bool
         await asyncio.sleep(0)
 
         total_upserted += len(rows)
-        batch_num = i // BATCH_SIZE + 1
+        batch_num = i // batch_size + 1
         logger.info(f"Upserted batch {batch_num}: {len(rows)} jobs (total: {total_upserted}/{len(unique_jobs)})")
 
         # Every 10 batches: force garbage collection

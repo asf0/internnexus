@@ -7,6 +7,10 @@ api:
     fetch_concurrency: 10
     slug_404_cooldown_hours: 24
 
+ingest:
+    slug_chunk_size: 50
+    upsert_batch_size: 1000
+
 cleanup:
     process_all: false
     parse_concurrency: 12

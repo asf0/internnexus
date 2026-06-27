@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PipelineConfig(BaseModel):
@@ -18,6 +18,11 @@ class CleanupConfig(BaseModel):
     parse_concurrency: int = 12
     chunk_size: int = 5000
     location_cache_max_size: int = 10_000
+
+
+class IngestConfig(BaseModel):
+    slug_chunk_size: int = Field(default=50, ge=1)
+    upsert_batch_size: int = Field(default=1000, ge=1)
 
 
 class EmbeddingsConfig(BaseModel):
@@ -47,6 +52,7 @@ class HealthCheckConfig(BaseModel):
 class Config(BaseModel):
     pipeline: PipelineConfig = PipelineConfig()
     api: ApiConfig = ApiConfig()
+    ingest: IngestConfig = IngestConfig()
     cleanup: CleanupConfig = CleanupConfig()
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()

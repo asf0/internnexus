@@ -166,6 +166,8 @@ class PipelineRunner:
         jobs_count, batch_start = await fetch_and_ingest(
             api_fetch_concurrency=self.config.api.fetch_concurrency,
             not_found_cooldown_hours=self.config.api.slug_404_cooldown_hours,
+            slug_chunk_size=self.config.ingest.slug_chunk_size,
+            upsert_batch_size=self.config.ingest.upsert_batch_size,
             run_id=str(state.run_id) if state is not None and state.run_id is not None else None,
         )
         self.step_times[step_name] = time.time() - step_start
