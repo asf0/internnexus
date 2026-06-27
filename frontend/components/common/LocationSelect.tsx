@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import type { LocationItem } from '@/lib/types';
 
@@ -217,39 +217,36 @@ export default function LocationSelect({
                   >
                     <button
                       type="button"
+                      role="option"
+                      aria-selected={isSelected}
                       className="flex flex-1 items-center gap-2 text-left"
-                      onClick={() => {
-                        if (hasChildren) {
-                          drillDown(item);
-                        } else {
-                          toggleSelect(item.value);
-                        }
-                      }}
+                      onClick={() => toggleSelect(item.value)}
                     >
-                      {hasChildren && <ChevronRight size={14} className="text-slate-400" />}
-                      {!hasChildren && <span className="w-3.5" />}
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
+                          isSelected
+                            ? 'border-md-primary bg-md-primary'
+                            : 'dark:border-md-outline-variant border-slate-300'
+                        }`}
+                      >
+                        {isSelected && <Check size={12} className="text-white" />}
+                      </span>
                       <span className="dark:text-md-on-surface text-slate-900">{item.label}</span>
                       <span className="dark:text-md-on-surface-variant text-xs text-slate-400">
                         ({item.count})
                       </span>
                     </button>
-                    {!hasChildren && (
+                    {hasChildren && (
                       <button
                         type="button"
-                        role="option"
-                        aria-selected={isSelected}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleSelect(item.value);
+                          drillDown(item);
                         }}
-                        aria-label={`${isSelected ? 'Deselect' : 'Select'} ${item.label}`}
-                        className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
-                          isSelected
-                            ? 'border-md-primary bg-md-primary'
-                            : 'dark:border-md-outline-variant hover:border-md-primary border-slate-300'
-                        }`}
+                        aria-label={`Browse ${item.label}`}
+                        className="dark:text-md-on-surface-variant hover:text-md-primary rounded p-1 text-slate-400"
                       >
-                        {isSelected && <div className="h-2 w-2 rounded-sm bg-white" />}
+                        <ChevronRight size={16} />
                       </button>
                     )}
                   </div>

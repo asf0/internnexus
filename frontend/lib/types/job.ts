@@ -39,7 +39,7 @@ export interface LocationItem {
   type: 'country' | 'state' | 'city';
   country?: string | null;
   state?: string | null;
-  children?: LocationItem[];
+  children?: LocationItem[] | null;
 }
 
 export interface JobListResponse {

@@ -38,7 +38,7 @@ export const LocationItemSchema: z.ZodType<LocationItem> = z.lazy(() =>
     type: z.enum(['country', 'state', 'city']),
     country: z.string().nullable().optional(),
     state: z.string().nullable().optional(),
-    children: z.array(LocationItemSchema).optional(),
+    children: z.array(LocationItemSchema).nullable().optional(),
   })
 );
 
