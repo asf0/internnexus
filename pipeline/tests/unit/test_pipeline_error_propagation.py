@@ -178,7 +178,7 @@ async def test_fetch_all_apis_parallel_logs_aggregate_failures_with_context(monk
 
 
 @pytest.mark.asyncio
-async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monkeypatch):
+async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monkeypatch, caplog):
     saved_cache: dict[str, dict[str, float]] = {}
     fetched_slugs: list[str] = []
 
@@ -211,16 +211,17 @@ async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monke
     )
 
     chunks = []
-    async for chunk in pipeline._fetch_source_jobs_streamed(
-        source_name="Greenhouse",
-        slugs=["a", "b", "missing", "broken"],
-        fetch_func=_MixedClient().fetch_jobs,
-        chunk_size=2,
-        api_fetch_concurrency=ApiConfig().fetch_concurrency,
-        not_found_cooldown_hours=2,
-        run_id="run-stream",
-    ):
-        chunks.append(chunk)
+    with caplog.at_level("WARNING"):
+        async for chunk in pipeline._fetch_source_jobs_streamed(
+            source_name="Greenhouse",
+            slugs=["a", "b", "missing", "broken"],
+            fetch_func=_MixedClient().fetch_jobs,
+            chunk_size=2,
+            api_fetch_concurrency=ApiConfig().fetch_concurrency,
+            not_found_cooldown_hours=2,
+            run_id="run-stream",
+        ):
+            chunks.append(chunk)
 
     assert len(chunks) == 2
     assert len(chunks[0]) == 2  # a, b
@@ -228,6 +229,11 @@ async def test_fetch_source_jobs_streamed_yields_chunks_and_records_errors(monke
     assert {job.company for job in chunks[0]} == {"a", "b"}
     assert "missing" in saved_cache.get("greenhouse", {})
     assert fetched_slugs == ["a", "b", "missing", "broken"]
+    fatal_records = [record for record in caplog.records if "Slug fetch failed" in record.getMessage()]
+    assert len(fatal_records) == 1
+    assert getattr(fatal_records[0], "source", None) == "greenhouse"
+    assert getattr(fatal_records[0], "slug", None) == "broken"
+    assert getattr(fatal_records[0], "run_id", None) == "run-stream"
 
 
 @pytest.mark.asyncio

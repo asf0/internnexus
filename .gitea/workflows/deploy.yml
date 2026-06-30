@@ -16,8 +16,8 @@ jobs:
 
             - name: Checkout
               run: |
-                  git clone --depth 1 ${{ gitea.server_url }}/${{ gitea.repository }} .
-                  git fetch --depth 1 origin ${{ gitea.sha }}
+                  git clone --depth 2 ${{ gitea.server_url }}/${{ gitea.repository }} .
+                  git fetch --depth 2 origin ${{ gitea.sha }}
                   git checkout --detach FETCH_HEAD
 
             - name: Create .env file
@@ -75,6 +75,7 @@ jobs:
                   REBUILD_FRONTEND="false"
                   REBUILD_PIPELINE="false"
                   RESTART_SEARXNG="false"
+                  REQUIRE_PIPELINE_MAINTENANCE="false"
 
                   if echo "$CHANGED_FILES" | grep -qE "^(backend/|\.gitea/workflows/deploy\.yml)"; then
                     REBUILD_BACKEND="true"
@@ -92,20 +93,30 @@ jobs:
                     RESTART_SEARXNG="true"
                   fi
 
+                  if echo "$CHANGED_FILES" | grep -qE "^(backend/alembic/versions/000[4-7]_|pipeline/ingest/upsert\.py|pipeline/repositories/sightings\.py)"; then
+                    REQUIRE_PIPELINE_MAINTENANCE="true"
+                  fi
+
                   echo "backend=$REBUILD_BACKEND" >> $GITHUB_OUTPUT
                   echo "frontend=$REBUILD_FRONTEND" >> $GITHUB_OUTPUT
                   echo "pipeline=$REBUILD_PIPELINE" >> $GITHUB_OUTPUT
                   echo "searxng=$RESTART_SEARXNG" >> $GITHUB_OUTPUT
+                  echo "pipeline_maintenance=$REQUIRE_PIPELINE_MAINTENANCE" >> $GITHUB_OUTPUT
 
                   echo "Changed files detected:"
                   echo "$CHANGED_FILES"
                   echo ""
                   echo "Services to rebuild: backend=$REBUILD_BACKEND frontend=$REBUILD_FRONTEND pipeline=$REBUILD_PIPELINE"
                   echo "Services to restart: searxng=$RESTART_SEARXNG"
+                  echo "Pipeline maintenance required: $REQUIRE_PIPELINE_MAINTENANCE"
 
             - name: Deploy with Docker Compose
               run: |
                   set -e
+                  PIPELINE_MAINTENANCE_MODE="${{ vars.PIPELINE_MAINTENANCE_MODE }}"
+                  if [ "${{ steps.changes.outputs.pipeline_maintenance }}" = "true" ]; then
+                    PIPELINE_MAINTENANCE_MODE="true"
+                  fi
                   docker compose pull || true
                   echo "Syncing SearXNG settings to the Docker host bind-mount path..."
                   # The deploy job runs in a Docker CLI container; write through Docker so the host-side bind path exists.
@@ -114,19 +125,36 @@ jobs:
                     docker.io/searxng/searxng:latest \
                     -c "mkdir -p /target && cat > /target/settings.yml && chmod 0644 /target/settings.yml" \
                     < searxng/settings.yml
-                  # Start stateful deps first.
-                  docker compose up -d db
+                  # Never recreate PostgreSQL during an ordinary application
+                  # deploy. Database configuration changes require an explicit
+                  # maintenance-window force-recreate after backup verification.
+                  docker compose up -d --no-recreate db
                   docker compose up -d --force-recreate searxng
+
+                  if [ "$PIPELINE_MAINTENANCE_MODE" = "true" ]; then
+                    echo "Pipeline maintenance mode is enabled; keeping the continuous worker stopped."
+                    docker compose stop pipeline || true
+                  fi
 
                   # Build and start app services based on what changed
                   BUILD_ARGS=""
                   [ "${{ steps.changes.outputs.backend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS backend"
                   [ "${{ steps.changes.outputs.frontend }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS frontend"
-                  [ "${{ steps.changes.outputs.pipeline }}" = "true" ] && BUILD_ARGS="$BUILD_ARGS pipeline"
+                  if [ "${{ steps.changes.outputs.pipeline }}" = "true" ]; then
+                    if [ "$PIPELINE_MAINTENANCE_MODE" = "true" ]; then
+                      echo "Building the new pipeline image without starting continuous ingestion..."
+                      docker compose build pipeline
+                    else
+                      BUILD_ARGS="$BUILD_ARGS pipeline"
+                    fi
+                  fi
 
                   if [ -z "$BUILD_ARGS" ]; then
-                    echo "⚠️  No services changed. Starting containers without rebuild..."
-                    docker compose up -d backend frontend pipeline
+                    echo "No application services require rebuilding."
+                    docker compose up -d backend frontend
+                    if [ "$PIPELINE_MAINTENANCE_MODE" != "true" ]; then
+                      docker compose up -d pipeline
+                    fi
                   else
                     echo "🔨 Rebuilding changed services: $BUILD_ARGS"
                     docker compose up -d --build $BUILD_ARGS
@@ -135,7 +163,9 @@ jobs:
                   if [ "${{ steps.changes.outputs.searxng }}" = "true" ]; then
                     echo "Restarting SearXNG to reload mounted config..."
                     docker compose restart searxng
-                    docker compose restart pipeline
+                    if [ "$PIPELINE_MAINTENANCE_MODE" != "true" ]; then
+                      docker compose restart pipeline
+                    fi
                   fi
 
                   docker compose up -d cloudflared

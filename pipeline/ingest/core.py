@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import gc
-import html
 import json
 import logging
 import os
 import time
-import uuid
 from collections.abc import AsyncIterator, Callable
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
+from uuid import UUID
 
 # Try to import psutil for memory logging, but make it optional
 try:
@@ -22,24 +19,16 @@ except ImportError:
     HAS_PSUTIL = False
 
 import httpx
-from sqlalchemy import case
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pipeline.repositories.sqlalchemy_repo import (
-    Job,
-    JobSource,
-)
-from pipeline.repositories.sync_ops import (
-    batched_mark_stale_jobs_inactive,
-    batched_reactivate_inactive,
-)
+from pipeline.repositories.sync_ops import batched_mark_stale_jobs_inactive
 from pipeline.sources.registry import get_greenhouse_slugs, get_lever_slugs, get_ashby_slugs
 from pipeline.sources.greenhouse import GreenhouseClient
 from pipeline.sources.lever import LeverClient
 from pipeline.sources.ashby import AshbyClient
 from pipeline.domain import JobSchema
-from pipeline.ingest.deduplication import deduplicate_jobs
+from pipeline.ingest.result import IngestResult, SourceFetchStats
+from pipeline.ingest.upsert import upsert_jobs
 from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -72,15 +61,15 @@ def _log_memory_usage(batch_num: int | None = None) -> None:
             pass
 
 
-class SlugFetchError(TypedDict, total=False):
+class SlugFetchError(TypedDict):
     step: str
     source: str
     slug: str
-    run_id: str | None
     error_type: str
-    status_code: int | None
-    message: str
-    cooldown_until: float
+    run_id: NotRequired[str | None]
+    status_code: NotRequired[int | None]
+    message: NotRequired[str]
+    cooldown_until: NotRequired[float]
 
 
 def _load_slug_404_cache() -> dict[str, dict[str, float]]:
@@ -139,24 +128,6 @@ def _save_slug_404_cache(cache: dict[str, dict[str, float]]) -> None:
         os.replace(tmp_path, SLUG_404_CACHE_PATH)
     except (OSError, TypeError) as exc:
         logger.debug("Failed to save slug 404 cache: %s", exc)
-
-
-def clean_html_description(text: str) -> str:
-    """Decode HTML entities and remove inline styles for cleaner storage."""
-    if not text:
-        return text
-
-    decoded = html.unescape(text)
-    cleaned = re.sub(r' style="[^"]*"', "", decoded)
-
-    return cleaned
-
-
-import re
-
-
-def fingerprint_for(job: JobSchema) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, job.apply_url))
 
 
 async def _fetch_all_apis_parallel(
@@ -361,10 +332,13 @@ async def fetch_api_jobs(
         f"Fetching {len(gh_slugs)} Greenhouse, {len(lever_slugs)} Lever, {len(ashby_slugs)} Ashby companies in parallel..."
     )
 
-    greenhouse_jobs, lever_jobs, ashby_jobs = await _fetch_all_apis_parallel(
-        api_fetch_concurrency=api_fetch_concurrency,
-        not_found_cooldown_hours=not_found_cooldown_hours,
-        run_id=run_id,
+    greenhouse_jobs, lever_jobs, ashby_jobs = cast(
+        tuple[list[JobSchema], list[JobSchema], list[JobSchema]],
+        await _fetch_all_apis_parallel(
+            api_fetch_concurrency=api_fetch_concurrency,
+            not_found_cooldown_hours=not_found_cooldown_hours,
+            run_id=run_id,
+        ),
     )
 
     logger.info(f"Fetched {len(greenhouse_jobs)} Greenhouse, {len(lever_jobs)} Lever, {len(ashby_jobs)} Ashby jobs")
@@ -381,12 +355,14 @@ async def _fetch_source_jobs_streamed(
     api_fetch_concurrency: int,
     not_found_cooldown_hours: int,
     run_id: str | None = None,
+    stats: SourceFetchStats | None = None,
 ) -> AsyncIterator[list[JobSchema]]:
     """Fetch jobs for a single source in chunks, yielding each chunk as it completes.
 
     This bounds peak memory to roughly one chunk of jobs plus a small set of
     concurrent coroutines, instead of materializing results for all slugs at once.
     """
+    stats = stats or SourceFetchStats(source=source_name.lower(), configured_slugs=len(slugs))
     now_ts = time.time()
     slug_404_cache = _load_slug_404_cache()
     source_cache = slug_404_cache.setdefault(source_name.lower(), {})
@@ -468,6 +444,8 @@ async def _fetch_source_jobs_streamed(
             chunk_jobs.extend(source_jobs)
             if error is not None:
                 fetch_errors.append(error)
+                stats.record_error(error.get("error_type", "unknown"))
+        stats.jobs_fetched += len(chunk_jobs)
         del results
         yield chunk_jobs
         del chunk_jobs
@@ -479,6 +457,20 @@ async def _fetch_source_jobs_streamed(
         per_source: dict[str, int] = {}
         for error in fetch_errors:
             per_source[error["source"]] = per_source.get(error["source"], 0) + 1
+            if error["error_type"] != "http_404":
+                logger.warning(
+                    "Slug fetch failed: source=%s slug=%s status=%s type=%s",
+                    error["source"],
+                    error["slug"],
+                    error.get("status_code"),
+                    error["error_type"],
+                    extra={
+                        "step": error["step"],
+                        "source": error["source"],
+                        "slug": error["slug"],
+                        "run_id": error.get("run_id"),
+                    },
+                )
         logger.warning(
             "%s fetch error summary: total=%d per_source=%s",
             source_name,
@@ -500,8 +492,8 @@ async def fetch_and_ingest_streamed(
     upsert_batch_size: int,
     api_fetch_concurrency: int,
     not_found_cooldown_hours: int,
-    run_id: str | None = None,
-) -> int:
+    sync_id: UUID,
+) -> IngestResult:
     """Fetch jobs from all sources in chunks and upsert each chunk immediately.
 
     Processes sources sequentially and yields control back to the event loop after
@@ -524,12 +516,17 @@ async def fetch_and_ingest_streamed(
     ashby = AshbyClient()
 
     total_fetched = 0
+    total_changed = 0
+    source_stats: dict[str, SourceFetchStats] = {}
     try:
         for source_name, slugs, client in (
             ("Greenhouse", gh_slugs, greenhouse),
             ("Lever", lever_slugs, lever),
             ("Ashby", ashby_slugs, ashby),
         ):
+            source_key = source_name.lower()
+            stats = SourceFetchStats(source=source_key, configured_slugs=len(slugs))
+            source_stats[source_key] = stats
             source_total = 0
             chunk_index = 0
             async for chunk in _fetch_source_jobs_streamed(
@@ -539,16 +536,19 @@ async def fetch_and_ingest_streamed(
                 chunk_size=chunk_size,
                 api_fetch_concurrency=api_fetch_concurrency,
                 not_found_cooldown_hours=not_found_cooldown_hours,
-                run_id=run_id,
+                run_id=str(sync_id),
+                stats=stats,
             ):
                 chunk_job_count = len(chunk)
                 if chunk_job_count:
-                    await upsert_jobs(
+                    upsert_stats = await upsert_jobs(
                         db,
                         chunk,
-                        deduplicate=False,
+                        sync_id=sync_id,
+                        deduplicate=True,
                         batch_size=upsert_batch_size,
                     )
+                    total_changed += upsert_stats.changed
                     total_fetched += chunk_job_count
                     source_total += chunk_job_count
                 chunk_index += 1
@@ -559,154 +559,31 @@ async def fetch_and_ingest_streamed(
     finally:
         _close_api_clients(greenhouse, lever, ashby)
 
-    logger.info("Streamed ingestion complete: %d jobs processed", total_fetched)
-    return total_fetched
+    logger.info(
+        "Streamed ingestion complete: %d jobs processed, %d inserted/changed/reactivated",
+        total_fetched,
+        total_changed,
+    )
+    return IngestResult(
+        sync_id=sync_id,
+        total_fetched=total_fetched,
+        source_counts={source: stats.jobs_fetched for source, stats in source_stats.items()},
+        fetch_error_counts={source: stats.fetch_errors for source, stats in source_stats.items()},
+        source_complete={source: stats.complete for source, stats in source_stats.items()},
+        jobs_changed=total_changed,
+    )
 
 
-async def mark_all_jobs_inactive(session: AsyncSession) -> int:
-    """No-op in the last_seen sync model.
-
-    Kept for backward compatibility and CLI/resume compatibility. The actual
-    inactive marking now happens after ingestion via ``mark_stale_jobs_inactive``
-    based on ``last_seen < batch_start_time``.
-
-    Returns:
-        0
-    """
-    logger.debug("mark_all_jobs_inactive is deprecated; sync model uses last_seen")
-    return 0
-
-
-async def mark_stale_jobs_inactive(session: AsyncSession, batch_start_time: datetime) -> int:
+async def mark_stale_jobs_inactive(session: AsyncSession, sync_id: UUID) -> int:
     """Mark active non-manual jobs that were not seen this run as inactive.
 
-    Uses the ``last_seen`` timestamp set during upsert to identify stale jobs.
-    Jobs with ``last_seen >= batch_start_time`` were fetched/updated this run
-    and stay active. Jobs with older ``last_seen`` are marked inactive.
+    Uses the run-scoped sightings table to identify jobs not observed this run.
 
     Args:
         session: SQLAlchemy async session.
-        batch_start_time: Timestamp captured at the start of ingestion.
+        sync_id: Synchronization run whose sightings define active jobs.
 
     Returns:
         Number of jobs marked inactive.
     """
-    return await batched_mark_stale_jobs_inactive(session, batch_start_time)
-
-
-async def reactivate_inactive_jobs(session: AsyncSession) -> int:
-    """Reactivate non-manual jobs after an unsafe sync is detected.
-
-    This is a rollback helper for the sync model. It is intentionally broad
-    because the sync marker is currently only represented by is_active.
-
-    Delegates to the shared batched sync operation for deadlock safety.
-
-    Returns:
-        Number of jobs reactivated
-    """
-    return await batched_reactivate_inactive(session)
-
-
-async def upsert_jobs(
-    db: AsyncSession,
-    jobs: list[JobSchema],
-    deduplicate: bool = True,
-    *,
-    batch_size: int | None = None,
-) -> None:
-    """Upsert jobs to database using async session."""
-    if not jobs:
-        return
-
-    if batch_size is None:
-        batch_size = get_config().ingest.upsert_batch_size
-
-    unique_jobs = deduplicate_jobs(jobs) if deduplicate else jobs
-
-    if deduplicate and len(unique_jobs) < len(jobs):
-        logger.info(f"Deduped {len(jobs) - len(unique_jobs)} jobs within batch ({len(unique_jobs)} unique)")
-
-    total_upserted = 0
-
-    for i in range(0, len(unique_jobs), batch_size):
-        batch = unique_jobs[i : i + batch_size]
-        rows = []
-
-        for job in batch:
-            rows.append(
-                {
-                    "fingerprint": fingerprint_for(job),
-                    "source": JobSource(job.source),
-                    "title": job.title,
-                    "company": job.company,
-                    "location": job.location,
-                    "apply_url": job.apply_url,
-                    "description_text": clean_html_description(job.description_text),
-                    "description_embedding": job.description_embedding,
-                    "job_category": job.job_category,
-                    "job_type": job.job_type,
-                    "work_mode": job.work_mode,
-                    "posted_at": job.posted_at,
-                    "is_active": True,
-                }
-            )
-
-        stmt = insert(Job).values(rows)
-        excluded = stmt.excluded
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[Job.fingerprint],
-            set_={
-                "location": excluded.location,
-                "description_text": case(
-                    (
-                        Job.description_text.is_distinct_from(excluded.description_text),
-                        excluded.description_text,
-                    ),
-                    else_=Job.description_text,
-                ),
-                "embedding_skip_reason": case(
-                    (
-                        Job.description_text.is_distinct_from(excluded.description_text),
-                        None,
-                    ),
-                    else_=Job.embedding_skip_reason,
-                ),
-                "embedding_skipped_at": case(
-                    (
-                        Job.description_text.is_distinct_from(excluded.description_text),
-                        None,
-                    ),
-                    else_=Job.embedding_skipped_at,
-                ),
-                "job_type": case(
-                    (Job.job_type.is_(None), excluded.job_type),
-                    else_=Job.job_type,
-                ),
-                "work_mode": case(
-                    (Job.work_mode.is_(None), excluded.work_mode),
-                    else_=Job.work_mode,
-                ),
-                "last_seen": datetime.now(timezone.utc),
-                "is_active": True,
-            },
-        )
-
-        await db.execute(stmt)
-        await db.commit()
-
-        # Memory management: expunge objects from session and yield to event loop
-        db.expunge_all()
-        await asyncio.sleep(0)
-
-        total_upserted += len(rows)
-        batch_num = i // batch_size + 1
-        logger.info(f"Upserted batch {batch_num}: {len(rows)} jobs (total: {total_upserted}/{len(unique_jobs)})")
-
-        # Every 10 batches: force garbage collection
-        if batch_num % 10 == 0:
-            gc.collect()
-
-        # Every 50 batches: log memory usage
-        if batch_num % 50 == 0:
-            _log_memory_usage(batch_num)
+    return await batched_mark_stale_jobs_inactive(session, sync_id)

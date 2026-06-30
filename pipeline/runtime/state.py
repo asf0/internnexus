@@ -15,7 +15,6 @@ from pipeline.runtime.steps import PIPELINE_STEPS
 logger = logging.getLogger(__name__)
 
 
-
 class PipelineStateManager:
     def __init__(self, run_id: UUID | None = None):
         self.run_id = run_id
@@ -27,8 +26,9 @@ class PipelineStateManager:
         return self._session
 
     async def __aenter__(self) -> PipelineStateManager:
-        self._session = AsyncSessionLocal()
-        await self._session.__aenter__()
+        session = AsyncSessionLocal()
+        await session.__aenter__()
+        self._session = session
         return self
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
@@ -41,6 +41,19 @@ class PipelineStateManager:
         if self.run_id:
             run = await session.get(PipelineRun, self.run_id)
             if run:
+                if run.status == PipelineRunStatus.failed:
+                    await session.execute(
+                        update(PipelineRun)
+                        .where(PipelineRun.id == self.run_id)
+                        .values(
+                            status=PipelineRunStatus.running,
+                            error_message=None,
+                            error_step=None,
+                            completed_at=None,
+                        )
+                    )
+                    await session.commit()
+                    logger.info("Resumed failed pipeline run: %s", self.run_id)
                 return self.run_id
 
         run = PipelineRun(status=PipelineRunStatus.running)
@@ -57,7 +70,19 @@ class PipelineStateManager:
 
         session = self._require_session()
 
-        await session.execute(update(PipelineRun).where(PipelineRun.id == self.run_id).values(step_completed=step))
+        values: dict[str, Any] = {"step_completed": step}
+        if results is not None:
+            run = await session.get(PipelineRun, self.run_id)
+            persisted: dict[str, Any] = {}
+            if run and run.results:
+                try:
+                    persisted = json.loads(run.results)
+                except (TypeError, json.JSONDecodeError):
+                    persisted = {}
+            persisted.update(results)
+            values["results"] = json.dumps(persisted)
+
+        await session.execute(update(PipelineRun).where(PipelineRun.id == self.run_id).values(**values))
         await session.commit()
         logger.debug(f"Marked step '{step}' complete for run {self.run_id}")
 
@@ -108,6 +133,17 @@ class PipelineStateManager:
         )
         return result.scalar_one_or_none()
 
+    async def get_resumable_run(self, run_id: UUID | None = None) -> PipelineRun | None:
+        """Return an explicitly requested or latest running/failed run."""
+        session = self._require_session()
+        query = select(PipelineRun).where(PipelineRun.status.in_((PipelineRunStatus.running, PipelineRunStatus.failed)))
+        if run_id is not None:
+            query = query.where(PipelineRun.id == run_id)
+        else:
+            query = query.order_by(PipelineRun.started_at.desc()).limit(1)
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+
     def get_resume_step(self, run: PipelineRun) -> str | None:
         if not run.step_completed:
             return PIPELINE_STEPS[0]
@@ -125,6 +161,11 @@ class PipelineStateManager:
 async def get_incomplete_run() -> PipelineRun | None:
     async with PipelineStateManager() as manager:
         return await manager.get_last_incomplete_run()
+
+
+async def get_resumable_run(run_id: UUID | None = None) -> PipelineRun | None:
+    async with PipelineStateManager() as manager:
+        return await manager.get_resumable_run(run_id)
 
 
 async def clear_incomplete_runs() -> int:

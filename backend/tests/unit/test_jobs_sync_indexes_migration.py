@@ -15,12 +15,7 @@ import inspect
 from pathlib import Path
 
 
-_MIGRATION_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "alembic"
-    / "versions"
-    / "0002_jobs_sync_indexes.py"
-)
+_MIGRATION_PATH = Path(__file__).resolve().parents[2] / "alembic" / "versions" / "0002_jobs_sync_indexes.py"
 
 
 def test_migration_file_exists():
@@ -48,17 +43,16 @@ def test_migration_has_both_indexes():
     assert "idx_jobs_inactive_sync" in source
 
 
-def test_index_predicates_match_sync_ops_queries():
-    """The partial index predicates must match the CTE WHERE clauses exactly."""
+def test_index_predicates_match_current_sync_ops_queries():
+    """Historical predicates still match the retained sighting-based queries."""
     from pipeline.repositories.sync_ops import (
         _DELETE_INACTIVE_SQL,
-        _MARK_INACTIVE_SQL,
-        _REACTIVATE_SQL,
+        _MARK_STALE_SQL,
     )
 
     migration_source = _MIGRATION_PATH.read_text()
 
-    for sql in [_MARK_INACTIVE_SQL, _REACTIVATE_SQL, _DELETE_INACTIVE_SQL]:
+    for sql in [_MARK_STALE_SQL, _DELETE_INACTIVE_SQL]:
         assert "is_active IS TRUE" in sql or "is_active IS FALSE" in sql
         assert "source <> 'manual'" in sql
 

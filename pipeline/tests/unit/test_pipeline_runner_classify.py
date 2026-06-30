@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import sys
-from datetime import timezone
+from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -12,6 +14,32 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from pipeline.cli import run_pipeline
+from pipeline.ingest.result import IngestResult
+from pipeline.runtime.runner import SyncSafetyAssessment
+
+
+def _ingest_result(total: int = 0, *, complete: bool = True) -> IngestResult:
+    return IngestResult(
+        sync_id=uuid4(),
+        total_fetched=total,
+        source_counts={"greenhouse": total, "lever": 0, "ashby": 0},
+        fetch_error_counts={"greenhouse": 0, "lever": 0, "ashby": 0},
+        source_complete={
+            "greenhouse": complete,
+            "lever": complete,
+            "ashby": complete,
+        },
+    )
+
+
+async def _unsafe_assessment(*_args, **_kwargs) -> SyncSafetyAssessment:
+    return SyncSafetyAssessment(
+        safe=False,
+        reasons=("test unsafe sync",),
+        stale_count=33_971,
+        source_counts={"greenhouse": 582, "lever": 0, "ashby": 0},
+        previous_source_counts=None,
+    )
 
 
 class _FakeSort:
@@ -288,9 +316,10 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
         return 0
 
     async def _ingest(*_args, **_kwargs):
-        from datetime import datetime
+        return _ingest_result()
 
-        return 0, datetime.now(timezone.utc)
+    async def _finalize(*_args, **_kwargs):
+        return 0, 0
 
     async def _classify_fail(*_args, **_kwargs):
         raise RuntimeError("boom")
@@ -302,6 +331,7 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
     runner.step_discover = _ok
     runner.step_sync_inactive = _ok
     runner.step_ingest = _ingest
+    runner.finalize_sync = _finalize
     runner.step_mark_stale_jobs = _ok
     runner.step_delete_inactive = _ok
     runner.step_cleanup = _ok
@@ -358,9 +388,7 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
 
     async def _ingest(*_args, **_kwargs):
         executed_steps.append("ingest")
-        from datetime import datetime
-
-        return 0, datetime.now(timezone.utc)
+        return _ingest_result()
 
     runner = run_pipeline.PipelineRunner(
         state_manager_class=_FakeState,
@@ -378,6 +406,92 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
 
     assert executed_steps == ["classify", "embed"]
     assert run_id_args == ["run-123"]
+
+
+@pytest.mark.asyncio
+async def test_run_resumes_post_ingest_with_persisted_sync_context(monkeypatch):
+    sync_id = uuid4()
+    persisted = IngestResult(
+        sync_id=sync_id,
+        total_fetched=270_000,
+        source_counts={"greenhouse": 90_000, "lever": 90_000, "ashby": 90_000},
+        fetch_error_counts={"greenhouse": 0, "lever": 0, "ashby": 0},
+        source_complete={"greenhouse": True, "lever": True, "ashby": True},
+        jobs_changed=123,
+    )
+    finalized = []
+
+    class _FakeState:
+        def __init__(self, run_id=None):
+            assert run_id == sync_id
+            self.run_id = run_id
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+        async def start_run(self):
+            return self.run_id
+
+        async def mark_completed(self, _results=None):
+            return None
+
+        async def mark_failed(self, _error: Exception, _step: str):
+            return None
+
+        async def mark_step_complete(self, _step: str, _results=None):
+            return None
+
+    async def _get_incomplete_run():
+        raise AssertionError("explicit resume must look up the requested failed run")
+
+    async def _get_resumable_run(requested_run_id):
+        assert requested_run_id == sync_id
+        return SimpleNamespace(
+            id=sync_id,
+            step_completed="ingest",
+            results=json.dumps(persisted.to_metadata()),
+        )
+
+    @asynccontextmanager
+    async def _no_lock():
+        yield
+
+    async def _unexpected_ingest(*_args, **_kwargs):
+        raise AssertionError("resume after ingest must not fetch jobs again")
+
+    async def _finalize(_state, ingest):
+        finalized.append(ingest)
+        return 5, 5
+
+    async def _zero(*_args, **_kwargs):
+        return 0
+
+    async def _zero_pair(*_args, **_kwargs):
+        return 0, 0
+
+    monkeypatch.setattr("pipeline.runtime.runner.job_sync_lock", _no_lock)
+    runner = run_pipeline.PipelineRunner(
+        resume_run_id=sync_id,
+        state_manager_class=_FakeState,
+        get_incomplete_run_func=_get_incomplete_run,
+        get_resumable_run_func=_get_resumable_run,
+    )
+    runner.step_ingest = _unexpected_ingest
+    runner.finalize_sync = _finalize
+    runner.step_cleanup = _zero
+    runner.step_classify = _zero_pair
+    runner.step_embed = _zero_pair
+
+    results = await runner.run()
+
+    assert finalized == [persisted]
+    assert results["sync_id"] == str(sync_id)
+    assert results["jobs_fetched"] == 270_000
+    assert results["jobs_marked_inactive"] == 5
+    assert results["inactive_jobs_deleted"] == 5
 
 
 @pytest.mark.asyncio
@@ -428,9 +542,7 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
         async def _inner(*_args, **_kwargs):
             current_steps.append(name)
             if name == "ingest":
-                from datetime import datetime, timezone
-
-                return 0, datetime.now(timezone.utc)
+                return _ingest_result()
             if name in {"classify", "embed"}:
                 return 0, 0
             return 0
@@ -449,6 +561,12 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
     runner.step_cleanup = _record("cleanup")
     runner.step_classify = _record("classify")
     runner.step_embed = _record("embed")
+
+    async def _finalize(*_args, **_kwargs):
+        current_steps.extend(["mark_stale_jobs", "delete_inactive"])
+        return 0, 0
+
+    runner.finalize_sync = _finalize
 
     await runner.run()
     executed_runs.append(list(current_steps))
@@ -472,7 +590,7 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small(monkeypatch):
+async def test_run_rejects_suspicious_ingest_before_any_stale_mutation(monkeypatch):
     completed_steps = []
     called_delete = False
     called_rollback = False
@@ -496,7 +614,7 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
         async def mark_failed(self, _error: Exception, _step: str):
             return None
 
-        async def mark_step_complete(self, step: str):
+        async def mark_step_complete(self, step: str, _results=None):
             completed_steps.append(step)
 
     async def _get_incomplete_run():
@@ -509,9 +627,7 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
         return 33971
 
     async def _ingest(*_args, **_kwargs):
-        from datetime import datetime, timezone
-
-        return 582, datetime.now(timezone.utc)
+        return _ingest_result(582)
 
     async def _delete(*_args, **_kwargs):
         nonlocal called_delete
@@ -538,7 +654,8 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
     runner.step_ingest = _ingest
     runner.step_mark_stale_jobs = _sync_inactive
     runner.step_delete_inactive = _delete
-    runner.rollback_sync_inactive = _rollback
+    runner.assess_sync = _unsafe_assessment
+    runner.cleanup_sync_sightings = _zero
     runner.step_cleanup = _zero
     runner.step_classify = _zero_pair
     runner.step_embed = _zero_pair
@@ -546,7 +663,7 @@ async def test_run_skips_delete_and_rolls_back_when_ingest_is_suspiciously_small
     results = await runner.run()
 
     assert called_delete is False
-    assert called_rollback is True
+    assert called_rollback is False
     assert results["inactive_jobs_deleted"] == 0
     assert "delete_inactive" in completed_steps
 
@@ -575,16 +692,14 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
         async def mark_failed(self, _error: Exception, _step: str):
             return None
 
-        async def mark_step_complete(self, _step: str):
+        async def mark_step_complete(self, _step: str, _results=None):
             return None
 
     async def _get_incomplete_run():
         return SimpleNamespace(id="run-123", step_completed="sync_inactive", started_at="now")
 
     async def _ingest(*_args, **_kwargs):
-        from datetime import datetime, timezone
-
-        return 30000, datetime.now(timezone.utc)
+        return _ingest_result(30000)
 
     async def _delete(*_args, **_kwargs):
         nonlocal called_delete
@@ -609,7 +724,8 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
     runner.step_ingest = _ingest
     runner.step_mark_stale_jobs = _zero
     runner.step_delete_inactive = _delete
-    runner.rollback_sync_inactive = _rollback
+    runner.assess_sync = _unsafe_assessment
+    runner.cleanup_sync_sightings = _zero
     runner.step_cleanup = _zero
     runner.step_classify = _zero_pair
     runner.step_embed = _zero_pair
@@ -617,7 +733,7 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
     results = await runner.run()
 
     assert called_delete is False
-    assert called_rollback is True
+    assert called_rollback is False
     assert results["inactive_jobs_deleted"] == 0
 
 
@@ -672,9 +788,10 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
         return 0, 0
 
     async def _ingest(*_args, **_kwargs):
-        from datetime import datetime, timezone
+        return _ingest_result()
 
-        return 0, datetime.now(timezone.utc)
+    async def _finalize(*_args, **_kwargs):
+        return 0, 0
 
     runner = run_pipeline.PipelineRunner(
         state_manager_class=_FakeState,
@@ -683,6 +800,7 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
     runner.step_discover = _zero
     runner.step_sync_inactive = _zero
     runner.step_ingest = _ingest
+    runner.finalize_sync = _finalize
     runner.step_mark_stale_jobs = _zero
     runner.step_delete_inactive = _zero
     runner.step_cleanup = _zero

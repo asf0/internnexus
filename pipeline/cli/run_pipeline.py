@@ -5,8 +5,8 @@ Complete job pipeline: discover companies, fetch jobs, cleanup, and embed.
 This script runs the full pipeline:
 1. Discover companies - Find company slugs via SearxNG for supported ATS boards
 2. Sync inactive - Mark all jobs as inactive (prepare for sync)
-3. Fetch & ingest jobs - Fetch from all sources, deduplicate, upsert to DB
-4. Delete inactive - Remove jobs not found in APIs (sync model)
+3. Fetch & ingest jobs - Record sightings and upsert changed jobs
+4. Delete inactive - Remove jobs absent from completed sightings
 5. Cleanup locations - Normalize city/state/country fields
 6. Classify jobs - LLM-based category classification
 7. Generate embeddings - Create vector embeddings for job matching
@@ -24,8 +24,7 @@ Examples:
   internnexus-pipeline                                  # Run full pipeline once
   internnexus-pipeline --step ingest                    # Only fetch new jobs
   internnexus-pipeline --step ingest --delete-inactive  # Fetch + delete stale jobs
-  internnexus-pipeline --step sync_inactive             # Deprecated: no-op in last_seen sync model
-  internnexus-pipeline --step delete_inactive           # Delete inactive jobs not seen this run
+  internnexus-pipeline --step sync_inactive             # Deprecated compatibility no-op
   internnexus-pipeline --step cleanup                   # Normalize locations
   internnexus-pipeline --step cleanup --all             # Re-process ALL locations
   internnexus-pipeline --step cleanup --test            # Test mode: CSV output only
@@ -49,6 +48,7 @@ from pipeline.runtime import (
     clear_incomplete_runs,
     get_config,
     get_incomplete_run,
+    get_resumable_run,
     print_health_report,
     run_health_checks,
 )
@@ -83,7 +83,7 @@ async def run_continuous(runner: PipelineRunner, interval: int):
     await run_continuous_loop(
         runner=runner,
         interval=interval,
-        get_incomplete_run=get_incomplete_run,
+        get_incomplete_run=get_resumable_run,
         logger=logger,
     )
 
@@ -106,7 +106,7 @@ def main():
 
         resume_run_id = await resolve_resume_run_id(
             resume_requested=args.resume,
-            get_incomplete_run=get_incomplete_run,
+            get_incomplete_run=get_resumable_run,
             logger=logger,
         )
 

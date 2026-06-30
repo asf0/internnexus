@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID, uuid4
 
 from pipeline.cleanup import cleanup_locations, delete_inactive_jobs
 from pipeline.embeddings import generate_embeddings
-from pipeline.ingest import fetch_and_ingest, mark_stale_jobs_inactive, reactivate_inactive_jobs
+from pipeline.ingest import IngestResult, fetch_and_ingest, mark_stale_jobs_inactive
+from pipeline.ingest.result import SYNC_SOURCES
+from pipeline.repositories.sightings import (
+    count_stale_jobs,
+    delete_sightings,
+    get_previous_successful_source_counts,
+    get_sighting_counts,
+    prune_abandoned_sightings,
+)
 from pipeline.runtime import (
     PipelineStateManager,
     get_config,
     get_incomplete_run,
+    get_resumable_run,
     print_health_report,
     run_health_checks,
 )
@@ -60,6 +72,59 @@ def _is_unsafe_delete_inactive_sync(marked_inactive: int, jobs_fetched: int) -> 
     return jobs_fetched / marked_inactive < MIN_FETCHED_TO_MARKED_INACTIVE_RATIO
 
 
+@dataclass(frozen=True)
+class SyncSafetyAssessment:
+    safe: bool
+    reasons: tuple[str, ...]
+    stale_count: int
+    source_counts: dict[str, int]
+    previous_source_counts: dict[str, int] | None
+
+
+def _assess_sync_safety(
+    ingest: IngestResult,
+    *,
+    source_counts: dict[str, int],
+    previous_source_counts: dict[str, int] | None,
+    stale_count: int,
+    config,
+) -> SyncSafetyAssessment:
+    reasons: list[str] = []
+    incomplete_sources = sorted(source for source in SYNC_SOURCES if not ingest.source_complete.get(source, False))
+    if incomplete_sources:
+        reasons.append(f"incomplete sources: {', '.join(incomplete_sources)}")
+
+    current_total = sum(source_counts.values())
+    if current_total <= 0:
+        reasons.append("current run has no persisted sightings")
+
+    if previous_source_counts:
+        previous_total = sum(previous_source_counts.values())
+        if previous_total > 0 and current_total < previous_total * config.min_total_sighting_ratio:
+            reasons.append(
+                f"total sightings {current_total} below {config.min_total_sighting_ratio:.0%} of previous {previous_total}"
+            )
+        for source, previous_count in previous_source_counts.items():
+            current_count = source_counts.get(source, 0)
+            if previous_count > 0 and current_count < previous_count * config.min_source_sighting_ratio:
+                reasons.append(
+                    f"{source} sightings {current_count} below "
+                    f"{config.min_source_sighting_ratio:.0%} of previous {previous_count}"
+                )
+
+    if stale_count >= config.min_stale_guard_count:
+        if current_total <= 0 or current_total / stale_count < config.min_fetched_to_stale_ratio:
+            reasons.append(f"sighting/stale ratio is unsafe ({current_total} seen, {stale_count} stale)")
+
+    return SyncSafetyAssessment(
+        safe=not reasons,
+        reasons=tuple(reasons),
+        stale_count=stale_count,
+        source_counts=source_counts,
+        previous_source_counts=previous_source_counts,
+    )
+
+
 class PipelineRunner:
     def __init__(
         self,
@@ -71,6 +136,7 @@ class PipelineRunner:
         limit: int | None = None,
         state_manager_class=PipelineStateManager,
         get_incomplete_run_func=get_incomplete_run,
+        get_resumable_run_func=get_resumable_run,
         classify_commit_batch_size: int = CLASSIFY_COMMIT_BATCH_SIZE,
     ):
         self.config = get_config()
@@ -82,10 +148,17 @@ class PipelineRunner:
         self.limit = limit
         self.state_manager_class = state_manager_class
         self.get_incomplete_run_func = get_incomplete_run_func
+        self.get_resumable_run_func = get_resumable_run_func
         self.classify_commit_batch_size = classify_commit_batch_size
         self.results = {
             "companies_verified": 0,
             "jobs_fetched": 0,
+            "jobs_changed": 0,
+            "source_counts": {},
+            "fetch_error_counts": {},
+            "source_complete": {},
+            "sync_id": None,
+            "stale_jobs_detected": 0,
             "locations_cleaned": 0,
             "jobs_classified": 0,
             "classification_errors": 0,
@@ -102,6 +175,12 @@ class PipelineRunner:
         self.results = {
             "companies_verified": 0,
             "jobs_fetched": 0,
+            "jobs_changed": 0,
+            "source_counts": {},
+            "fetch_error_counts": {},
+            "source_complete": {},
+            "sync_id": None,
+            "stale_jobs_detected": 0,
             "locations_cleaned": 0,
             "jobs_classified": 0,
             "classification_errors": 0,
@@ -155,31 +234,38 @@ class PipelineRunner:
         log_memory_usage("after discovery")
         return count
 
-    async def step_ingest(self, state: PipelineStateManager | None) -> tuple[int, datetime]:
+    async def step_ingest(self, state: PipelineStateManager | None) -> IngestResult:
         step_start = time.time()
         step_name = "ingest"
 
         if self.dry_run:
             logger.info("[DRY RUN] Would fetch jobs from APIs and scrapers")
-            return 0, datetime.now(timezone.utc)
+            return IngestResult.empty(uuid4())
 
-        jobs_count, batch_start = await fetch_and_ingest(
+        try:
+            sync_id = UUID(str(state.run_id)) if state is not None and state.run_id is not None else uuid4()
+        except ValueError:
+            sync_id = uuid4()
+
+        result = await fetch_and_ingest(
             api_fetch_concurrency=self.config.api.fetch_concurrency,
             not_found_cooldown_hours=self.config.api.slug_404_cooldown_hours,
             slug_chunk_size=self.config.ingest.slug_chunk_size,
             upsert_batch_size=self.config.ingest.upsert_batch_size,
-            run_id=str(state.run_id) if state is not None and state.run_id is not None else None,
+            sync_id=sync_id,
         )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'ingest' completed in {self.step_times[step_name]:.1f}s")
-        _log_step_rate(step_name, self.step_times[step_name], jobs_count)
+        _log_step_rate(step_name, self.step_times[step_name], result.total_fetched)
+
+        self.results.update(result.to_metadata())
 
         if state:
-            await state.mark_step_complete(step_name)
+            await state.mark_step_complete(step_name, result.to_metadata())
 
         log_memory_usage("after ingest")
         trim_process_memory("after ingest trim")
-        return jobs_count, batch_start
+        return result
 
     async def step_cleanup(
         self,
@@ -360,15 +446,15 @@ class PipelineRunner:
         return success, errors
 
     async def step_sync_inactive(self, state: PipelineStateManager | None) -> int:
-        """No-op in the last_seen sync model; kept for resume compatibility."""
+        """No-op retained for CLI and resume compatibility."""
         step_start = time.time()
         step_name = "sync_inactive"
 
         if self.dry_run:
-            logger.info("[DRY RUN] Would mark all jobs as inactive")
+            logger.info("[DRY RUN] sync_inactive compatibility step is a no-op")
             return 0
 
-        logger.info("sync_inactive is deprecated; using last_seen sync model")
+        logger.info("sync_inactive is deprecated; using run-scoped sightings")
         count = 0
 
         self.step_times[step_name] = time.time() - step_start
@@ -383,7 +469,7 @@ class PipelineRunner:
     async def step_mark_stale_jobs(
         self,
         state: PipelineStateManager | None,
-        batch_start_time: datetime,
+        sync_id: UUID,
     ) -> int:
         """Mark jobs that were not seen this run as inactive."""
         step_start = time.time()
@@ -396,23 +482,20 @@ class PipelineRunner:
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
         async with AsyncSessionLocal() as session:
-            logger.info("Marking stale jobs inactive (last_seen < %s)...", batch_start_time.isoformat())
-            count = await mark_stale_jobs_inactive(session, batch_start_time)
+            logger.info("Marking jobs absent from sync %s inactive...", sync_id)
+            count = await mark_stale_jobs_inactive(session, sync_id)
             logger.info("Marked %d stale jobs as inactive", count)
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'mark_stale_jobs' completed in {self.step_times[step_name]:.1f}s")
         _log_step_rate(step_name, self.step_times[step_name], count)
 
-        if state:
-            await state.mark_step_complete(step_name)
-
         return count
 
     async def step_delete_inactive(
         self,
         state: PipelineStateManager | None,
-        batch_start_time: datetime,
+        sync_id: UUID,
     ) -> int:
         """Delete jobs that remain inactive after ingestion (sync model)."""
         step_start = time.time()
@@ -422,7 +505,7 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would delete inactive jobs")
             return 0
 
-        count = await delete_inactive_jobs(batch_start_time=batch_start_time)
+        count = await delete_inactive_jobs(sync_id=sync_id)
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'delete_inactive' completed in {self.step_times[step_name]:.1f}s")
         _log_step_rate(step_name, self.step_times[step_name], count)
@@ -430,27 +513,115 @@ class PipelineRunner:
         if state:
             await state.mark_step_complete(step_name)
 
+        await self.cleanup_sync_sightings(sync_id)
         return count
 
-    async def rollback_sync_inactive(self) -> int:
-        """Reactivate jobs when a sync run is not safe enough to delete from."""
+    async def assess_sync(self, ingest: IngestResult) -> SyncSafetyAssessment:
+        """Read authoritative counts and reject unsafe synchronization before writes."""
         from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
 
         async with AsyncSessionLocal() as session:
-            return await reactivate_inactive_jobs(session)
+            source_counts = await get_sighting_counts(session, ingest.sync_id)
+            stale_count = await count_stale_jobs(session, ingest.sync_id)
+            previous_counts = await get_previous_successful_source_counts(
+                session,
+                exclude_sync_id=ingest.sync_id,
+            )
+        logger.info(
+            (
+                "Sync safety inputs for %s: current=%s previous=%s stale=%d "
+                "complete=%s fetch_errors=%s thresholds="
+                "{total_ratio=%.3f, source_ratio=%.3f, stale_guard=%d, "
+                "seen_to_stale=%.3f}"
+            ),
+            ingest.sync_id,
+            source_counts,
+            previous_counts,
+            stale_count,
+            ingest.source_complete,
+            ingest.fetch_error_counts,
+            self.config.sync.min_total_sighting_ratio,
+            self.config.sync.min_source_sighting_ratio,
+            self.config.sync.min_stale_guard_count,
+            self.config.sync.min_fetched_to_stale_ratio,
+        )
+        assessment = _assess_sync_safety(
+            ingest,
+            source_counts=source_counts,
+            previous_source_counts=previous_counts,
+            stale_count=stale_count,
+            config=self.config.sync,
+        )
+        self.results["source_counts"] = source_counts
+        self.results["stale_jobs_detected"] = stale_count
+        return assessment
+
+    async def cleanup_sync_sightings(self, sync_id: UUID) -> None:
+        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            deleted = await delete_sightings(session, sync_id)
+            pruned = await prune_abandoned_sightings(
+                session,
+                retention_days=self.config.sync.sightings_retention_days,
+                batch_size=self.config.sync.sightings_cleanup_batch_size,
+            )
+        logger.info("Cleaned %d current and %d abandoned job sightings", deleted, pruned)
+
+    async def finalize_sync(
+        self,
+        state: PipelineStateManager | None,
+        ingest: IngestResult,
+    ) -> tuple[int, int]:
+        """Validate, mark, and delete stale jobs for one ingest run."""
+        assessment = await self.assess_sync(ingest)
+        if not assessment.safe:
+            reasons = list(assessment.reasons)
+            self.results["sync_skipped_reasons"] = reasons
+            logger.error(
+                "Skipping all stale-job mutations for sync %s: %s",
+                ingest.sync_id,
+                "; ".join(reasons),
+            )
+            if state:
+                await state.mark_step_complete(
+                    "delete_inactive",
+                    {
+                        "sync_skipped_reasons": reasons,
+                        "stale_jobs_detected": assessment.stale_count,
+                        "source_counts": assessment.source_counts,
+                    },
+                )
+            await self.cleanup_sync_sightings(ingest.sync_id)
+            return 0, 0
+
+        marked = await self.step_mark_stale_jobs(state, ingest.sync_id)
+        deleted = await self.step_delete_inactive(state, ingest.sync_id)
+        return marked, deleted
 
     async def run(self) -> dict:
         start = time.time()
         self._reset_run_state()
 
-        incomplete_run = await self.get_incomplete_run_func()
+        if self.resume_run_id is not None:
+            incomplete_run = await self.get_resumable_run_func(self.resume_run_id)
+        else:
+            incomplete_run = await self.get_incomplete_run_func()
         start_from_step = None
         resume_run_id = None
+        ingest_result: IngestResult | None = None
         if incomplete_run:
             resume_step = _get_resume_step_from_db_run(incomplete_run.step_completed)
             if resume_step:
                 resume_run_id = incomplete_run.id
                 start_from_step = resume_step
+                try:
+                    resume_metadata = json.loads(getattr(incomplete_run, "results", None) or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    resume_metadata = {}
+                ingest_result = IngestResult.from_metadata(resume_metadata)
+                if ingest_result is not None:
+                    self.results.update(ingest_result.to_metadata())
                 logger.info(
                     "Resuming incomplete run %s from step '%s' (last completed: %s)",
                     incomplete_run.id,
@@ -470,7 +641,6 @@ class PipelineRunner:
             )
 
         state = None
-        batch_start_time = None
 
         if not self.dry_run:
             state = self.state_manager_class(run_id=resume_run_id)
@@ -500,56 +670,33 @@ class PipelineRunner:
                     start_from_step or "sync_inactive"
                 ):
                     self.current_step = "sync_inactive"
-                    # Deprecated: no-op in last_seen sync model.
+                    # Deprecated: no-op in the run-scoped sightings sync model.
                     await self.step_sync_inactive(state)
 
                 if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
                     start_from_step or "ingest"
                 ):
                     self.current_step = "ingest"
-                    jobs_count, batch_start_time = await self.step_ingest(state)
-                    self.results["jobs_fetched"] = jobs_count
+                    ingest_result = await self.step_ingest(state)
+                    self.results["jobs_fetched"] = ingest_result.total_fetched
 
                 if not start_from_step or PIPELINE_STEPS.index("delete_inactive") >= PIPELINE_STEPS.index(
                     start_from_step or "delete_inactive"
                 ):
                     self.current_step = "delete_inactive"
-
-                    # Mark stale jobs inactive before deletion. Skip if we are
-                    # resuming from a point after ingestion already ran.
-                    if not start_from_step or PIPELINE_STEPS.index("ingest") >= PIPELINE_STEPS.index(
-                        start_from_step or "ingest"
-                    ):
-                        if batch_start_time is None:
-                            raise RuntimeError("Cannot mark stale jobs without an ingest batch start time")
-                        self.results["jobs_marked_inactive"] = await self.step_mark_stale_jobs(state, batch_start_time)
-
-                    missing_sync_context = (
-                        start_from_step in {"ingest", "delete_inactive"} and self.results["jobs_marked_inactive"] == 0
-                    )
-                    unsafe_partial_sync = _is_unsafe_delete_inactive_sync(
-                        self.results["jobs_marked_inactive"],
-                        self.results["jobs_fetched"],
-                    )
-                    if missing_sync_context or unsafe_partial_sync:
-                        logger.error(
-                            (
-                                "Skipping delete_inactive because the sync is unsafe "
-                                "(start_from_step=%s, fetched=%d, marked_inactive=%d). "
-                                "Reactivating inactive jobs to avoid a destructive partial sync."
-                            ),
-                            start_from_step,
-                            self.results["jobs_fetched"],
-                            self.results["jobs_marked_inactive"],
-                        )
-                        await self.rollback_sync_inactive()
+                    if ingest_result is None:
+                        reason = "missing persisted ingest synchronization context"
+                        logger.error("Skipping all stale-job mutations: %s", reason)
+                        self.results["sync_skipped_reasons"] = [reason]
                         if state:
-                            await state.mark_step_complete("delete_inactive")
-                        self.results["inactive_jobs_deleted"] = 0
+                            await state.mark_step_complete(
+                                "delete_inactive",
+                                {"sync_skipped_reasons": [reason]},
+                            )
                     else:
-                        if batch_start_time is None:
-                            raise RuntimeError("Cannot delete inactive jobs without an ingest batch start time")
-                        self.results["inactive_jobs_deleted"] = await self.step_delete_inactive(state, batch_start_time)
+                        marked, deleted = await self.finalize_sync(state, ingest_result)
+                        self.results["jobs_marked_inactive"] = marked
+                        self.results["inactive_jobs_deleted"] = deleted
 
             if not start_from_step or PIPELINE_STEPS.index("cleanup") >= PIPELINE_STEPS.index(
                 start_from_step or "cleanup"

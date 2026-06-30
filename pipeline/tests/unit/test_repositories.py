@@ -122,7 +122,6 @@ class TestJobRepositoryProtocol:
             "get_jobs_without_embeddings",
             "get_jobs_by_ids",
             "update_job_embedding",
-            "mark_all_jobs_inactive",
             "delete_inactive_jobs",
             "get_total_count",
         ]
@@ -184,7 +183,6 @@ class TestSQLAlchemyRepositoryImport:
             "get_jobs_without_embeddings",
             "get_jobs_by_ids",
             "update_job_embedding",
-            "mark_all_jobs_inactive",
             "delete_inactive_jobs",
             "get_total_count",
         ]
@@ -213,9 +211,7 @@ class TestRepositoryProtocolCompliance:
         repo_methods = set(dir(SQLAlchemyJobRepository))
 
         protocol_public_methods = {
-            m
-            for m in protocol_methods
-            if not m.startswith("_") and callable(getattr(JobRepository, m, None))
+            m for m in protocol_methods if not m.startswith("_") and callable(getattr(JobRepository, m, None))
         }
 
         for method in protocol_public_methods:

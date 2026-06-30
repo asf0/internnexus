@@ -52,24 +52,29 @@ class Job(Base):
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True)
     job_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     job_type: Mapped[JobType | None] = mapped_column(Enum(JobType, name="job_type"), nullable=True)
-    work_mode: Mapped[WorkMode | None] = mapped_column(
-        Enum(WorkMode, name="work_mode"), nullable=True
-    )
+    work_mode: Mapped[WorkMode | None] = mapped_column(Enum(WorkMode, name="work_mode"), nullable=True)
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    last_seen: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    clicks: Mapped[list[JobClick]] = relationship(
-        "JobClick", back_populates="job", cascade="all, delete-orphan"
-    )
+    clicks: Mapped[list[JobClick]] = relationship("JobClick", back_populates="job", cascade="all, delete-orphan")
     saved_by_users: Mapped[list[SavedJob]] = relationship(
         "SavedJob", back_populates="job", cascade="all, delete-orphan"
     )
     applied_by_users: Mapped[list[AppliedJob]] = relationship(
         "AppliedJob", back_populates="job", cascade="all, delete-orphan"
     )
+
+
+class PipelineJobSighting(Base):
+    """Narrow run-scoped record proving that an upstream job was observed."""
+
+    __tablename__ = "pipeline_job_sightings"
+
+    sync_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String, primary_key=True)
+    source: Mapped[JobSource] = mapped_column(Enum(JobSource, name="job_source"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class User(Base):
@@ -82,16 +87,12 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     location: Mapped[str | None] = mapped_column(String, nullable=True)
     image: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
-    password_changed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     job_title: Mapped[str | None] = mapped_column(String, nullable=True)
     company: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -107,12 +108,8 @@ class User(Base):
     notes: ClassVar[str | None] = None
     last_login_at: ClassVar[datetime | None] = None
 
-    accounts: Mapped[list[Account]] = relationship(
-        "Account", back_populates="user", cascade="all, delete-orphan"
-    )
-    sessions: Mapped[list[Session]] = relationship(
-        "Session", back_populates="user", cascade="all, delete-orphan"
-    )
+    accounts: Mapped[list[Account]] = relationship("Account", back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[list[Session]] = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     password_history: Mapped[list[PasswordHistory]] = relationship(
         "PasswordHistory",
         back_populates="user",
@@ -126,9 +123,7 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="[Admin.user_id]",
     )
-    job_clicks: Mapped[list[JobClick]] = relationship(
-        "JobClick", back_populates="user", cascade="all, delete-orphan"
-    )
+    job_clicks: Mapped[list[JobClick]] = relationship("JobClick", back_populates="user", cascade="all, delete-orphan")
     resume: Mapped[UserResume | None] = relationship(
         "UserResume",
         back_populates="user",
@@ -138,9 +133,7 @@ class User(Base):
     notifications: Mapped[list[UserNotification]] = relationship(
         "UserNotification", back_populates="user", cascade="all, delete-orphan"
     )
-    saved_jobs: Mapped[list[SavedJob]] = relationship(
-        "SavedJob", back_populates="user", cascade="all, delete-orphan"
-    )
+    saved_jobs: Mapped[list[SavedJob]] = relationship("SavedJob", back_populates="user", cascade="all, delete-orphan")
     applied_jobs: Mapped[list[AppliedJob]] = relationship(
         "AppliedJob", back_populates="user", cascade="all, delete-orphan"
     )
@@ -156,9 +149,7 @@ class SavedJob(Base):
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: Mapped[User] = relationship("User", back_populates="saved_jobs")
     job: Mapped[Job] = relationship("Job", back_populates="saved_by_users")
@@ -181,13 +172,9 @@ class UserResume(Base):
     resume_embedding: Mapped[list[float] | None] = mapped_column(Vector(2560), nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
     embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    last_embedded_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     embedding_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
@@ -205,9 +192,7 @@ class AppliedJob(Base):
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey(JOBS_ID_FK, ondelete="CASCADE"), nullable=False
     )
-    applied_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: Mapped[User] = relationship("User", back_populates="applied_jobs")
     job: Mapped[Job] = relationship("Job", back_populates="applied_by_users")
@@ -225,9 +210,7 @@ class UserNotification(Base):
     type: Mapped[str] = mapped_column(String(80), nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="notifications")
@@ -249,16 +232,10 @@ class Admin(Base):
     granted_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="SET NULL"), nullable=True
     )
-    granted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    user: Mapped[User] = relationship(
-        "User", back_populates="admin", foreign_keys="[Admin.user_id]"
-    )
-
-
+    user: Mapped[User] = relationship("User", back_populates="admin", foreign_keys="[Admin.user_id]")
 
 
 class AdminAuditLog(Base):
@@ -291,9 +268,7 @@ class JobClick(Base):
     clicked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
-    utm_source: Mapped[str] = mapped_column(
-        String(50), nullable=False, server_default="internnexus"
-    )
+    utm_source: Mapped[str] = mapped_column(String(50), nullable=False, server_default="internnexus")
     utm_medium: Mapped[str | None] = mapped_column(String(50), nullable=True)
     utm_campaign: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -320,18 +295,14 @@ class Account(Base):
     scope: Mapped[str | None] = mapped_column(String, nullable=True)
     id_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     session_state: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     user: Mapped[User] = relationship("User", back_populates="accounts")
 
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_account_id", name="uix_provider_account"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "provider_account_id", name="uix_provider_account"),)
 
 
 class Session(Base):
@@ -343,9 +314,7 @@ class Session(Base):
     )
     token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: Mapped[User] = relationship("User", back_populates="sessions")
 
@@ -357,9 +326,7 @@ class VerificationToken(Base):
     identifier: Mapped[str] = mapped_column(String, nullable=False)
     token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (UniqueConstraint("identifier", "token", name="uix_identifier_token"),)
 
@@ -372,9 +339,7 @@ class PasswordHistory(Base):
         UUID(as_uuid=True), ForeignKey(USERS_ID_FK, ondelete="CASCADE"), nullable=False
     )
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: Mapped[User] = relationship("User", back_populates="password_history")
 
@@ -397,9 +362,7 @@ class PipelineRun(Base):
     step_completed: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_step: Mapped[str | None] = mapped_column(String, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     results: Mapped[str | None] = mapped_column(Text, nullable=True)
 

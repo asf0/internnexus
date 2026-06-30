@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -123,9 +124,7 @@ async def _process_production_mode_chunked(
             if parsed_result.get("state"):
                 parsed_result["state"] = normalize_state_name(parsed_result["state"])
 
-            final_result, source_used = _merge_location_results(
-                location, parsed_result, None, "fallback"
-            )
+            final_result, source_used = _merge_location_results(location, parsed_result, None, "fallback")
 
             changed = (
                 final_result["city"] != job.city
@@ -145,8 +144,6 @@ async def _process_production_mode_chunked(
 
         if batch_updates:
             await _apply_batch_updates(repo, batch_updates)
-            chunk_ids = [update["id"] for update in batch_updates]
-            await repo.refresh_search_vectors_for_job_ids(chunk_ids)
             total_updated += len(batch_updates)
 
         session.expunge_all()
@@ -214,7 +211,7 @@ async def cleanup_locations(
 
 async def delete_inactive_jobs(
     session: AsyncSession | None = None,
-    batch_start_time: datetime | None = None,
+    sync_id: UUID | None = None,
 ) -> int:
     logger.info("=" * 60)
     logger.info("STEP: Deleting inactive jobs (sync model)...")
@@ -225,8 +222,10 @@ async def delete_inactive_jobs(
         session = AsyncSessionLocal()
 
     try:
+        if sync_id is None:
+            raise ValueError("sync_id is required to delete inactive jobs safely")
         repo = SQLAlchemyJobRepository(session)
-        deleted_count = await repo.delete_inactive_jobs(batch_start_time)
+        deleted_count = await repo.delete_inactive_jobs(sync_id)
         if deleted_count == 0:
             logger.info("No inactive jobs to delete")
             return 0

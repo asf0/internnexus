@@ -25,6 +25,15 @@ class IngestConfig(BaseModel):
     upsert_batch_size: int = Field(default=1000, ge=1)
 
 
+class SyncConfig(BaseModel):
+    min_total_sighting_ratio: float = Field(default=0.5, gt=0, le=1)
+    min_source_sighting_ratio: float = Field(default=0.5, gt=0, le=1)
+    min_stale_guard_count: int = Field(default=1000, ge=1)
+    min_fetched_to_stale_ratio: float = Field(default=0.5, gt=0)
+    sightings_retention_days: int = Field(default=7, ge=1)
+    sightings_cleanup_batch_size: int = Field(default=50_000, ge=1)
+
+
 class EmbeddingsConfig(BaseModel):
     batch_size: int = 50
     parallel_batches: int = 2
@@ -53,6 +62,7 @@ class Config(BaseModel):
     pipeline: PipelineConfig = PipelineConfig()
     api: ApiConfig = ApiConfig()
     ingest: IngestConfig = IngestConfig()
+    sync: SyncConfig = SyncConfig()
     cleanup: CleanupConfig = CleanupConfig()
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()

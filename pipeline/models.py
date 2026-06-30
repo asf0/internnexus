@@ -53,6 +53,17 @@ class Job(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class PipelineJobSighting(Base):
+    """Narrow run-scoped record proving that an upstream job was observed."""
+
+    __tablename__ = "pipeline_job_sightings"
+
+    sync_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String, primary_key=True)
+    source: Mapped[JobSource] = mapped_column(Enum(JobSource, name="job_source"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
 

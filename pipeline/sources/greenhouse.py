@@ -150,7 +150,7 @@ class GreenhouseClient:
         for job in jobs:
             # Extract location (raw, no parsing)
             location_obj = job.get("location", {}) or {}
-            location = location_obj.get("name", "").strip()
+            location = (location_obj.get("name") or "").strip()
 
             # Extract company name
             company_name = job.get("company_name") or company_slug

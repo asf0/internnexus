@@ -11,7 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, select, update
 
 from pipeline.db import AsyncSessionLocal
 from pipeline.models import (
@@ -47,13 +47,6 @@ def _enum_str(value: Enum | str | None) -> str:
     if isinstance(value, str):
         return value
     return ""
-
-
-def _rowcount(result: object) -> int:
-    raw_rowcount = getattr(result, "rowcount", None)
-    if isinstance(raw_rowcount, int):
-        return raw_rowcount
-    return int(raw_rowcount or 0)
 
 
 class SQLAlchemyJobRepository:
@@ -240,35 +233,6 @@ class SQLAlchemyJobRepository:
 
         return len(updates)
 
-    async def refresh_search_vectors_for_job_ids(self, job_ids: list[UUID]) -> int:
-        """Recompute search vectors for given job IDs.
-
-        Args:
-            job_ids: List of job UUIDs to refresh
-
-        Returns:
-            Number of rows updated
-        """
-        if not job_ids:
-            return 0
-
-        search_vector_expr = text(
-            """
-            setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
-            setweight(to_tsvector('english', COALESCE(company, '')), 'B') ||
-            setweight(to_tsvector('english', COALESCE(location, '')), 'C') ||
-            setweight(to_tsvector('english', COALESCE(city, '')), 'C') ||
-            setweight(to_tsvector('english', COALESCE(state, '')), 'C') ||
-            setweight(to_tsvector('english', get_country_search_terms(country)), 'C') ||
-            setweight(to_tsvector('english', get_region_from_country(country)), 'C') ||
-            setweight(to_tsvector('english', COALESCE(description_text, '')), 'D')
-            """
-        )
-        refresh_stmt = update(Job).where(Job.id.in_(job_ids)).values(search_vector=search_vector_expr)
-        result = await self._session.execute(refresh_stmt)
-        await self._session.commit()
-        return _rowcount(result)
-
     async def get_jobs_without_embeddings(
         self,
         batch_size: int,
@@ -349,38 +313,30 @@ class SQLAlchemyJobRepository:
             job_id: The job's UUID
             embedding: The embedding vector to store
         """
-        stmt = update(Job).where(Job.id == job_id).values(
-            description_embedding=embedding,
-            embedding_skip_reason=None,
-            embedding_skipped_at=None,
+        stmt = (
+            update(Job)
+            .where(Job.id == job_id)
+            .values(
+                description_embedding=embedding,
+                embedding_skip_reason=None,
+                embedding_skipped_at=None,
+            )
         )
         await self._session.execute(stmt)
         await self._session.commit()
 
-    async def mark_all_jobs_inactive(self) -> int:
-        """No-op in the last_seen sync model.
-
-        Kept for backward compatibility. The actual stale-job marking is done
-        after ingestion via ``batched_mark_stale_jobs_inactive``.
-
-        Returns:
-            0
-        """
-        return 0
-
-    async def delete_inactive_jobs(self, batch_start_time: datetime) -> int:
+    async def delete_inactive_jobs(self, sync_id: UUID) -> int:
         """Delete inactive jobs that were not seen this run.
 
-        Uses ``last_seen < batch_start_time`` to ensure only jobs from prior
-        runs are deleted, providing a safety buffer against partial ingests.
+        Uses absence from the run-scoped sightings table.
 
         Args:
-            batch_start_time: Timestamp captured at the start of ingestion.
+            sync_id: Synchronization run whose sightings define retained jobs.
 
         Returns:
             Number of jobs deleted
         """
-        return await batched_delete_inactive(self._session, batch_start_time)
+        return await batched_delete_inactive(self._session, sync_id)
 
     async def get_total_count(
         self,

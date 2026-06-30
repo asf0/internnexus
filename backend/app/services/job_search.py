@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import case, false, func, or_, select
+from sqlalchemy import any_, bindparam, false, func, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY, UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
@@ -80,9 +81,7 @@ class JobSearchService:
             f"saved:{'1' if params.saved_only else '0'}",
             "saved_ids:"
             + (
-                hashlib.md5(
-                    "|".join(str(job_id) for job_id in (params.saved_job_ids or [])).encode()
-                ).hexdigest()
+                hashlib.md5("|".join(str(job_id) for job_id in (params.saved_job_ids or [])).encode()).hexdigest()
                 if params.saved_job_ids
                 else ""
             ),
@@ -146,10 +145,14 @@ class JobSearchService:
                 valid_ids = saved_job_ids
 
         result_order: list[UUID] = []
+        search_ordering: tuple[Any, ...] = ()
         if params.search:
             parsed = parse_search_query(params.search)
-            keyword_ids = await self._keyword_search(params.search, parsed, base_stmt)
-            result_order = list(keyword_ids)
+            base_stmt, search_ordering = self._apply_keyword_search(
+                base_stmt,
+                params.search,
+                parsed,
+            )
 
         stmt = self._apply_filters(
             base_stmt,
@@ -158,6 +161,8 @@ class JobSearchService:
             result_order,
             include_location=include_location,
         )
+        if search_ordering and not valid_ids:
+            stmt = stmt.order_by(*search_ordering)
         return stmt, valid_ids, result_order
 
     def _parse_match_ids(self, match_ids: str | None) -> list[UUID]:
@@ -174,27 +179,33 @@ class JobSearchService:
                     continue
         return valid_ids
 
-    async def _keyword_search(
-        self, search: str, parsed: ParsedSearch, base_stmt: JobSelect
-    ) -> set[UUID]:
-        """Execute full-text keyword search."""
+    def _apply_keyword_search(
+        self,
+        stmt: JobSelect,
+        search: str,
+        parsed: ParsedSearch,
+    ) -> tuple[JobSelect, tuple[Any, ...]]:
+        """Apply keyword search in SQL without materializing every matching ID."""
         tsquery = self._build_tsquery(search, parsed)
 
         if tsquery:
-            stmt = base_stmt.where(Job.search_vector.op("@@")(func.to_tsquery("english", tsquery)))
-            result = await self.session.execute(stmt)
-            return {row.id for row in result.scalars().all()}
+            query = func.to_tsquery("english", tsquery)
+            return (
+                stmt.where(Job.search_vector.op("@@")(query)),
+                (func.ts_rank_cd(Job.search_vector, query).desc(), Job.id.asc()),
+            )
 
         search_term = f"%{search}%"
-        stmt = base_stmt.where(
-            or_(
-                Job.title.ilike(search_term),
-                Job.company.ilike(search_term),
-                Job.location.ilike(search_term),
-            )
+        return (
+            stmt.where(
+                or_(
+                    Job.title.ilike(search_term),
+                    Job.company.ilike(search_term),
+                    Job.location.ilike(search_term),
+                )
+            ),
+            (Job.id.asc(),),
         )
-        result = await self.session.execute(stmt)
-        return {row.id for row in result.scalars().all()}
 
     def _build_tsquery(self, search: str, parsed: ParsedSearch) -> str:
         """Build PostgreSQL tsquery from search."""
@@ -252,9 +263,9 @@ class JobSearchService:
     ) -> JobSelect:
         """Apply filters to the query."""
         if valid_ids:
-            stmt = stmt.where(Job.id.in_(valid_ids))
+            stmt = stmt.where(Job.id == any_(self._uuid_array_parameter("filter_job_ids", valid_ids)))
         elif result_order:
-            stmt = stmt.where(Job.id.in_(result_order))
+            stmt = stmt.where(Job.id == any_(self._uuid_array_parameter("result_job_ids", result_order)))
 
         if params.company:
             companies = [c.strip() for c in params.company.split("|")]
@@ -355,24 +366,33 @@ class JobSearchService:
     ) -> JobSelect:
         """Apply ordering to the query."""
         if valid_ids and len(valid_ids) > 0:
-            ordering = case(
-                {uid: idx for idx, uid in enumerate(valid_ids)},
-                value=Job.id,
-                else_=len(valid_ids),
+            stmt = stmt.order_by(
+                func.array_position(
+                    self._uuid_array_parameter("filter_job_ids", valid_ids),
+                    Job.id,
+                )
             )
-            stmt = stmt.order_by(ordering)
         elif result_order:
-            ordering = case(
-                {uid: idx for idx, uid in enumerate(result_order)},
-                value=Job.id,
-                else_=len(result_order),
+            stmt = stmt.order_by(
+                func.array_position(
+                    self._uuid_array_parameter("result_job_ids", result_order),
+                    Job.id,
+                )
             )
-            stmt = stmt.order_by(ordering)
         return stmt
+
+    @staticmethod
+    def _uuid_array_parameter(name: str, values: list[UUID]):
+        """Bind an arbitrary UUID list as one PostgreSQL array parameter."""
+        return bindparam(
+            name,
+            value=values,
+            type_=ARRAY(PG_UUID(as_uuid=True)),
+        )
 
     async def _count_results(self, stmt: JobSelect) -> int:
         """Count total results."""
-        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar() or 0
 

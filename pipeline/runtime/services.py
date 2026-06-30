@@ -138,11 +138,13 @@ async def run_selected_step(runner, args) -> None:
             if args.step == "sync_inactive":
                 await runner.step_sync_inactive(None)
             elif args.step == "ingest":
-                await runner.step_ingest(None)
+                ingest = await runner.step_ingest(None)
                 if args.delete_inactive:
-                    await runner.step_delete_inactive(None)
+                    await runner.finalize_sync(None, ingest)
+                elif not runner.dry_run:
+                    await runner.cleanup_sync_sightings(ingest.sync_id)
             elif args.step == "delete_inactive":
-                await runner.step_delete_inactive(None)
+                raise ValueError("delete_inactive requires run-scoped sightings; use --step ingest --delete-inactive")
     elif args.step == "cleanup":
         await runner.step_cleanup(None, test_mode=args.test, limit=args.limit)
     elif args.step == "classify":

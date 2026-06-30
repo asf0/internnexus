@@ -150,22 +150,11 @@ class JobRepository(Protocol):
         """
         ...
 
-    async def mark_all_jobs_inactive(self) -> int:
-        """No-op in the last_seen sync model.
-
-        Kept for backward compatibility.
-
-        Returns:
-            0
-        """
-        ...
-
-    async def delete_inactive_jobs(self, batch_start_time: datetime) -> int:
+    async def delete_inactive_jobs(self, sync_id: UUID) -> int:
         """Delete inactive jobs that were not seen this run.
 
         Args:
-            batch_start_time: Jobs with ``last_seen`` older than this are
-                eligible for deletion.
+            sync_id: Synchronization run whose sightings define retained jobs.
 
         Returns:
             Number of jobs deleted

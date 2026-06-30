@@ -17,6 +17,6 @@ def deduplicate_by_key(items: list[T], key_func: Callable[[T], str]) -> list[T]:
 
 
 def deduplicate_jobs(jobs: list[JobSchema]) -> list[JobSchema]:
-    from pipeline.ingest.core import fingerprint_for
+    from pipeline.ingest.identity import fingerprint_for
 
     return deduplicate_by_key(jobs, fingerprint_for)

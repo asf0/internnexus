@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.exc import DBAPIError
@@ -13,9 +14,7 @@ from pipeline.repositories.sync_ops import (
     SYNC_BATCH_SIZE,
     _batched_sync_op,
     batched_delete_inactive,
-    batched_mark_all_inactive,
     batched_mark_stale_jobs_inactive,
-    batched_reactivate_inactive,
 )
 
 
@@ -123,70 +122,36 @@ class TestBatchedSyncOp:
 class TestBatchedMarkStaleInactive:
     @pytest.mark.asyncio
     async def test_delegates_with_correct_sql(self):
-        from datetime import datetime, timezone
-
         session = _FakeSession([10])
-        batch_start = datetime.now(timezone.utc)
-        total = await batched_mark_stale_jobs_inactive(session, batch_start)
+        sync_id = uuid4()
+        total = await batched_mark_stale_jobs_inactive(session, sync_id)
         assert total == 10
         sql = session.executed_sql[0]
         assert "is_active IS TRUE" in sql
         assert "source <> 'manual'" in sql
-        assert "last_seen < :batch_start_time" in sql
+        assert "pipeline_job_sightings" in sql
+        assert "sightings.sync_id = :sync_id" in sql
+        assert "sightings.fingerprint = jobs.fingerprint" in sql
         assert "FOR UPDATE SKIP LOCKED" in sql
         assert "UPDATE jobs SET is_active = false" in sql
 
     @pytest.mark.asyncio
     async def test_no_log_when_zero(self):
-        from datetime import datetime, timezone
-
         session = _FakeSession([0])
-        await batched_mark_stale_jobs_inactive(session, datetime.now(timezone.utc))
-
-
-class TestBatchedMarkAllInactive:
-    @pytest.mark.asyncio
-    async def test_delegates_with_correct_sql(self):
-        session = _FakeSession([10])
-        total = await batched_mark_all_inactive(session)
-        assert total == 10
-        sql = session.executed_sql[0]
-        assert "is_active IS TRUE" in sql
-        assert "source <> 'manual'" in sql
-        assert "FOR UPDATE SKIP LOCKED" in sql
-        assert "ORDER BY id" in sql
-        assert "UPDATE jobs SET is_active = false" in sql
-
-    @pytest.mark.asyncio
-    async def test_no_log_when_zero(self):
-        session = _FakeSession([0])
-        await batched_mark_all_inactive(session)
-
-
-class TestBatchedReactivateInactive:
-    @pytest.mark.asyncio
-    async def test_delegates_with_correct_sql(self):
-        session = _FakeSession([50])
-        total = await batched_reactivate_inactive(session)
-        assert total == 50
-        sql = session.executed_sql[0]
-        assert "is_active IS FALSE" in sql
-        assert "UPDATE jobs SET is_active = true" in sql
-        assert "FOR UPDATE SKIP LOCKED" in sql
+        await batched_mark_stale_jobs_inactive(session, uuid4())
 
 
 class TestBatchedDeleteInactive:
     @pytest.mark.asyncio
     async def test_delegates_with_correct_sql(self):
-        from datetime import datetime, timezone
-
         session = _FakeSession([30])
-        batch_start = datetime.now(timezone.utc)
-        total = await batched_delete_inactive(session, batch_start)
+        sync_id = uuid4()
+        total = await batched_delete_inactive(session, sync_id)
         assert total == 30
         sql = session.executed_sql[0]
         assert "is_active IS FALSE" in sql
-        assert "last_seen < :batch_start_time" in sql
+        assert "pipeline_job_sightings" in sql
+        assert "sightings.sync_id = :sync_id" in sql
         assert "DELETE FROM jobs" in sql
         assert "FOR UPDATE SKIP LOCKED" in sql
 
@@ -201,7 +166,6 @@ class TestConstants:
     def test_sql_templates_use_skip_locked_and_order_by(self):
         for sql in [
             sync_ops._MARK_STALE_SQL,
-            sync_ops._REACTIVATE_SQL,
             sync_ops._DELETE_INACTIVE_SQL,
         ]:
             assert "FOR UPDATE SKIP LOCKED" in sql
