@@ -101,3 +101,5 @@ PIPELINE_IMPLEMENTATION_PLAN.md
 machine_specs.py
 test.py
 test.json
+docs/
+tools/**
