@@ -50,6 +50,7 @@ pipeline/discovery/queries.txt
 pipeline/apis/*.old
 pipeline/telemetry-id
 pipeline/docs-plan/
+pipeline/data/classification_rejections_*.jsonl
 qdrant_storage/
 data/classification_rejections.jsonl
 
@@ -71,6 +72,7 @@ scripts/
 .roo/
 /package-lock.json
 docs/*-plan.md
+!docs/pipeline-refactoring-plan.md
 
 # Temporary discovery merge artifacts
 greenhouse.csv
