@@ -49,6 +49,7 @@ pipeline/discovery/output/
 pipeline/discovery/queries.txt
 pipeline/apis/*.old
 pipeline/telemetry-id
+pipeline/docs-plan/
 qdrant_storage/
 data/classification_rejections.jsonl
 
