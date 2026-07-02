@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,16 +22,6 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.environ.get("DISCOVERY_OUTPUT_DIR", str(Path(__file__).parent / "output")))
 DISCOVERED_COMPANIES_FILE = OUTPUT_DIR / "discovered_companies.json"
 PROGRESS_FILE = OUTPUT_DIR / "discovery_progress.json"
-
-DEFAULT_COUNTRIES = [
-    "United States",
-    "Brazil",
-    "Korea",
-    "Ireland",
-    "Canada",
-    "United Kingdom",
-    "Germany",
-]
 
 ATS_DOMAINS = {
     "lever": "jobs.lever.co",
@@ -48,6 +39,14 @@ MIN_EXISTING_COMPANIES_FOR_SHRINK_GUARD = 100
 MIN_DISCOVERY_RETENTION_RATIO = 0.75
 
 RESERVED_SLUGS = {"embed", "jobs", "job", "job_board", "job_app"}
+
+
+@dataclass
+class CrawlResult:
+    progress: dict[str, Any]
+    any_query_failed: bool
+    all_exhausted: bool
+    reached_page_cap: bool
 
 
 def _default_progress() -> dict[str, Any]:
@@ -289,6 +288,186 @@ async def _search_searxng(
     return urls
 
 
+def _determine_run_status(
+    *,
+    any_query_failed: bool,
+    all_exhausted: bool,
+    reached_page_cap: bool,
+) -> str:
+    """Determine discovery run status.
+
+    Precedence: partial on any query failure, complete when exhausted,
+    otherwise capped.
+    """
+    if any_query_failed:
+        return "partial"
+    if all_exhausted:
+        return "complete"
+    # A healthy, non-exhausted crawl stops only at the configured page cap.
+    # Keep the fallback for defensive compatibility with persisted progress
+    # created by older versions.
+    if reached_page_cap:
+        return "capped"
+    return "capped"
+
+
+def _finalize_discovery_output(
+    progress: dict[str, Any],
+    status: str,
+    output_path: Path,
+) -> dict[str, set[str]]:
+    """Finalize discovery output based on run status.
+
+    For complete runs, apply the shrink guard. For partial/capped runs,
+    union new results into the previous output. Persist when changed.
+    """
+    result = {ats: set(progress["companies"].get(ats, [])) for ats in ATS_DOMAINS}
+    previous = load_discovered_companies(output_path)
+
+    if status == "complete":
+        if _should_keep_previous_discovery_output(previous, result):
+            logger.warning(
+                "Discovery found only %d companies after previous output had %d; keeping previous output unchanged",
+                _company_count(result),
+                _company_count(previous),
+            )
+            return previous
+        save_discovered_companies(result, output_path)
+        return result
+
+    merged = {ats: previous.get(ats, set()) | result.get(ats, set()) for ats in ATS_DOMAINS}
+    if merged != previous:
+        logger.warning(
+            "Discovery did not complete; merging %d newly discovered companies into previous output",
+            _company_count(merged) - _company_count(previous),
+        )
+        save_discovered_companies(merged, output_path)
+    else:
+        logger.warning("Discovery did not complete; keeping previous discovered companies output unchanged")
+    return merged
+
+
+async def _run_one_query(
+    client: httpx.AsyncClient,
+    base_url: str,
+    scope: str,
+    ats: str,
+    query: str,
+    page: int,
+    query_index: int,
+    total_queries: int,
+    progress: dict[str, Any],
+    progress_file: Path,
+    completed: set[str],
+    exhausted: set[str],
+    query_delay_seconds: float,
+) -> bool:
+    """Execute a single SearxNG query and update progress.
+
+    Return whether the query advanced this crawl. Request failures propagate
+    so the crawl orchestrator can mark the run partial.
+    """
+    base_key = _base_query_key(scope, ats)
+    if base_key in exhausted:
+        return False
+
+    page_key = _query_key(scope, ats, page)
+    if page_key in completed:
+        return True
+
+    logger.info(
+        "Discovery query %d/%d: %s page %d",
+        query_index,
+        total_queries,
+        query,
+        page,
+    )
+    urls = await _search_searxng(client, base_url, query, page=page)
+
+    completed.add(page_key)
+    progress["completed_queries"] = sorted(completed)
+
+    if not urls:
+        exhausted.add(base_key)
+        progress["exhausted_queries"] = sorted(exhausted)
+        save_progress(progress, progress_file)
+        if query_delay_seconds > 0:
+            await asyncio.sleep(query_delay_seconds)
+        return True
+
+    companies = {slug for url in urls if (slug := extract_company_slug(url, ats))}
+    existing = set(progress["companies"].get(ats, []))
+    progress["companies"][ats] = sorted(existing | companies)
+
+    save_progress(progress, progress_file)
+
+    if query_delay_seconds > 0:
+        await asyncio.sleep(query_delay_seconds)
+    return True
+
+
+async def _iter_queries_until_exhausted(
+    queries: list[tuple[str, str, str]],
+    progress: dict[str, Any],
+    progress_file: Path,
+    completed: set[str],
+    exhausted: set[str],
+    max_pages: int | None,
+    client: httpx.AsyncClient,
+    base_url: str,
+    query_delay_seconds: float,
+) -> CrawlResult:
+    """Run queries in round-robin pagination until exhausted or capped.
+
+    Returns a CrawlResult with updated progress and crawl state.
+    """
+    any_query_failed = False
+    page = 1
+
+    while max_pages is None or page <= max_pages:
+        progressed = False
+        for query_index, (scope, ats, query) in enumerate(queries, start=1):
+            try:
+                query_progressed = await _run_one_query(
+                    client,
+                    base_url,
+                    scope,
+                    ats,
+                    query,
+                    page,
+                    query_index,
+                    len(queries),
+                    progress,
+                    progress_file,
+                    completed,
+                    exhausted,
+                    query_delay_seconds,
+                )
+            except Exception as exc:  # noqa: BLE001
+                any_query_failed = True
+                logger.warning("Discovery query failed for %s (%s page %d): %s", scope, ats, page, exc)
+                if query_delay_seconds > 0:
+                    await asyncio.sleep(query_delay_seconds)
+                continue
+            progressed = progressed or query_progressed
+
+        if all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in queries):
+            break
+        if not progressed:
+            break
+        page += 1
+
+    reached_page_cap = max_pages is not None and page > max_pages
+    all_exhausted = all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in queries)
+
+    return CrawlResult(
+        progress=progress,
+        any_query_failed=any_query_failed,
+        all_exhausted=all_exhausted,
+        reached_page_cap=reached_page_cap,
+    )
+
+
 async def discover_companies(
     *,
     output_path: Path | None = None,
@@ -301,6 +480,7 @@ async def discover_companies(
 
     if not config.enabled:
         logger.info("Discovery disabled; reusing existing company registry")
+        # Lazy: avoid importing every source adapter during normal discovery runs.
         from pipeline.sources.registry import get_all_slugs_by_ats
 
         return {ats: set(values) for ats, values in get_all_slugs_by_ats().items()}
@@ -313,7 +493,7 @@ async def discover_companies(
         logger.info("Previous discovery was complete; starting a fresh discovery refresh")
         progress = _default_progress()
 
-    countries = list(DEFAULT_COUNTRIES)
+    countries = list(config.countries)
     search_queries = _build_search_queries(countries)
     max_pages = _configured_max_pages(config)
     progress["metadata"]["total_queries"] = len(search_queries) * max_pages if max_pages is not None else None
@@ -337,95 +517,28 @@ async def discover_companies(
     progress["metadata"]["status"] = "running"
     save_progress(progress, progress_file)
 
-    any_query_failed = False
-    page = 1
     async with httpx.AsyncClient(timeout=float(config.timeout)) as client:
-        while max_pages is None or page <= max_pages:
-            progressed = False
-            for query_index, (scope, ats, query) in enumerate(search_queries, start=1):
-                base_key = _base_query_key(scope, ats)
-                if base_key in exhausted:
-                    continue
+        crawl = await _iter_queries_until_exhausted(
+            search_queries,
+            progress,
+            progress_file,
+            completed,
+            exhausted,
+            max_pages,
+            client,
+            config.searxng_url,
+            config.query_delay_seconds,
+        )
 
-                page_key = _query_key(scope, ats, page)
-                if page_key in completed:
-                    progressed = True
-                    continue
-
-                logger.info(
-                    "Discovery query %d/%d: %s page %d",
-                    query_index,
-                    len(search_queries),
-                    query,
-                    page,
-                )
-                try:
-                    urls = await _search_searxng(client, config.searxng_url, query, page=page)
-                except Exception as exc:  # noqa: BLE001
-                    any_query_failed = True
-                    logger.warning("Discovery query failed for %s (%s page %d): %s", scope, ats, page, exc)
-                    if config.query_delay_seconds > 0:
-                        await asyncio.sleep(config.query_delay_seconds)
-                    continue
-
-                progressed = True
-                completed.add(page_key)
-                progress["completed_queries"] = sorted(completed)
-
-                if not urls:
-                    exhausted.add(base_key)
-                    progress["exhausted_queries"] = sorted(exhausted)
-                    save_progress(progress, progress_file)
-                    if config.query_delay_seconds > 0:
-                        await asyncio.sleep(config.query_delay_seconds)
-                    continue
-
-                companies = {slug for url in urls if (slug := extract_company_slug(url, ats))}
-                existing = set(progress["companies"].get(ats, []))
-                progress["companies"][ats] = sorted(existing | companies)
-
-                save_progress(progress, progress_file)
-
-                if config.query_delay_seconds > 0:
-                    await asyncio.sleep(config.query_delay_seconds)
-
-            if all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
-                break
-            if not progressed:
-                break
-            page += 1
-
-    if any_query_failed:
-        progress["metadata"]["status"] = "partial"
-    elif all(_base_query_key(scope, ats) in exhausted for scope, ats, _query in search_queries):
-        progress["metadata"]["status"] = "complete"
-    else:
-        progress["metadata"]["status"] = "capped"
+    status = _determine_run_status(
+        any_query_failed=crawl.any_query_failed,
+        all_exhausted=crawl.all_exhausted,
+        reached_page_cap=crawl.reached_page_cap,
+    )
+    progress["metadata"]["status"] = status
     save_progress(progress, progress_file)
 
-    result = {ats: set(progress["companies"].get(ats, [])) for ats in ATS_DOMAINS}
-    previous = load_discovered_companies(output_file)
-    if progress["metadata"]["status"] == "complete":
-        if _should_keep_previous_discovery_output(previous, result):
-            logger.warning(
-                "Discovery found only %d companies after previous output had %d; keeping previous output unchanged",
-                _company_count(result),
-                _company_count(previous),
-            )
-            return previous
-        save_discovered_companies(result, output_file)
-        return result
-
-    merged = {ats: previous.get(ats, set()) | result.get(ats, set()) for ats in ATS_DOMAINS}
-    if merged != previous:
-        logger.warning(
-            "Discovery did not complete; merging %d newly discovered companies into previous output",
-            _company_count(merged) - _company_count(previous),
-        )
-        save_discovered_companies(merged, output_file)
-    else:
-        logger.warning("Discovery did not complete; keeping previous discovered companies output unchanged")
-    return merged
+    return _finalize_discovery_output(progress, status, output_file)
 
 
 async def main() -> None:
@@ -440,7 +553,7 @@ async def main() -> None:
     print("COMPANY DISCOVERY")
     print("=" * 60)
     print(f"SearxNG URL: {config.searxng_url}")
-    print(f"Countries: {', '.join(DEFAULT_COUNTRIES)}")
+    print(f"Countries: {', '.join(config.countries)}")
     print(f"ATS targets: {', '.join(ATS_DOMAINS)}")
     print("=" * 60 + "\n")
 

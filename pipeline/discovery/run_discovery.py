@@ -25,9 +25,9 @@ async def run():
 
     progress = load_progress()
     if progress["metadata"]["status"] == "complete":
-        print("\n✅ Discovery is COMPLETE")
+        print("\n[ok] Discovery is COMPLETE")
     else:
-        print("\n⏸️  Discovery PAUSED - run again to resume")
+        print("\n[paused] Discovery PAUSED - run again to resume")
 
 
 if __name__ == "__main__":

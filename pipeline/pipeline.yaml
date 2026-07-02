@@ -34,6 +34,14 @@ discovery:
     searxng_url: "http://searxng:8080"
     query_delay_seconds: 15.0
     max_pages: null
+    countries:
+        - "United States"
+        - "Brazil"
+        - "Korea"
+        - "Ireland"
+        - "Canada"
+        - "United Kingdom"
+        - "Germany"
 
 health_check:
     enabled: true

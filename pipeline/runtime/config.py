@@ -51,6 +51,15 @@ class DiscoveryConfig(BaseModel):
     searxng_url: str = ""
     query_delay_seconds: float = 0.25
     max_pages: int | None = None
+    countries: list[str] = [
+        "United States",
+        "Brazil",
+        "Korea",
+        "Ireland",
+        "Canada",
+        "United Kingdom",
+        "Germany",
+    ]
 
 
 class HealthCheckConfig(BaseModel):
