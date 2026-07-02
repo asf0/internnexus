@@ -1,11 +1,9 @@
-"""Location normalization module.
+"""Location normalization public API.
 
-Provides comprehensive location parsing with support for:
-- City, state, country extraction
-- Region codes (APAC, EMEA, LATAM, etc.)
-- Multi-location handling
-- Remote/Hybrid/On-site detection
-- Abbreviation expansion
+Data vs. code:
+Static lookup data lives in ``data/location_constants.json`` and is exposed
+through ``constants.py``. Parsing behavior lives in the focused country,
+state, city, and normalization submodules.
 """
 
 from pipeline.location.simple_parser import normalize_location
