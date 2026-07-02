@@ -783,13 +783,14 @@
     "russian federation": "Russia",
     "the netherlands": "Netherlands",
     "turkiye": "Turkey",
-    "t\u00fcrkiye": "Turkey",
+    "türkiye": "Turkey",
     "u.s": "United States",
     "u.s.": "United States",
     "uae": "United Arab Emirates",
     "uk": "United Kingdom",
     "us": "United States",
-    "usa": "United States"
+    "usa": "United States",
+    "united arab emirates": "United Arab Emirates"
   },
   "german_states": [
     "baden-wurttemberg",
@@ -1505,5 +1506,1249 @@
     "West Virginia": "WV",
     "Wisconsin": "WI",
     "Wyoming": "WY"
-  }
+  },
+  "us_cities": [
+    "new york",
+    "new york city",
+    "los angeles",
+    "chicago",
+    "houston",
+    "phoenix",
+    "philadelphia",
+    "san antonio",
+    "san diego",
+    "dallas",
+    "san jose",
+    "austin",
+    "jacksonville",
+    "fort worth",
+    "columbus",
+    "charlotte",
+    "san francisco",
+    "indianapolis",
+    "seattle",
+    "denver",
+    "washington",
+    "boston",
+    "el paso",
+    "detroit",
+    "nashville",
+    "portland",
+    "oklahoma city",
+    "las vegas",
+    "louisville",
+    "baltimore",
+    "milwaukee",
+    "albuquerque",
+    "tucson",
+    "fresno",
+    "sacramento",
+    "mesa",
+    "kansas city",
+    "atlanta",
+    "long beach",
+    "colorado springs",
+    "raleigh",
+    "miami",
+    "virginia beach",
+    "omaha",
+    "oakland",
+    "minneapolis",
+    "tulsa",
+    "arlington",
+    "wichita",
+    "bakersfield",
+    "aurora",
+    "tampa",
+    "anaheim",
+    "santa ana",
+    "corpus christi",
+    "riverside",
+    "lexington",
+    "stockton",
+    "henderson",
+    "saint paul",
+    "st. paul",
+    "cincinnati",
+    "pittsburgh",
+    "greensboro",
+    "anchorage",
+    "plano",
+    "lincoln",
+    "orlando",
+    "irvine",
+    "newark",
+    "toledo",
+    "durham",
+    "chula vista",
+    "fort wayne",
+    "jersey city",
+    "st. petersburg",
+    "saint petersburg",
+    "laredo",
+    "madison",
+    "chandler",
+    "buffalo",
+    "lubbock",
+    "scottsdale",
+    "reno",
+    "glendale",
+    "gilbert",
+    "winston-salem",
+    "chesapeake",
+    "garland",
+    "irving",
+    "north las vegas",
+    "norfolk",
+    "fremont",
+    "paradise",
+    "richmond",
+    "hialeah",
+    "boise",
+    "spokane",
+    "baton rouge",
+    "des moines",
+    "tacoma",
+    "san bernardino",
+    "modesto",
+    "fontana",
+    "santa clarita",
+    "oxnard",
+    "fayetteville",
+    "rochester",
+    "moreno valley",
+    "yonkers",
+    "huntington beach",
+    "salt lake city",
+    "south salt lake",
+    "amarillo",
+    "montgomery",
+    "little rock",
+    "akron",
+    "shreveport",
+    "augusta",
+    "grand rapids",
+    "mobile",
+    "huntington",
+    "providence",
+    "knoxville",
+    "fort lauderdale",
+    "salem",
+    "elk grove",
+    "pembroke pines",
+    "peoria",
+    "sioux falls",
+    "springfield",
+    "rockford",
+    "gastonia",
+    "sunnyvale",
+    "bellevue",
+    "lakewood",
+    "visalia",
+    "clarksville",
+    "hollywood",
+    "pasadena",
+    "naperville",
+    "mcallen",
+    "dayton",
+    "harrisburg",
+    "murfreesboro",
+    "fullerton",
+    "mesquite",
+    "orange",
+    "killeen",
+    "frisco",
+    "hampton",
+    "warren",
+    "mchenry",
+    "edmond",
+    "fairfax",
+    "midland"
+  ],
+  "international_cities": {
+    "london": "United Kingdom",
+    "manchester": "United Kingdom",
+    "birmingham": "United Kingdom",
+    "liverpool": "United Kingdom",
+    "glasgow": "United Kingdom",
+    "leeds": "United Kingdom",
+    "sheffield": "United Kingdom",
+    "edinburgh": "United Kingdom",
+    "bristol": "United Kingdom",
+    "cardiff": "United Kingdom",
+    "belfast": "United Kingdom",
+    "nottingham": "United Kingdom",
+    "paris": "France",
+    "lyon": "France",
+    "marseille": "France",
+    "toulouse": "France",
+    "nice": "France",
+    "nantes": "France",
+    "strasbourg": "France",
+    "montpellier": "France",
+    "bordeaux": "France",
+    "lille": "France",
+    "berlin": "Germany",
+    "munich": "Germany",
+    "hamburg": "Germany",
+    "cologne": "Germany",
+    "frankfurt": "Germany",
+    "stuttgart": "Germany",
+    "dusseldorf": "Germany",
+    "dortmund": "Germany",
+    "essen": "Germany",
+    "leipzig": "Germany",
+    "bremen": "Germany",
+    "dresden": "Germany",
+    "beijing": "China",
+    "shanghai": "China",
+    "guangzhou": "China",
+    "shenzhen": "China",
+    "chengdu": "China",
+    "hangzhou": "China",
+    "wuhan": "China",
+    "xian": "China",
+    "nanjing": "China",
+    "chongqing": "China",
+    "tianjin": "China",
+    "suzhou": "China",
+    "tokyo": "Japan",
+    "osaka": "Japan",
+    "kyoto": "Japan",
+    "yokohama": "Japan",
+    "nagoya": "Japan",
+    "sapporo": "Japan",
+    "fukuoka": "Japan",
+    "kobe": "Japan",
+    "kawasaki": "Japan",
+    "seoul": "South Korea",
+    "busan": "South Korea",
+    "incheon": "South Korea",
+    "daegu": "South Korea",
+    "daejeon": "South Korea",
+    "singapore": "Singapore",
+    "hong kong": "Hong Kong",
+    "taipei": "Taiwan",
+    "taichung": "Taiwan",
+    "kaohsiung": "Taiwan",
+    "sydney": "Australia",
+    "melbourne": "Australia",
+    "brisbane": "Australia",
+    "perth": "Australia",
+    "adelaide": "Australia",
+    "toronto": "Canada",
+    "vancouver": "Canada",
+    "montreal": "Canada",
+    "calgary": "Canada",
+    "ottawa": "Canada",
+    "edmonton": "Canada",
+    "winnipeg": "Canada",
+    "quebec": "Canada",
+    "hamilton": "Canada",
+    "mumbai": "India",
+    "delhi": "India",
+    "bangalore": "India",
+    "bengaluru": "India",
+    "hyderabad": "India",
+    "chennai": "India",
+    "kolkata": "India",
+    "pune": "India",
+    "ahmedabad": "India",
+    "jaipur": "India",
+    "gurgaon": "India",
+    "gurugram": "India",
+    "noida": "India",
+    "amsterdam": "Netherlands",
+    "rotterdam": "Netherlands",
+    "zurich": "Switzerland",
+    "geneva": "Switzerland",
+    "madrid": "Spain",
+    "barcelona": "Spain",
+    "valencia": "Spain",
+    "milan": "Italy",
+    "rome": "Italy",
+    "naples": "Italy",
+    "turin": "Italy",
+    "dublin": "Ireland",
+    "stockholm": "Sweden",
+    "copenhagen": "Denmark",
+    "oslo": "Norway",
+    "helsinki": "Finland",
+    "brussels": "Belgium",
+    "vienna": "Austria",
+    "warsaw": "Poland",
+    "prague": "Czechia",
+    "budapest": "Hungary",
+    "bucharest": "Romania",
+    "lisbon": "Portugal",
+    "athens": "Greece",
+    "tel aviv": "Israel",
+    "jerusalem": "Israel",
+    "dubai": "United Arab Emirates",
+    "abu dhabi": "United Arab Emirates",
+    "sao paulo": "Brazil",
+    "rio de janeiro": "Brazil",
+    "mexico city": "Mexico",
+    "buenos aires": "Argentina",
+    "santiago": "Chile",
+    "bogota": "Colombia",
+    "johannesburg": "South Africa",
+    "cape town": "South Africa",
+    "auckland": "New Zealand",
+    "wellington": "New Zealand",
+    "moscow": "Russia",
+    "istanbul": "Turkey",
+    "bangkok": "Thailand",
+    "kuala lumpur": "Malaysia",
+    "jakarta": "Indonesia",
+    "manila": "Philippines",
+    "ho chi minh city": "Vietnam",
+    "hanoi": "Vietnam",
+    "cairo": "Egypt",
+    "lagos": "Nigeria",
+    "nairobi": "Kenya"
+  },
+  "country_pattern_pairs": [
+    {
+      "pattern": "\\bunited states\\b",
+      "country": "United States"
+    },
+    {
+      "pattern": "\\bunited kingdom\\b",
+      "country": "United Kingdom"
+    },
+    {
+      "pattern": "\\bcanada\\b",
+      "country": "Canada"
+    },
+    {
+      "pattern": "\\bgermany\\b",
+      "country": "Germany"
+    },
+    {
+      "pattern": "\\bfrance\\b",
+      "country": "France"
+    },
+    {
+      "pattern": "\\bindia\\b",
+      "country": "India"
+    },
+    {
+      "pattern": "\\baustralia\\b",
+      "country": "Australia"
+    },
+    {
+      "pattern": "\\bjapan\\b",
+      "country": "Japan"
+    },
+    {
+      "pattern": "\\bchina\\b",
+      "country": "China"
+    },
+    {
+      "pattern": "\\bsingapore\\b",
+      "country": "Singapore"
+    },
+    {
+      "pattern": "\\bnetherlands\\b",
+      "country": "Netherlands"
+    },
+    {
+      "pattern": "\\bspain\\b",
+      "country": "Spain"
+    },
+    {
+      "pattern": "\\bitaly\\b",
+      "country": "Italy"
+    },
+    {
+      "pattern": "\\bbrazil\\b",
+      "country": "Brazil"
+    },
+    {
+      "pattern": "\\bmexico\\b",
+      "country": "Mexico"
+    },
+    {
+      "pattern": "\\bireland\\b",
+      "country": "Ireland"
+    },
+    {
+      "pattern": "\\bswitzerland\\b",
+      "country": "Switzerland"
+    },
+    {
+      "pattern": "\\bsweden\\b",
+      "country": "Sweden"
+    },
+    {
+      "pattern": "\\bnorway\\b",
+      "country": "Norway"
+    },
+    {
+      "pattern": "\\bdenmark\\b",
+      "country": "Denmark"
+    },
+    {
+      "pattern": "\\bfinland\\b",
+      "country": "Finland"
+    },
+    {
+      "pattern": "\\bbelgium\\b",
+      "country": "Belgium"
+    },
+    {
+      "pattern": "\\baustria\\b",
+      "country": "Austria"
+    },
+    {
+      "pattern": "\\bpoland\\b",
+      "country": "Poland"
+    },
+    {
+      "pattern": "\\bukraine\\b",
+      "country": "Ukraine"
+    },
+    {
+      "pattern": "\\bromania\\b",
+      "country": "Romania"
+    },
+    {
+      "pattern": "\\bczechia\\b",
+      "country": "Czechia"
+    },
+    {
+      "pattern": "\\bczech republic\\b",
+      "country": "Czechia"
+    },
+    {
+      "pattern": "\\bhungary\\b",
+      "country": "Hungary"
+    },
+    {
+      "pattern": "\\bportugal\\b",
+      "country": "Portugal"
+    },
+    {
+      "pattern": "\\bgreece\\b",
+      "country": "Greece"
+    },
+    {
+      "pattern": "\\bisrael\\b",
+      "country": "Israel"
+    },
+    {
+      "pattern": "\\bsouth korea\\b",
+      "country": "South Korea"
+    },
+    {
+      "pattern": "\\btaiwan\\b",
+      "country": "Taiwan"
+    },
+    {
+      "pattern": "\\bhong kong\\b",
+      "country": "Hong Kong"
+    },
+    {
+      "pattern": "\\bnew zealand\\b",
+      "country": "New Zealand"
+    },
+    {
+      "pattern": "\\bsouth africa\\b",
+      "country": "South Africa"
+    },
+    {
+      "pattern": "\\bphilippines\\b",
+      "country": "Philippines"
+    },
+    {
+      "pattern": "\\bmalaysia\\b",
+      "country": "Malaysia"
+    },
+    {
+      "pattern": "\\bthailand\\b",
+      "country": "Thailand"
+    },
+    {
+      "pattern": "\\bvietnam\\b",
+      "country": "Vietnam"
+    },
+    {
+      "pattern": "\\bindonesia\\b",
+      "country": "Indonesia"
+    },
+    {
+      "pattern": "\\bturkey\\b",
+      "country": "Turkey"
+    },
+    {
+      "pattern": "\\brussia\\b",
+      "country": "Russia"
+    },
+    {
+      "pattern": "\\bkazakhstan\\b",
+      "country": "Kazakhstan"
+    },
+    {
+      "pattern": "\\buzbekistan\\b",
+      "country": "Uzbekistan"
+    },
+    {
+      "pattern": "\\bargentina\\b",
+      "country": "Argentina"
+    },
+    {
+      "pattern": "\\bchile\\b",
+      "country": "Chile"
+    },
+    {
+      "pattern": "\\bcolombia\\b",
+      "country": "Colombia"
+    },
+    {
+      "pattern": "\\bperu\\b",
+      "country": "Peru"
+    },
+    {
+      "pattern": "\\bvenezuela\\b",
+      "country": "Venezuela"
+    },
+    {
+      "pattern": "\\becuador\\b",
+      "country": "Ecuador"
+    },
+    {
+      "pattern": "\\buruguay\\b",
+      "country": "Uruguay"
+    },
+    {
+      "pattern": "\\bparaguay\\b",
+      "country": "Paraguay"
+    },
+    {
+      "pattern": "\\bbolivia\\b",
+      "country": "Bolivia"
+    },
+    {
+      "pattern": "\\bcosta rica\\b",
+      "country": "Costa Rica"
+    },
+    {
+      "pattern": "\\bguatemala\\b",
+      "country": "Guatemala"
+    },
+    {
+      "pattern": "\\bhonduras\\b",
+      "country": "Honduras"
+    },
+    {
+      "pattern": "\\bel salvador\\b",
+      "country": "El Salvador"
+    },
+    {
+      "pattern": "\\bnicaragua\\b",
+      "country": "Nicaragua"
+    },
+    {
+      "pattern": "\\bpanama\\b",
+      "country": "Panama"
+    },
+    {
+      "pattern": "\\bpuerto rico\\b",
+      "country": "Puerto Rico"
+    },
+    {
+      "pattern": "\\buae\\b",
+      "country": "United Arab Emirates"
+    },
+    {
+      "pattern": "\\bunited arab emirates\\b",
+      "country": "United Arab Emirates"
+    },
+    {
+      "pattern": "\\begypt\\b",
+      "country": "Egypt"
+    },
+    {
+      "pattern": "\\bnigeria\\b",
+      "country": "Nigeria"
+    },
+    {
+      "pattern": "\\bkenya\\b",
+      "country": "Kenya"
+    },
+    {
+      "pattern": "\\bmorocco\\b",
+      "country": "Morocco"
+    },
+    {
+      "pattern": "\\btunisia\\b",
+      "country": "Tunisia"
+    },
+    {
+      "pattern": "\\bethiopia\\b",
+      "country": "Ethiopia"
+    },
+    {
+      "pattern": "\\bsaudi arabia\\b",
+      "country": "Saudi Arabia"
+    },
+    {
+      "pattern": "\\bqatar\\b",
+      "country": "Qatar"
+    },
+    {
+      "pattern": "\\bkuwait\\b",
+      "country": "Kuwait"
+    },
+    {
+      "pattern": "\\bbahrain\\b",
+      "country": "Bahrain"
+    },
+    {
+      "pattern": "\\boman\\b",
+      "country": "Oman"
+    }
+  ],
+  "country_abbr_pattern_pairs": [
+    {
+      "pattern": "\\busa?\\b",
+      "country": "United States"
+    },
+    {
+      "pattern": "\\buk\\b",
+      "country": "United Kingdom"
+    },
+    {
+      "pattern": "\\bde\\b",
+      "country": "Germany"
+    },
+    {
+      "pattern": "\\bfr\\b",
+      "country": "France"
+    },
+    {
+      "pattern": "\\bau\\b",
+      "country": "Australia"
+    },
+    {
+      "pattern": "\\bjp\\b",
+      "country": "Japan"
+    },
+    {
+      "pattern": "\\bcn\\b",
+      "country": "China"
+    },
+    {
+      "pattern": "\\bsg\\b",
+      "country": "Singapore"
+    },
+    {
+      "pattern": "\\bnl\\b",
+      "country": "Netherlands"
+    },
+    {
+      "pattern": "\\bes\\b",
+      "country": "Spain"
+    },
+    {
+      "pattern": "\\bit\\b",
+      "country": "Italy"
+    },
+    {
+      "pattern": "\\bbr\\b",
+      "country": "Brazil"
+    },
+    {
+      "pattern": "\\bmx\\b",
+      "country": "Mexico"
+    },
+    {
+      "pattern": "\\bie\\b",
+      "country": "Ireland"
+    },
+    {
+      "pattern": "\\bch\\b",
+      "country": "Switzerland"
+    },
+    {
+      "pattern": "\\bse\\b",
+      "country": "Sweden"
+    },
+    {
+      "pattern": "\\bno\\b",
+      "country": "Norway"
+    },
+    {
+      "pattern": "\\bdk\\b",
+      "country": "Denmark"
+    },
+    {
+      "pattern": "\\bfi\\b",
+      "country": "Finland"
+    },
+    {
+      "pattern": "\\bbe\\b",
+      "country": "Belgium"
+    },
+    {
+      "pattern": "\\bat\\b",
+      "country": "Austria"
+    },
+    {
+      "pattern": "\\bpl\\b",
+      "country": "Poland"
+    },
+    {
+      "pattern": "\\bua\\b",
+      "country": "Ukraine"
+    },
+    {
+      "pattern": "\\bro\\b",
+      "country": "Romania"
+    },
+    {
+      "pattern": "\\bcz\\b",
+      "country": "Czechia"
+    },
+    {
+      "pattern": "\\bhu\\b",
+      "country": "Hungary"
+    },
+    {
+      "pattern": "\\bpt\\b",
+      "country": "Portugal"
+    },
+    {
+      "pattern": "\\bgr\\b",
+      "country": "Greece"
+    },
+    {
+      "pattern": "\\bil\\b",
+      "country": "Israel"
+    },
+    {
+      "pattern": "\\bkr\\b",
+      "country": "South Korea"
+    },
+    {
+      "pattern": "\\btw\\b",
+      "country": "Taiwan"
+    },
+    {
+      "pattern": "\\bhk\\b",
+      "country": "Hong Kong"
+    },
+    {
+      "pattern": "\\bnz\\b",
+      "country": "New Zealand"
+    },
+    {
+      "pattern": "\\bza\\b",
+      "country": "South Africa"
+    },
+    {
+      "pattern": "\\bae\\b",
+      "country": "United Arab Emirates"
+    },
+    {
+      "pattern": "\\bph\\b",
+      "country": "Philippines"
+    },
+    {
+      "pattern": "\\bmy\\b",
+      "country": "Malaysia"
+    },
+    {
+      "pattern": "\\bth\\b",
+      "country": "Thailand"
+    },
+    {
+      "pattern": "\\bvn\\b",
+      "country": "Vietnam"
+    },
+    {
+      "pattern": "\\bid\\b",
+      "country": "Indonesia"
+    },
+    {
+      "pattern": "\\btr\\b",
+      "country": "Turkey"
+    },
+    {
+      "pattern": "\\bru\\b",
+      "country": "Russia"
+    },
+    {
+      "pattern": "\\bkz\\b",
+      "country": "Kazakhstan"
+    },
+    {
+      "pattern": "\\buz\\b",
+      "country": "Uzbekistan"
+    },
+    {
+      "pattern": "\\bcl\\b",
+      "country": "Chile"
+    },
+    {
+      "pattern": "\\bpe\\b",
+      "country": "Peru"
+    },
+    {
+      "pattern": "\\bve\\b",
+      "country": "Venezuela"
+    },
+    {
+      "pattern": "\\bec\\b",
+      "country": "Ecuador"
+    },
+    {
+      "pattern": "\\buy\\b",
+      "country": "Uruguay"
+    },
+    {
+      "pattern": "\\bpy\\b",
+      "country": "Paraguay"
+    },
+    {
+      "pattern": "\\bbo\\b",
+      "country": "Bolivia"
+    },
+    {
+      "pattern": "\\bcr\\b",
+      "country": "Costa Rica"
+    },
+    {
+      "pattern": "\\bgt\\b",
+      "country": "Guatemala"
+    },
+    {
+      "pattern": "\\bhn\\b",
+      "country": "Honduras"
+    },
+    {
+      "pattern": "\\bsv\\b",
+      "country": "El Salvador"
+    },
+    {
+      "pattern": "\\bni\\b",
+      "country": "Nicaragua"
+    },
+    {
+      "pattern": "\\bpa\\b",
+      "country": "Panama"
+    },
+    {
+      "pattern": "\\bpr\\b",
+      "country": "Puerto Rico"
+    },
+    {
+      "pattern": "\\bee\\b",
+      "country": "Estonia"
+    },
+    {
+      "pattern": "\\beg\\b",
+      "country": "Egypt"
+    },
+    {
+      "pattern": "\\bke\\b",
+      "country": "Kenya"
+    },
+    {
+      "pattern": "\\blu\\b",
+      "country": "Luxembourg"
+    },
+    {
+      "pattern": "\\bng\\b",
+      "country": "Nigeria"
+    },
+    {
+      "pattern": "\\bsa\\b",
+      "country": "Saudi Arabia"
+    },
+    {
+      "pattern": "\\blv\\b",
+      "country": "Latvia"
+    },
+    {
+      "pattern": "\\blt\\b",
+      "country": "Lithuania"
+    },
+    {
+      "pattern": "\\bsi\\b",
+      "country": "Slovenia"
+    },
+    {
+      "pattern": "\\bbg\\b",
+      "country": "Bulgaria"
+    },
+    {
+      "pattern": "\\bhr\\b",
+      "country": "Croatia"
+    },
+    {
+      "pattern": "\\bba\\b",
+      "country": "Bosnia and Herzegovina"
+    },
+    {
+      "pattern": "\\bsk\\b",
+      "country": "Slovakia"
+    },
+    {
+      "pattern": "\\bcy\\b",
+      "country": "Cyprus"
+    }
+  ],
+  "country_abbrev_full_match": {
+    "us": "United States",
+    "u.s": "United States",
+    "u.s.": "United States",
+    "gb": "United Kingdom",
+    "in": "India",
+    "ca": "Canada",
+    "tr": "Turkey",
+    "rs": "Serbia",
+    "es": "Spain",
+    "de": "Germany",
+    "fr": "France",
+    "jp": "Japan",
+    "br": "Brazil",
+    "mx": "Mexico",
+    "au": "Australia",
+    "nl": "Netherlands",
+    "it": "Italy",
+    "ie": "Ireland",
+    "ch": "Switzerland",
+    "se": "Sweden",
+    "no": "Norway",
+    "dk": "Denmark",
+    "fi": "Finland",
+    "be": "Belgium",
+    "at": "Austria",
+    "pl": "Poland",
+    "ua": "Ukraine",
+    "ro": "Romania",
+    "cz": "Czechia",
+    "hu": "Hungary",
+    "pt": "Portugal",
+    "gr": "Greece",
+    "il": "Israel",
+    "kr": "South Korea",
+    "tw": "Taiwan",
+    "hk": "Hong Kong",
+    "nz": "New Zealand",
+    "za": "South Africa",
+    "ae": "United Arab Emirates",
+    "ph": "Philippines",
+    "my": "Malaysia",
+    "th": "Thailand",
+    "vn": "Vietnam",
+    "id": "Indonesia",
+    "ru": "Russia",
+    "kz": "Kazakhstan",
+    "uz": "Uzbekistan",
+    "ar": "Argentina",
+    "cl": "Chile",
+    "co": "Colombia",
+    "pe": "Peru",
+    "ve": "Venezuela",
+    "ec": "Ecuador",
+    "uy": "Uruguay",
+    "py": "Paraguay",
+    "bo": "Bolivia",
+    "cr": "Costa Rica",
+    "gt": "Guatemala",
+    "hn": "Honduras",
+    "sv": "El Salvador",
+    "ni": "Nicaragua",
+    "pa": "Panama",
+    "pr": "Puerto Rico",
+    "ee": "Estonia",
+    "eg": "Egypt",
+    "ke": "Kenya",
+    "lu": "Luxembourg",
+    "ng": "Nigeria",
+    "sa": "Saudi Arabia",
+    "lv": "Latvia",
+    "lt": "Lithuania",
+    "si": "Slovenia",
+    "bg": "Bulgaria",
+    "hr": "Croatia",
+    "ba": "Bosnia and Herzegovina",
+    "sk": "Slovakia",
+    "cy": "Cyprus",
+    "mt": "Malta"
+  },
+  "us_states_full": [
+    "alabama",
+    "alaska",
+    "arizona",
+    "arkansas",
+    "california",
+    "colorado",
+    "connecticut",
+    "delaware",
+    "florida",
+    "georgia",
+    "hawaii",
+    "idaho",
+    "illinois",
+    "indiana",
+    "iowa",
+    "kansas",
+    "kentucky",
+    "louisiana",
+    "maine",
+    "maryland",
+    "massachusetts",
+    "michigan",
+    "minnesota",
+    "mississippi",
+    "missouri",
+    "montana",
+    "nebraska",
+    "nevada",
+    "new hampshire",
+    "new jersey",
+    "new mexico",
+    "new york",
+    "north carolina",
+    "north dakota",
+    "ohio",
+    "oklahoma",
+    "oregon",
+    "pennsylvania",
+    "rhode island",
+    "south carolina",
+    "south dakota",
+    "tennessee",
+    "texas",
+    "utah",
+    "vermont",
+    "virginia",
+    "washington",
+    "west virginia",
+    "wisconsin",
+    "wyoming",
+    "district of columbia"
+  ],
+  "french_regions": [
+    "île-de-france",
+    "auvergne-rhône-alpes",
+    "hauts-de-france",
+    "nouvelle-aquitaine",
+    "occitanie",
+    "grand est",
+    "provence-alpes-côte d'azur",
+    "pays de la loire",
+    "bretagne",
+    "normandie",
+    "bourgogne-franche-comté",
+    "centre-val de loire",
+    "corse"
+  ],
+  "italian_regions": [
+    "abruzzo",
+    "aosta valley",
+    "apulia",
+    "basilicata",
+    "calabria",
+    "campania",
+    "emilia-romagna",
+    "friuli-venezia giulia",
+    "lazio",
+    "liguria",
+    "lombardy",
+    "lombardia",
+    "marche",
+    "molise",
+    "piedmont",
+    "piemonte",
+    "sardinia",
+    "sardegna",
+    "sicily",
+    "sicilia",
+    "tuscany",
+    "toscana",
+    "trentino-alto adige",
+    "umbria",
+    "veneto"
+  ],
+  "spanish_regions": [
+    "andalusia",
+    "andalucía",
+    "aragon",
+    "aragón",
+    "asturias",
+    "balearic islands",
+    "islas baleares",
+    "basque country",
+    "país vasco",
+    "canary islands",
+    "islas canarias",
+    "cantabria",
+    "castile and león",
+    "castilla y león",
+    "castile-la mancha",
+    "castilla-la mancha",
+    "catalonia",
+    "catalunya",
+    "extremadura",
+    "galicia",
+    "la rioja",
+    "madrid",
+    "murcia",
+    "navarre",
+    "navarra",
+    "valencia",
+    "valencian community"
+  ],
+  "mexican_states": [
+    "aguascalientes",
+    "baja california",
+    "baja california sur",
+    "campeche",
+    "chiapas",
+    "chihuahua",
+    "coahuila",
+    "colima",
+    "durango",
+    "guanajuato",
+    "guerrero",
+    "hidalgo",
+    "jalisco",
+    "mexico",
+    "méxico",
+    "michoacán",
+    "morelos",
+    "nayarit",
+    "nuevo león",
+    "oaxaca",
+    "puebla",
+    "querétaro",
+    "quintana roo",
+    "san luis potosí",
+    "sinaloa",
+    "sonora",
+    "tabasco",
+    "tamaulipas",
+    "tlaxcala",
+    "veracruz",
+    "yucatán",
+    "zacatecas",
+    "ciudad de méxico",
+    "mexico city"
+  ],
+  "brazilian_states": [
+    "acre",
+    "alagoas",
+    "amapá",
+    "amazonas",
+    "bahia",
+    "ceará",
+    "distrito federal",
+    "espírito santo",
+    "goiás",
+    "maranhão",
+    "mato grosso",
+    "mato grosso do sul",
+    "minas gerais",
+    "pará",
+    "paraíba",
+    "paraná",
+    "pernambuco",
+    "piauí",
+    "rio de janeiro",
+    "rio grande do norte",
+    "rio grande do sul",
+    "rondônia",
+    "roraima",
+    "santa catarina",
+    "são paulo",
+    "sergipe",
+    "tocantins"
+  ],
+  "country_names_as_states": [
+    "Argentina",
+    "Australia",
+    "Bolivia",
+    "Brazil",
+    "China",
+    "Colombia",
+    "France",
+    "Germany",
+    "Hong Kong",
+    "India",
+    "Indonesia",
+    "Ireland",
+    "Israel",
+    "Japan",
+    "Kazakhstan",
+    "Korea",
+    "Kuwait",
+    "Netherlands",
+    "Portugal",
+    "Romania",
+    "Saudi Arabia",
+    "Singapore",
+    "South Korea",
+    "Switzerland",
+    "Taiwan",
+    "Thailand",
+    "United Arab Emirates",
+    "United Kingdom",
+    "United States",
+    "Vietnam"
+  ],
+  "single_part_country_names": [
+    "argentina",
+    "australia",
+    "austria",
+    "belgium",
+    "brazil",
+    "canada",
+    "chile",
+    "china",
+    "denmark",
+    "finland",
+    "france",
+    "germany",
+    "hong kong",
+    "india",
+    "ireland",
+    "israel",
+    "italy",
+    "japan",
+    "mexico",
+    "netherlands",
+    "norway",
+    "poland",
+    "portugal",
+    "singapore",
+    "south korea",
+    "spain",
+    "sweden",
+    "switzerland",
+    "taiwan",
+    "u.s",
+    "u.s.",
+    "uk",
+    "united kingdom",
+    "united states",
+    "us",
+    "usa"
+  ],
+  "major_city_state_names": [
+    "colorado",
+    "delhi",
+    "georgia",
+    "goa",
+    "gujarat",
+    "kerala",
+    "new york",
+    "oregon",
+    "virginia",
+    "washington"
+  ]
 }

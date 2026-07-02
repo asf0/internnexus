@@ -1,0 +1,1375 @@
+{
+  "version": 2,
+  "description": "outputs for pipeline.location.simple_parser.normalize_location, captured 2026-07-01.",
+  "changelog": "Version 2: Corrected Vancouver (→Canada) and Birmingham (→UK) bare city resolution; added Vancouver, WA and Birmingham, AL state-qualified regression cases; added 123 Main Bldg Springfield case for bldg typo fix.",
+  "cases": [
+    {
+      "input": "London",
+      "expected": {
+        "full": "London, United Kingdom",
+        "city": "London",
+        "state": null,
+        "country": "United Kingdom",
+        "all_cities": "London",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Tokyo",
+      "expected": {
+        "full": "Tokyo, Japan",
+        "city": "Tokyo",
+        "state": null,
+        "country": "Japan",
+        "all_cities": "Tokyo",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Vancouver",
+      "expected": {
+        "full": "Vancouver, Canada",
+        "city": "Vancouver",
+        "state": null,
+        "country": "Canada",
+        "all_cities": "Vancouver",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Birmingham",
+      "expected": {
+        "full": "Birmingham, United Kingdom",
+        "city": "Birmingham",
+        "state": null,
+        "country": "United Kingdom",
+        "all_cities": "Birmingham",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Berlin",
+      "expected": {
+        "full": "Berlin, Germany",
+        "city": "Berlin",
+        "state": null,
+        "country": "Germany",
+        "all_cities": "Berlin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Mumbai",
+      "expected": {
+        "full": "Mumbai, India",
+        "city": "Mumbai",
+        "state": null,
+        "country": "India",
+        "all_cities": "Mumbai",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Singapore",
+      "expected": {
+        "full": "Singapore",
+        "city": null,
+        "state": null,
+        "country": "Singapore",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Paris",
+      "expected": {
+        "full": "Paris, France",
+        "city": "Paris",
+        "state": null,
+        "country": "France",
+        "all_cities": "Paris",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Sydney",
+      "expected": {
+        "full": "Sydney, Australia",
+        "city": "Sydney",
+        "state": null,
+        "country": "Australia",
+        "all_cities": "Sydney",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Dubai",
+      "expected": {
+        "full": "Dubai, United Arab Emirates",
+        "city": "Dubai",
+        "state": null,
+        "country": "United Arab Emirates",
+        "all_cities": "Dubai",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Seoul",
+      "expected": {
+        "full": "Seoul, South Korea",
+        "city": "Seoul",
+        "state": null,
+        "country": "South Korea",
+        "all_cities": "Seoul",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Istanbul",
+      "expected": {
+        "full": "Istanbul, Turkey",
+        "city": "Istanbul",
+        "state": null,
+        "country": "Turkey",
+        "all_cities": "Istanbul",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Austin, TX",
+      "expected": {
+        "full": "Austin, Texas, United States",
+        "city": "Austin",
+        "state": "Texas",
+        "country": "United States",
+        "all_cities": "Austin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "New York, NY",
+      "expected": {
+        "full": "New York, New York, United States",
+        "city": "New York",
+        "state": "New York",
+        "country": "United States",
+        "all_cities": "New York",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Toronto, ON",
+      "expected": {
+        "full": "Toronto, Ontario, Canada",
+        "city": "Toronto",
+        "state": "Ontario",
+        "country": "Canada",
+        "all_cities": "Toronto",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "San Francisco, CA",
+      "expected": {
+        "full": "San Francisco, California, United States",
+        "city": "San Francisco",
+        "state": "California",
+        "country": "United States",
+        "all_cities": "San Francisco",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Bangalore, KA",
+      "expected": {
+        "full": "Bangalore, India",
+        "city": "Bangalore",
+        "state": null,
+        "country": "India",
+        "all_cities": "Bangalore",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Sydney, NSW",
+      "expected": {
+        "full": "Sydney, New South Wales, Australia",
+        "city": "Sydney",
+        "state": "New South Wales",
+        "country": "Australia",
+        "all_cities": "Sydney",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Los Angeles, CA",
+      "expected": {
+        "full": "Los Angeles, California, United States",
+        "city": "Los Angeles",
+        "state": "California",
+        "country": "United States",
+        "all_cities": "Los Angeles",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Chicago, IL",
+      "expected": {
+        "full": "Chicago, Illinois, Israel",
+        "city": "Chicago",
+        "state": "Illinois",
+        "country": "Israel",
+        "all_cities": "Chicago",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Austin, TX 78701",
+      "expected": {
+        "full": "Austin, Texas, United States",
+        "city": "Austin",
+        "state": "Texas",
+        "country": "United States",
+        "all_cities": "Austin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Toronto, ON, Canada",
+      "expected": {
+        "full": "Toronto, Ontario, Canada",
+        "city": "Toronto",
+        "state": "Ontario",
+        "country": "Canada",
+        "all_cities": "Toronto",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Munich, Bavaria, Germany",
+      "expected": {
+        "full": "Munich, Bavaria, Germany",
+        "city": "Munich",
+        "state": "Bavaria",
+        "country": "Germany",
+        "all_cities": "Munich",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Bangalore, KA, India",
+      "expected": {
+        "full": "Bangalore, Karnataka, India",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "country": "India",
+        "all_cities": "Bangalore",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Tokyo, Tokyo, Japan",
+      "expected": {
+        "full": "Tokyo, Japan",
+        "city": "Tokyo",
+        "state": null,
+        "country": "Japan",
+        "all_cities": "Tokyo",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "San Francisco, CA, US",
+      "expected": {
+        "full": "San Francisco, California, United States",
+        "city": "San Francisco",
+        "state": "California",
+        "country": "United States",
+        "all_cities": "San Francisco",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Paris, Ile-de-France, France",
+      "expected": {
+        "full": "Paris, France",
+        "city": "Paris",
+        "state": null,
+        "country": "France",
+        "all_cities": "Paris",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "London, UK",
+      "expected": {
+        "full": "London, United Kingdom",
+        "city": "London",
+        "state": null,
+        "country": "United Kingdom",
+        "all_cities": "London",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "123 Main St, Springfield, IL",
+      "expected": {
+        "full": "Springfield, Illinois, Israel",
+        "city": "Springfield",
+        "state": "Illinois",
+        "country": "Israel",
+        "all_cities": "Springfield",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "456 Oak Ave, Portland, OR",
+      "expected": {
+        "full": "Portland, Oregon, United States",
+        "city": "Portland",
+        "state": "Oregon",
+        "country": "United States",
+        "all_cities": "Portland",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "1000 Broadway, Denver, CO",
+      "expected": {
+        "full": "Denver, Colorado, Colombia",
+        "city": "Denver",
+        "state": "Colorado",
+        "country": "Colombia",
+        "all_cities": "Denver",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "789 Pine Rd, Austin, TX 78701",
+      "expected": {
+        "full": "Austin, Texas, United States",
+        "city": "Austin",
+        "state": "Texas",
+        "country": "United States",
+        "all_cities": "Austin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote",
+      "expected": {
+        "full": "Remote",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote - US",
+      "expected": {
+        "full": "Remote - US",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote - Canada",
+      "expected": {
+        "full": "Remote - Canada",
+        "city": null,
+        "state": null,
+        "country": "Canada",
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Hybrid",
+      "expected": {
+        "full": "Hybrid",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Hybrid | London",
+      "expected": {
+        "full": "Hybrid | London",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote - EMEA",
+      "expected": {
+        "full": "Remote - EMEA",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Virtual",
+      "expected": {
+        "full": "Virtual",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Work from home",
+      "expected": {
+        "full": "Work from home",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote; London",
+      "expected": {
+        "full": "Remote; London",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "NYC | Remote",
+      "expected": {
+        "full": "NYC | Remote",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": true
+      }
+    },
+    {
+      "input": "Austin, TX; Denver, CO",
+      "expected": {
+        "full": "Austin, Texas, Colombia",
+        "city": "Austin",
+        "state": "Texas",
+        "country": "Colombia",
+        "all_cities": "Austin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "London, UK; Paris, France",
+      "expected": {
+        "full": "London, France",
+        "city": "London",
+        "state": null,
+        "country": "France",
+        "all_cities": "London",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Berlin, Germany; Tokyo, Japan; Sydney, Australia",
+      "expected": {
+        "full": "Berlin, Australia",
+        "city": "Berlin",
+        "state": null,
+        "country": "Australia",
+        "all_cities": "Berlin",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "NY Metro",
+      "expected": {
+        "full": "New York, United States",
+        "city": null,
+        "state": "New York",
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "New York Metro",
+      "expected": {
+        "full": "New York Metro",
+        "city": "New York Metro",
+        "state": null,
+        "country": null,
+        "all_cities": "New York Metro",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Various",
+      "expected": {
+        "full": "Various",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "TBD",
+      "expected": {
+        "full": "TBD",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Anywhere",
+      "expected": {
+        "full": "Anywhere",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Multiple Locations",
+      "expected": {
+        "full": "Multiple Locations",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "N/A",
+      "expected": {
+        "full": "N/A",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Unknown",
+      "expected": {
+        "full": "Unknown",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "To Be Determined",
+      "expected": {
+        "full": "To Be Determined, Belgium",
+        "city": "To Be Determined",
+        "state": null,
+        "country": "Belgium",
+        "all_cities": "To Be Determined",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Virtual Location",
+      "expected": {
+        "full": "Virtual Location",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Office",
+      "expected": {
+        "full": "Office",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Hub",
+      "expected": {
+        "full": "Hub",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Zone",
+      "expected": {
+        "full": "Zone",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Region",
+      "expected": {
+        "full": "Region",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Area",
+      "expected": {
+        "full": "Area",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Building 1",
+      "expected": {
+        "full": "Building 1",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Room A",
+      "expected": {
+        "full": "Room A",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Suite 5, London",
+      "expected": {
+        "full": "Suite 5, London",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "United States",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "USA",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "GB",
+      "expected": {
+        "full": "United Kingdom",
+        "city": null,
+        "state": null,
+        "country": "United Kingdom",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "UK",
+      "expected": {
+        "full": "United Kingdom",
+        "city": null,
+        "state": null,
+        "country": "United Kingdom",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Canada",
+      "expected": {
+        "full": "Canada",
+        "city": null,
+        "state": null,
+        "country": "Canada",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Turkiye",
+      "expected": {
+        "full": "Turkiye, Turkey",
+        "city": "Turkiye",
+        "state": null,
+        "country": "Turkey",
+        "all_cities": "Turkiye",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Czech Republic",
+      "expected": {
+        "full": "Czechia",
+        "city": null,
+        "state": null,
+        "country": "Czechia",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "UAE",
+      "expected": {
+        "full": "United Arab Emirates",
+        "city": null,
+        "state": null,
+        "country": "United Arab Emirates",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "France",
+      "expected": {
+        "full": "France",
+        "city": null,
+        "state": null,
+        "country": "France",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "India",
+      "expected": {
+        "full": "India",
+        "city": null,
+        "state": null,
+        "country": "India",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "US",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "DE",
+      "expected": {
+        "full": "Delaware, Germany",
+        "city": null,
+        "state": "Delaware",
+        "country": "Germany",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "FR",
+      "expected": {
+        "full": "France",
+        "city": null,
+        "state": null,
+        "country": "France",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "IN",
+      "expected": {
+        "full": "Indiana, India",
+        "city": null,
+        "state": "Indiana",
+        "country": "India",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "AE",
+      "expected": {
+        "full": "United Arab Emirates",
+        "city": null,
+        "state": null,
+        "country": "United Arab Emirates",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "U.S.",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "California",
+      "expected": {
+        "full": "California, United States",
+        "city": null,
+        "state": "California",
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Ontario",
+      "expected": {
+        "full": "Ontario, Canada",
+        "city": null,
+        "state": "Ontario",
+        "country": "Canada",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Maharashtra",
+      "expected": {
+        "full": "Maharashtra, India",
+        "city": null,
+        "state": "Maharashtra",
+        "country": "India",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Bavaria",
+      "expected": {
+        "full": "Bavaria, Germany",
+        "city": null,
+        "state": "Bavaria",
+        "country": "Germany",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "New South Wales",
+      "expected": {
+        "full": "New South Wales, Australia",
+        "city": null,
+        "state": "New South Wales",
+        "country": "Australia",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Quebec",
+      "expected": {
+        "full": "Canada",
+        "city": null,
+        "state": null,
+        "country": "Canada",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Karnataka",
+      "expected": {
+        "full": "Karnataka, India",
+        "city": null,
+        "state": "Karnataka",
+        "country": "India",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Texas",
+      "expected": {
+        "full": "Texas, United States",
+        "city": null,
+        "state": "Texas",
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Washington",
+      "expected": {
+        "full": "Washington, United States",
+        "city": "Washington",
+        "state": null,
+        "country": "United States",
+        "all_cities": "Washington",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Georgia",
+      "expected": {
+        "full": "Georgia, United States",
+        "city": null,
+        "state": "Georgia",
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Delhi",
+      "expected": {
+        "full": "Delhi, India",
+        "city": "Delhi",
+        "state": null,
+        "country": "India",
+        "all_cities": "Delhi",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "New York",
+      "expected": {
+        "full": "New York, United States",
+        "city": "New York",
+        "state": null,
+        "country": "United States",
+        "all_cities": "New York",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Victoria",
+      "expected": {
+        "full": "Victoria, Australia",
+        "city": null,
+        "state": "Victoria",
+        "country": "Australia",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Virginia",
+      "expected": {
+        "full": "Virginia, United States",
+        "city": null,
+        "state": "Virginia",
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": null,
+      "expected": {
+        "full": null,
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "full": "",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": " ",
+      "expected": {
+        "full": " ",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": " , ",
+      "expected": {
+        "full": " , ",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote, Remote",
+      "expected": {
+        "full": "Remote, Remote",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": ",,",
+      "expected": {
+        "full": ",,",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Paris City",
+      "expected": {
+        "full": "Paris, France",
+        "city": "Paris",
+        "state": null,
+        "country": "France",
+        "all_cities": "Paris",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "New York City",
+      "expected": {
+        "full": "New York, United States",
+        "city": "New York",
+        "state": null,
+        "country": "United States",
+        "all_cities": "New York",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Australia - Sydney",
+      "expected": {
+        "full": "Sydney, Australia",
+        "city": "Sydney",
+        "state": null,
+        "country": "Australia",
+        "all_cities": "Sydney",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "India - Pune",
+      "expected": {
+        "full": "Pune, India",
+        "city": "Pune",
+        "state": null,
+        "country": "India",
+        "all_cities": "Pune",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Germany, EMEA",
+      "expected": {
+        "full": "Germany",
+        "city": null,
+        "state": null,
+        "country": "Germany",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Remote - APAC",
+      "expected": {
+        "full": "Remote - APAC",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": true,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "US, AMER",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Global",
+      "expected": {
+        "full": "Global",
+        "city": null,
+        "state": null,
+        "country": null,
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "u.s.",
+      "expected": {
+        "full": "United States",
+        "city": null,
+        "state": null,
+        "country": "United States",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Türkiye",
+      "expected": {
+        "full": "Türkiye, Turkey",
+        "city": "Türkiye",
+        "state": null,
+        "country": "Turkey",
+        "all_cities": "Türkiye",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "United Arab Emirates",
+      "expected": {
+        "full": "United Arab Emirates",
+        "city": null,
+        "state": null,
+        "country": "United Arab Emirates",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "South Korea",
+      "expected": {
+        "full": "South Korea",
+        "city": null,
+        "state": null,
+        "country": "South Korea",
+        "all_cities": null,
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Vancouver, WA",
+      "expected": {
+        "full": "Vancouver, Washington, United States",
+        "city": "Vancouver",
+        "state": "Washington",
+        "country": "United States",
+        "all_cities": "Vancouver",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "Birmingham, AL",
+      "expected": {
+        "full": "Birmingham, Alabama, United States",
+        "city": "Birmingham",
+        "state": "Alabama",
+        "country": "United States",
+        "all_cities": "Birmingham",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    },
+    {
+      "input": "123 Main Bldg Springfield",
+      "expected": {
+        "full": "Springfield, United States",
+        "city": "Springfield",
+        "state": null,
+        "country": "United States",
+        "all_cities": "Springfield",
+        "is_remote": false,
+        "is_multi_location": false
+      }
+    }
+  ]
+}

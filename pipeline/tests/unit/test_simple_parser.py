@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from pipeline.location.simple_parser import (
+    extract_city_from_street_address,
     extract_state,
     infer_country_from_state,
     normalize_location,
@@ -123,3 +124,27 @@ class TestNormalizeLocation:
         result = normalize_location("Tokyo, Tokyo, Japan")
         assert result["city"] == "Tokyo"
         assert result["country"] == "Japan"
+
+    # PR5 regression tests — Vancouver/Birmingham city collisions
+    def test_vancouver_alone_infers_canada(self) -> None:
+        result = normalize_location("Vancouver")
+        assert result["country"] == "Canada"
+
+    def test_vancouver_wa_infers_united_states(self) -> None:
+        result = normalize_location("Vancouver, WA")
+        assert result["country"] == "United States"
+
+    def test_birmingham_alone_infers_united_kingdom(self) -> None:
+        result = normalize_location("Birmingham")
+        assert result["country"] == "United Kingdom"
+
+    def test_birmingham_al_infers_united_states(self) -> None:
+        result = normalize_location("Birmingham, AL")
+        assert result["country"] == "United States"
+
+
+class TestStreetTypeBldg:
+    """PR5 regression — bldv→bldg typo fix."""
+
+    def test_street_type_bldg_recognized(self) -> None:
+        assert extract_city_from_street_address("123 Main Bldg Springfield") == "Springfield"
