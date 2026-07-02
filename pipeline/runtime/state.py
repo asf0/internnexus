@@ -9,7 +9,8 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, PipelineRun, PipelineRunStatus
+from pipeline.db import AsyncSessionLocal
+from pipeline.models import PipelineRun, PipelineRunStatus
 from pipeline.runtime.steps import PIPELINE_STEPS
 
 logger = logging.getLogger(__name__)

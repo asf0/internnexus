@@ -21,7 +21,8 @@ from internnexus_core.embedding import (
 from internnexus_core.text import clean_text_for_embedding
 from pipeline.embedding import QueryEmbeddingService as EmbeddingService
 from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
+from pipeline.db import AsyncSessionLocal
+from pipeline.models import Job
 from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)

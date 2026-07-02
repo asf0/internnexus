@@ -75,6 +75,9 @@ async def _batched_sync_op(
     params: dict | None = None,
     commit: bool = True,
     batch_size: int = SYNC_BATCH_SIZE,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
 ) -> int:
     """Run a batched CTE sync operation with retry.
 
@@ -106,7 +109,13 @@ async def _batched_sync_op(
                 await session.commit()
             return len(rows)
 
-        n = await with_db_retry(_batch, rollback=session.rollback)
+        n = await with_db_retry(
+            _batch,
+            max_attempts=max_attempts,
+            base_delay=base_delay,
+            max_delay=max_delay,
+            rollback=session.rollback,
+        )
         total += n
         if n < batch_size:
             break
@@ -119,6 +128,9 @@ async def batched_mark_stale_jobs_inactive(
     *,
     commit: bool = True,
     batch_size: int = SYNC_BATCH_SIZE,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
 ) -> int:
     """Mark active non-manual jobs that were not seen this run as inactive.
 
@@ -139,6 +151,9 @@ async def batched_mark_stale_jobs_inactive(
         params={"sync_id": sync_id},
         commit=commit,
         batch_size=batch_size,
+        max_attempts=max_attempts,
+        base_delay=base_delay,
+        max_delay=max_delay,
     )
     if total:
         logger.info("Marked %d jobs absent from sync %s as inactive", total, sync_id)
@@ -151,6 +166,9 @@ async def batched_delete_inactive(
     *,
     commit: bool = True,
     batch_size: int = SYNC_BATCH_SIZE,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
 ) -> int:
     """Delete inactive non-manual jobs that were not seen this run.
 
@@ -169,6 +187,9 @@ async def batched_delete_inactive(
         params={"sync_id": sync_id},
         commit=commit,
         batch_size=batch_size,
+        max_attempts=max_attempts,
+        base_delay=base_delay,
+        max_delay=max_delay,
     )
     if total:
         logger.info("Deleted %d inactive jobs (sync model cleanup)", total)

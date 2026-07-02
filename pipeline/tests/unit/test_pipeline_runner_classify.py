@@ -15,7 +15,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pipeline.cli import run_pipeline
 from pipeline.ingest.result import IngestResult
-from pipeline.runtime.runner import SyncSafetyAssessment
+from pipeline.runtime.config import Config
+from pipeline.runtime.runner import PipelineRunner, SyncSafetyAssessment
 
 
 def _ingest_result(total: int = 0, *, complete: bool = True) -> IngestResult:
@@ -105,7 +106,12 @@ class _FakeQuery:
 
     def where(self, *_args):
         for arg in _args:
-            if isinstance(arg, _FakeNotInPredicate):
+            # Handle real SQLAlchemy BinaryExpression objects (e.g., Job.id.notin_(...))
+            if hasattr(arg, "left") and hasattr(arg.left, "name") and arg.left.name == "id":
+                if hasattr(arg, "right") and hasattr(arg.right, "value"):
+                    self.excluded_ids = set(arg.right.value)
+            # Handle fake _FakeNotInPredicate objects (for backward compatibility)
+            elif isinstance(arg, _FakeNotInPredicate):
                 self.excluded_ids = set(arg.values)
         return self
 
@@ -140,7 +146,12 @@ class _FakeUpdate:
 
     def where(self, *_args):
         for arg in _args:
-            if isinstance(arg, _FakeEqPredicate) and arg.column == "id":
+            # Handle real SQLAlchemy BinaryExpression objects
+            if hasattr(arg, "left") and hasattr(arg.left, "name") and arg.left.name == "id":
+                if hasattr(arg, "right"):
+                    self.job_id = arg.right.value if hasattr(arg.right, "value") else arg.right
+            # Handle fake _FakeEqPredicate objects (for backward compatibility)
+            elif isinstance(arg, _FakeEqPredicate) and arg.column == "id":
                 self.job_id = arg.value
         return self
 
@@ -169,15 +180,57 @@ class _FakeSession:
                     break
             return _FakeResult()
 
-        if query.kind == "count":
-            remaining = sum(1 for job in self.jobs if job.job_category is None)
-            return _FakeResult(scalar_value=remaining)
+        if type(query).__name__ == "Update":
+            # Handle real SQLAlchemy Update objects
+            job_id = None
+            update_values = {}
+            for criterion in getattr(query, "_where_criteria", []):
+                if hasattr(criterion, "left") and hasattr(criterion.left, "name") and criterion.left.name == "id":
+                    job_id = getattr(criterion, "right", None)
+            if hasattr(query, "values") and query._values:
+                update_values = dict(query._values)
+            if job_id is not None:
+                for job in self.jobs:
+                    if getattr(job, "id", None) == job_id:
+                        for key, value in update_values.items():
+                            setattr(job, key, value)
+                        break
+            return _FakeResult()
 
-        remaining_jobs = [job for job in self.jobs if job.job_category is None]
-        if query.excluded_ids:
-            remaining_jobs = [job for job in remaining_jobs if getattr(job, "id", None) not in query.excluded_ids]
-        take = query.limit_value if query.limit_value is not None else len(remaining_jobs)
-        return _FakeResult(items=remaining_jobs[:take])
+        if hasattr(query, "kind"):
+            if query.kind == "count":
+                remaining = sum(1 for job in self.jobs if job.job_category is None)
+                return _FakeResult(scalar_value=remaining)
+
+            remaining_jobs = [job for job in self.jobs if job.job_category is None]
+            if query.excluded_ids:
+                remaining_jobs = [job for job in remaining_jobs if getattr(job, "id", None) not in query.excluded_ids]
+            take = query.limit_value if query.limit_value is not None else len(remaining_jobs)
+            return _FakeResult(items=remaining_jobs[:take])
+
+        if hasattr(query, "__class__") and "Select" in query.__class__.__name__:
+            for item in query._raw_columns:
+                if hasattr(item, "__class__") and "Count" in item.__class__.__name__:
+                    remaining = sum(1 for job in self.jobs if job.job_category is None)
+                    return _FakeResult(scalar_value=remaining)
+
+            remaining_jobs = [job for job in self.jobs if job.job_category is None]
+            if hasattr(query, "where"):
+                if (
+                    hasattr(query.where, "left")
+                    and hasattr(query.where.left, "column")
+                    and query.where.left.column.name == "id"
+                ):
+                    if hasattr(query.where, "right"):
+                        excluded_ids = set(query.where.right.value)
+                        remaining_jobs = [job for job in remaining_jobs if getattr(job, "id", None) not in excluded_ids]
+
+            take = len(remaining_jobs)
+            if hasattr(query, "_limit") and query._limit is not None:
+                take = int(query._limit)
+            return _FakeResult(items=remaining_jobs[:take])
+
+        return _FakeResult()
 
     async def commit(self):
         self.commit_calls += 1
@@ -208,16 +261,18 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
             categories = await self.classify_batch(inputs)
             return [(category, "ok" if category else "no_mappable_token") for category in categories]
 
+        async def close(self):
+            pass
+
     def fake_select(*targets):
         return _FakeQuery("count" if targets and targets[0] is _FAKE_COUNT else "jobs")
 
     _FAKE_COUNT = object()
-    monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 2)
     monkeypatch.setattr(
-        "pipeline.repositories.sqlalchemy_repo.AsyncSessionLocal",
+        "pipeline.db.AsyncSessionLocal",
         lambda: fake_session,
     )
-    monkeypatch.setattr("pipeline.repositories.sqlalchemy_repo.Job", _FakeJobModel)
+    monkeypatch.setattr("pipeline.models.Job", _FakeJobModel)
     monkeypatch.setattr("sqlalchemy.select", fake_select)
     monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
     monkeypatch.setattr("sqlalchemy.or_", lambda *args: args[0] if args else None)
@@ -227,9 +282,28 @@ async def test_step_classify_requeries_batches_after_each_commit(monkeypatch):
         return _FakeClassifier()
 
     monkeypatch.setattr("pipeline.classification.get_classifier", _get_classifier)
-    monkeypatch.setattr("pipeline.classification.reset_classifier", lambda: None)
 
-    runner = run_pipeline.PipelineRunner()
+    async def _noop_async():
+        pass
+
+    monkeypatch.setattr("pipeline.classification.reset_classifier_async", _noop_async)
+    import pipeline.runtime.runner as runner_module
+
+    runner_module.AsyncSessionLocal = lambda: fake_session
+    runner_module.Job = _FakeJobModel
+    runner_module.get_classifier = _get_classifier
+    runner_module.reset_classifier_async = _noop_async
+    runner_module.select = fake_select
+    runner_module.func = SimpleNamespace(count=lambda: _FAKE_COUNT)
+    runner_module.update = lambda model: _FakeUpdate(model)
+
+    import pipeline.runtime.classify_step as classify_step_module
+
+    classify_step_module.select = fake_select
+    classify_step_module.func = SimpleNamespace(count=lambda: _FAKE_COUNT)
+    classify_step_module.update = lambda model: _FakeUpdate(model)
+
+    runner = PipelineRunner(classify_commit_batch_size=2)
     success, errors = await runner.step_classify(state=None)
 
     assert success == 4
@@ -255,24 +329,38 @@ async def test_step_classify_does_not_starve_new_rows_when_first_row_fails(monke
                     results.append(("software_engineering", "ok"))
             return results
 
+        async def close(self):
+            pass
+
     def fake_select(*targets):
         return _FakeQuery("count" if targets[0] is _FAKE_COUNT else "jobs")
 
     _FAKE_COUNT = object()
-    monkeypatch.setattr(run_pipeline, "CLASSIFY_COMMIT_BATCH_SIZE", 1)
     monkeypatch.setattr(
-        "pipeline.repositories.sqlalchemy_repo.AsyncSessionLocal",
+        "pipeline.db.AsyncSessionLocal",
         lambda: fake_session,
     )
-    monkeypatch.setattr("pipeline.repositories.sqlalchemy_repo.Job", _FakeJobModel)
+    monkeypatch.setattr("pipeline.models.Job", _FakeJobModel)
     monkeypatch.setattr("sqlalchemy.select", fake_select)
     monkeypatch.setattr("sqlalchemy.func", SimpleNamespace(count=lambda: _FAKE_COUNT))
 
     monkeypatch.setattr("pipeline.classification.get_classifier", lambda: _FakeClassifier())
-    monkeypatch.setattr("pipeline.classification.reset_classifier", lambda: None)
-    monkeypatch.setattr("sqlalchemy.update", lambda model: _FakeUpdate(model))
 
-    runner = run_pipeline.PipelineRunner()
+    async def _noop_async():
+        pass
+
+    monkeypatch.setattr("pipeline.classification.reset_classifier_async", _noop_async)
+    import pipeline.runtime.runner as runner_module
+
+    runner_module.AsyncSessionLocal = lambda: fake_session
+    runner_module.Job = _FakeJobModel
+    runner_module.get_classifier = lambda: _FakeClassifier()
+    runner_module.reset_classifier_async = _noop_async
+    runner_module.select = fake_select
+    runner_module.func = SimpleNamespace(count=lambda: _FAKE_COUNT)
+    runner_module.update = lambda model: _FakeUpdate(model)
+
+    runner = PipelineRunner(classify_commit_batch_size=1)
     success, errors = await runner.step_classify(state=None)
 
     assert success == 1
@@ -324,7 +412,7 @@ async def test_run_marks_failed_with_current_step(monkeypatch):
     async def _classify_fail(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=lambda run_id=None: fake_state,
         get_incomplete_run_func=_no_incomplete_run,
     )
@@ -390,7 +478,7 @@ async def test_run_auto_resumes_from_incomplete_db_run(monkeypatch):
         executed_steps.append("ingest")
         return _ingest_result()
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
     )
@@ -473,7 +561,7 @@ async def test_run_resumes_post_ingest_with_persisted_sync_context(monkeypatch):
         return 0, 0
 
     monkeypatch.setattr("pipeline.runtime.runner.job_sync_lock", _no_lock)
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         resume_run_id=sync_id,
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
@@ -549,7 +637,7 @@ async def test_run_resume_step_does_not_persist_across_runs(monkeypatch):
 
         return _inner
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
     )
@@ -645,7 +733,7 @@ async def test_run_rejects_suspicious_ingest_before_any_stale_mutation(monkeypat
     async def _zero_pair(*_args, **_kwargs):
         return 0, 0
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
     )
@@ -717,7 +805,7 @@ async def test_run_skips_delete_when_resuming_after_sync_inactive(monkeypatch):
     async def _zero_pair(*_args, **_kwargs):
         return 0, 0
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
     )
@@ -793,7 +881,7 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
     async def _finalize(*_args, **_kwargs):
         return 0, 0
 
-    runner = run_pipeline.PipelineRunner(
+    runner = PipelineRunner(
         state_manager_class=_FakeState,
         get_incomplete_run_func=_get_incomplete_run,
     )
@@ -812,3 +900,66 @@ async def test_cli_runner_uses_dependency_injection_without_monkeypatch():
     assert state_calls == [None]
     assert runner_module.PipelineStateManager is original_state_manager
     assert runner_module.get_incomplete_run is original_get_incomplete_run
+
+
+def test_runner_uses_configured_classify_default_and_preserves_override(monkeypatch):
+    import pipeline.runtime.runner as runner_module
+
+    config = Config(classify={"commit_batch_size": 50})
+    monkeypatch.setattr(runner_module, "get_config", lambda: config)
+
+    assert PipelineRunner().classify_commit_batch_size == 50
+    assert PipelineRunner(classify_commit_batch_size=7).classify_commit_batch_size == 7
+
+
+@pytest.mark.asyncio
+async def test_runner_threads_sync_batch_and_retry_config(monkeypatch):
+    import pipeline.runtime.runner as runner_module
+
+    config = Config(
+        sync={"sync_batch_size": 100},
+        retry={
+            "db_max_attempts": 5,
+            "db_base_delay_seconds": 0.25,
+            "db_max_delay_seconds": 2.0,
+        },
+    )
+    runner = PipelineRunner()
+    runner.config = config
+    expected_sync_id = uuid4()
+    calls: dict[str, dict] = {}
+
+    class _SessionContext:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return None
+
+    async def _mark_stale(_session, received_sync_id, **kwargs):
+        assert received_sync_id == expected_sync_id
+        calls["mark"] = kwargs
+        return 11
+
+    async def _delete_inactive(*, sync_id, **kwargs):
+        assert sync_id == expected_sync_id
+        calls["delete"] = kwargs
+        return 9
+
+    async def _cleanup_sightings(received_sync_id):
+        assert received_sync_id == expected_sync_id
+
+    monkeypatch.setattr(runner_module, "AsyncSessionLocal", _SessionContext)
+    monkeypatch.setattr(runner_module, "mark_stale_jobs_inactive", _mark_stale)
+    monkeypatch.setattr(runner_module, "delete_inactive_jobs", _delete_inactive)
+    runner.cleanup_sync_sightings = _cleanup_sightings
+
+    assert await runner.step_mark_stale_jobs(None, expected_sync_id) == 11
+    assert await runner.step_delete_inactive(None, expected_sync_id) == 9
+    expected = {
+        "batch_size": 100,
+        "max_attempts": 5,
+        "base_delay": 0.25,
+        "max_delay": 2.0,
+    }
+    assert calls == {"mark": expected, "delete": expected}

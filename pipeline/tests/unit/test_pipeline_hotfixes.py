@@ -48,14 +48,12 @@ def test_main_cleanup_step_passes_limit(monkeypatch):
         ):
             calls["runner_limit"] = limit
 
-        async def step_cleanup(
-            self, _state, since=None, test_mode: bool = False, limit: int | None = None
-        ):
+        async def step_cleanup(self, _state, since=None, test_mode: bool = False, limit: int | None = None):
             calls["limit"] = limit
             return 0
 
     monkeypatch.setattr(run_pipeline, "get_config", _fake_config)
-    monkeypatch.setattr(run_pipeline, "PipelineRunner", _FakeRunner)
+    monkeypatch.setattr(run_pipeline, "_RuntimePipelineRunner", _FakeRunner)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -87,7 +85,7 @@ def test_main_continuous_uses_interval_and_runner(monkeypatch):
         return None
 
     monkeypatch.setattr(run_pipeline, "get_config", _fake_config)
-    monkeypatch.setattr(run_pipeline, "PipelineRunner", _FakeRunner)
+    monkeypatch.setattr(run_pipeline, "_RuntimePipelineRunner", _FakeRunner)
     monkeypatch.setattr(run_pipeline, "run_continuous", _fake_run_continuous)
     monkeypatch.setattr(run_pipeline, "get_incomplete_run", _fake_get_incomplete_run)
     monkeypatch.setattr(sys, "argv", ["run_pipeline.py", "--continuous", "--interval", "5"])
@@ -96,6 +94,13 @@ def test_main_continuous_uses_interval_and_runner(monkeypatch):
 
     assert calls["ran_continuous"] is True
     assert calls["interval"] == 5
+
+
+def test_cli_runner_is_warning_only_compatibility_shim():
+    with pytest.warns(DeprecationWarning, match="pipeline.runtime.runner"):
+        runner = run_pipeline.PipelineRunner(dry_run=True)
+
+    assert isinstance(runner, run_pipeline._RuntimePipelineRunner)
 
 
 @pytest.mark.asyncio

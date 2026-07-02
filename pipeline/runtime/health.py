@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.config import get_settings
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+from pipeline.db import AsyncSessionLocal
 from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -31,11 +31,10 @@ class HealthCheckResult:
 
 async def check_database(session: AsyncSession | None = None) -> HealthCheckResult:
     should_close = session is None
-    if should_close:
-        session = AsyncSessionLocal()
+    active_session = session if session is not None else AsyncSessionLocal()
 
     try:
-        result = await session.execute(text("SELECT 1"))
+        result = await active_session.execute(text("SELECT 1"))
         row = result.scalar()
         if row == 1:
             return HealthCheckResult(
@@ -56,7 +55,7 @@ async def check_database(session: AsyncSession | None = None) -> HealthCheckResu
         )
     finally:
         if should_close:
-            await session.close()
+            await active_session.close()
 
 
 async def check_embedding_service() -> HealthCheckResult:

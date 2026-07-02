@@ -17,7 +17,8 @@ from pipeline.cleanup.normalizer import _normalize_existing_states
 from pipeline.cleanup.parser import _parse_location_only
 from pipeline.location.simple_parser import normalize_state_name
 from pipeline.repositories import LocationUpdate
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, SQLAlchemyJobRepository
+from pipeline.db import AsyncSessionLocal
+from pipeline.repositories.sqlalchemy_repo import SQLAlchemyJobRepository
 from pipeline.utils.lru import LRUDict
 
 logger = logging.getLogger(__name__)
@@ -175,11 +176,10 @@ async def cleanup_locations(
         logger.info("TEST MODE: Writing results to CSV (no database changes)")
 
     should_close_session = session is None
-    if should_close_session:
-        session = AsyncSessionLocal()
+    active_session = session if session is not None else AsyncSessionLocal()
 
     try:
-        states_fixed = await _normalize_existing_states(session)
+        states_fixed = await _normalize_existing_states(active_session)
         if states_fixed > 0:
             logger.info(f"Fixed {states_fixed} states that were actually countries")
 
@@ -192,11 +192,15 @@ async def cleanup_locations(
 
         if test_mode:
             return await _process_test_mode_chunked(
-                session, since, process_all, limit, location_cache_max_size=location_cache_max_size
+                active_session,
+                since,
+                process_all,
+                limit,
+                location_cache_max_size=location_cache_max_size,
             )
 
         return await _process_production_mode_chunked(
-            session,
+            active_session,
             since,
             process_all,
             limit,
@@ -206,26 +210,35 @@ async def cleanup_locations(
         )
     finally:
         if should_close_session:
-            await session.close()
+            await active_session.close()
 
 
 async def delete_inactive_jobs(
     session: AsyncSession | None = None,
     sync_id: UUID | None = None,
+    batch_size: int | None = None,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
 ) -> int:
     logger.info("=" * 60)
     logger.info("STEP: Deleting inactive jobs (sync model)...")
     logger.info("=" * 60)
 
     should_close_session = session is None
-    if should_close_session:
-        session = AsyncSessionLocal()
+    active_session = session if session is not None else AsyncSessionLocal()
 
     try:
         if sync_id is None:
             raise ValueError("sync_id is required to delete inactive jobs safely")
-        repo = SQLAlchemyJobRepository(session)
-        deleted_count = await repo.delete_inactive_jobs(sync_id)
+        repo = SQLAlchemyJobRepository(active_session)
+        deleted_count = await repo.delete_inactive_jobs(
+            sync_id,
+            batch_size=batch_size,
+            max_attempts=max_attempts,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
         if deleted_count == 0:
             logger.info("No inactive jobs to delete")
             return 0
@@ -235,4 +248,4 @@ async def delete_inactive_jobs(
 
     finally:
         if should_close_session:
-            await session.close()
+            await active_session.close()

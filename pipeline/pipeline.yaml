@@ -18,6 +18,7 @@ sync:
     min_fetched_to_stale_ratio: 0.5
     sightings_retention_days: 7
     sightings_cleanup_batch_size: 50000
+    sync_batch_size: 5000
 
 cleanup:
     process_all: false
@@ -27,6 +28,14 @@ cleanup:
 embeddings:
     batch_size: 50
     parallel_batches: 1
+
+classify:
+    commit_batch_size: 200
+
+retry:
+    db_max_attempts: 3
+    db_base_delay_seconds: 0.5
+    db_max_delay_seconds: 4.0
 
 discovery:
     enabled: false

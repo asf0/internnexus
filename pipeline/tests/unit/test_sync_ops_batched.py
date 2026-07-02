@@ -16,6 +16,7 @@ from pipeline.repositories.sync_ops import (
     batched_delete_inactive,
     batched_mark_stale_jobs_inactive,
 )
+from pipeline.runtime.config import SyncConfig
 
 
 class _FakeResult:
@@ -108,6 +109,20 @@ class TestBatchedSyncOp:
         session = _FakeSession([10])
         await _batched_sync_op(session, "SELECT 1", batch_size=5000)
         assert session.executed_params[0] == {"n": 5000}
+
+    @pytest.mark.asyncio
+    async def test_configured_batch_size_is_threaded_to_each_batch(self):
+        config = SyncConfig(sync_batch_size=100)
+        session = _FakeSession([100, 40])
+
+        total = await _batched_sync_op(
+            session,
+            "SELECT 1",
+            batch_size=config.sync_batch_size,
+        )
+
+        assert total == 140
+        assert session.executed_params == [{"n": 100}, {"n": 100}]
 
     @pytest.mark.asyncio
     async def test_extra_params_passed_through(self):

@@ -1,6 +1,9 @@
 """Unit tests for pipeline/repositories/__init__.py."""
 
+from unittest.mock import AsyncMock
 from uuid import uuid4
+
+import pytest
 
 from pipeline.repositories import (
     JobLocationData,
@@ -163,11 +166,6 @@ class TestSQLAlchemyRepositoryImport:
         from pipeline.repositories.sqlalchemy_repo import __all__
 
         expected_exports = {
-            "AsyncSessionLocal",
-            "Job",
-            "JobSource",
-            "PipelineRun",
-            "PipelineRunStatus",
             "SQLAlchemyJobRepository",
             "get_repository",
         }
@@ -199,6 +197,28 @@ class TestSQLAlchemyRepositoryImport:
 
         assert "self" in params
         assert "session" in params
+
+    @pytest.mark.asyncio
+    async def test_delete_inactive_jobs_uses_standalone_default_batch_size(self, monkeypatch):
+        from pipeline.repositories import sqlalchemy_repo
+
+        sync_id = uuid4()
+        session = object()
+        batched_delete = AsyncMock(return_value=7)
+        monkeypatch.setattr(sqlalchemy_repo, "batched_delete_inactive", batched_delete)
+
+        repo = sqlalchemy_repo.SQLAlchemyJobRepository(session)
+        result = await repo.delete_inactive_jobs(sync_id)
+
+        assert result == 7
+        batched_delete.assert_awaited_once_with(
+            session,
+            sync_id,
+            batch_size=sqlalchemy_repo.SYNC_BATCH_SIZE,
+            max_attempts=None,
+            base_delay=None,
+            max_delay=None,
+        )
 
 
 class TestRepositoryProtocolCompliance:

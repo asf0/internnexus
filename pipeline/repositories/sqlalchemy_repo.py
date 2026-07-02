@@ -14,24 +14,15 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 
 from pipeline.db import AsyncSessionLocal
-from pipeline.models import (
-    Job,
-    JobSource,
-    PipelineRun,
-    PipelineRunStatus,
-)
+from pipeline.models import Job
 from pipeline.repositories import JobEmbeddingRecord, JobLocationData, LocationUpdate
 from pipeline.repositories.job_text_sql import embedding_candidate_text_sql
 from pipeline.repositories.sync_ops import (
+    SYNC_BATCH_SIZE,
     batched_delete_inactive,
 )
 
 __all__ = [
-    "AsyncSessionLocal",
-    "Job",
-    "JobSource",
-    "PipelineRun",
-    "PipelineRunStatus",
     "SQLAlchemyJobRepository",
     "get_repository",
 ]
@@ -325,18 +316,38 @@ class SQLAlchemyJobRepository:
         await self._session.execute(stmt)
         await self._session.commit()
 
-    async def delete_inactive_jobs(self, sync_id: UUID) -> int:
+    async def delete_inactive_jobs(
+        self,
+        sync_id: UUID,
+        batch_size: int | None = None,
+        max_attempts: int | None = None,
+        base_delay: float | None = None,
+        max_delay: float | None = None,
+    ) -> int:
         """Delete inactive jobs that were not seen this run.
 
         Uses absence from the run-scoped sightings table.
 
         Args:
             sync_id: Synchronization run whose sightings define retained jobs.
+            batch_size: Number of rows per batch. Defaults to SYNC_BATCH_SIZE.
+            max_attempts: Maximum retry attempts. Defaults to 3.
+            base_delay: Base delay in seconds. Defaults to 0.5.
+            max_delay: Maximum delay in seconds. Defaults to 4.0.
 
         Returns:
             Number of jobs deleted
         """
-        return await batched_delete_inactive(self._session, sync_id)
+        if batch_size is None:
+            batch_size = SYNC_BATCH_SIZE
+        return await batched_delete_inactive(
+            self._session,
+            sync_id,
+            batch_size=batch_size,
+            max_attempts=max_attempts,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
 
     async def get_total_count(
         self,

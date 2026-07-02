@@ -32,6 +32,7 @@ class SyncConfig(BaseModel):
     min_fetched_to_stale_ratio: float = Field(default=0.5, gt=0)
     sightings_retention_days: int = Field(default=7, ge=1)
     sightings_cleanup_batch_size: int = Field(default=50_000, ge=1)
+    sync_batch_size: int = Field(default=5000, ge=1)
 
 
 class EmbeddingsConfig(BaseModel):
@@ -43,6 +44,16 @@ class EmbeddingsConfig(BaseModel):
 class ApiConfig(BaseModel):
     fetch_concurrency: int = 10
     slug_404_cooldown_hours: int = 24
+
+
+class ClassifyConfig(BaseModel):
+    commit_batch_size: int = Field(default=200, ge=1)
+
+
+class RetryConfig(BaseModel):
+    db_max_attempts: int = Field(default=3, ge=1)
+    db_base_delay_seconds: float = Field(default=0.5, gt=0)
+    db_max_delay_seconds: float = Field(default=4.0, gt=0)
 
 
 class DiscoveryConfig(BaseModel):
@@ -74,6 +85,8 @@ class Config(BaseModel):
     sync: SyncConfig = SyncConfig()
     cleanup: CleanupConfig = CleanupConfig()
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
+    classify: ClassifyConfig = ClassifyConfig()
+    retry: RetryConfig = RetryConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()
     health_check: HealthCheckConfig = HealthCheckConfig()
 

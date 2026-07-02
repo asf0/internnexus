@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy.exc import DBAPIError
@@ -12,6 +13,7 @@ from pipeline.repositories.retry import (
     _retryable_sqlstate,
     with_db_retry,
 )
+from pipeline.runtime.config import RetryConfig
 
 
 class _FakeDriverError(Exception):
@@ -151,6 +153,28 @@ class TestWithDbRetry:
         with pytest.raises(DBAPIError):
             await with_db_retry(func, base_delay=0, max_attempts=3)
         assert calls == 3
+
+    @pytest.mark.asyncio
+    async def test_configured_max_attempts_is_honored(self, monkeypatch):
+        config = RetryConfig(db_max_attempts=5)
+        calls = 0
+
+        async def func():
+            nonlocal calls
+            calls += 1
+            raise _make_dbapi_error("40P01")
+
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+
+        with pytest.raises(DBAPIError):
+            await with_db_retry(
+                func,
+                max_attempts=config.db_max_attempts,
+                base_delay=config.db_base_delay_seconds,
+                max_delay=config.db_max_delay_seconds,
+            )
+
+        assert calls == 5
 
     @pytest.mark.asyncio
     async def test_rollback_called_between_attempts(self):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import gc
 import logging
+import sys
 from types import SimpleNamespace
 
 from pipeline.classification import reset_classifier_async
@@ -39,10 +40,10 @@ def trim_process_memory(label: str) -> None:
     """Return freed Python/native heap memory to the OS when possible."""
     gc.collect()
 
+    # Lazy: optional platform module used only for Linux malloc trimming.
     import ctypes as _ctypes
-    import sys as _sys
 
-    if _sys.platform == "linux":
+    if sys.platform == "linux":
         try:
             _ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception:  # noqa: BLE001  # malloc_trim is best-effort memory optimization
@@ -54,9 +55,6 @@ def trim_process_memory(label: str) -> None:
 async def cleanup_step_resources(label: str = "") -> None:
     """Release heavyweight per-step resources without disposing DB engines."""
     logger.debug("Cleaning up step resources%s", f" for {label}" if label else "")
-
-    from pipeline.classification import reset_classifier_async
-    from pipeline.embeddings.enrichment import reset_embedder
 
     try:
         await reset_classifier_async()

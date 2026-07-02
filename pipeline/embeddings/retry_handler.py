@@ -14,7 +14,7 @@ from pipeline.embeddings.batch_processor import (
     _log_failed_job,
     _process_with_semaphore,
 )
-from pipeline.repositories.sqlalchemy_repo import Job
+from pipeline.models import Job
 
 if TYPE_CHECKING:
     from pipeline.embedding import QueryEmbeddingService as EmbeddingService

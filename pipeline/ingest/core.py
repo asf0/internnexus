@@ -21,7 +21,10 @@ except ImportError:
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pipeline.repositories.sync_ops import batched_mark_stale_jobs_inactive
+from pipeline.repositories.sync_ops import (
+    SYNC_BATCH_SIZE,
+    batched_mark_stale_jobs_inactive,
+)
 from pipeline.sources.registry import get_greenhouse_slugs, get_lever_slugs, get_ashby_slugs
 from pipeline.sources.greenhouse import GreenhouseClient
 from pipeline.sources.lever import LeverClient
@@ -574,7 +577,14 @@ async def fetch_and_ingest_streamed(
     )
 
 
-async def mark_stale_jobs_inactive(session: AsyncSession, sync_id: UUID) -> int:
+async def mark_stale_jobs_inactive(
+    session: AsyncSession,
+    sync_id: UUID,
+    batch_size: int | None = None,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
+) -> int:
     """Mark active non-manual jobs that were not seen this run as inactive.
 
     Uses the run-scoped sightings table to identify jobs not observed this run.
@@ -582,8 +592,21 @@ async def mark_stale_jobs_inactive(session: AsyncSession, sync_id: UUID) -> int:
     Args:
         session: SQLAlchemy async session.
         sync_id: Synchronization run whose sightings define active jobs.
+        batch_size: Number of rows per batch. Defaults to SYNC_BATCH_SIZE.
+        max_attempts: Maximum retry attempts. Defaults to 3.
+        base_delay: Base delay in seconds. Defaults to 0.5.
+        max_delay: Maximum delay in seconds. Defaults to 4.0.
 
     Returns:
         Number of jobs marked inactive.
     """
-    return await batched_mark_stale_jobs_inactive(session, sync_id)
+    if batch_size is None:
+        batch_size = SYNC_BATCH_SIZE
+    return await batched_mark_stale_jobs_inactive(
+        session,
+        sync_id,
+        batch_size=batch_size,
+        max_attempts=max_attempts,
+        base_delay=base_delay,
+        max_delay=max_delay,
+    )

@@ -32,11 +32,13 @@ from pipeline.runtime.services import cleanup_step_resources, log_memory_usage, 
 from pipeline.runtime.steps import PIPELINE_STEPS
 from pipeline.runtime.sync_lock import job_sync_lock, null_sync_lock
 
+from pipeline.classification import get_classifier, reset_classifier_async
+from pipeline.db import AsyncSessionLocal
+from pipeline.runtime.classify_step import run_classify_step
+from pipeline.discovery import discover_companies
+
 logger = logging.getLogger(__name__)
 
-CLASSIFY_COMMIT_BATCH_SIZE = 200
-MIN_MARKED_INACTIVE_FOR_DELETE_GUARD = 1000
-MIN_FETCHED_TO_MARKED_INACTIVE_RATIO = 0.5
 STEPS = PIPELINE_STEPS
 
 
@@ -61,15 +63,17 @@ def _get_resume_step_from_db_run(step_completed: str | None) -> str | None:
     return None
 
 
-def _is_unsafe_delete_inactive_sync(marked_inactive: int, jobs_fetched: int) -> bool:
+def _is_unsafe_delete_inactive_sync(marked_inactive: int, jobs_fetched: int, config=None) -> bool:
     """Return True when ingest looks too incomplete to drive hard deletes."""
     if marked_inactive <= 0:
         return False
     if jobs_fetched <= 0:
         return True
-    if marked_inactive < MIN_MARKED_INACTIVE_FOR_DELETE_GUARD:
+    if config is None:
+        config = get_config().sync
+    if marked_inactive < config.min_stale_guard_count:
         return False
-    return jobs_fetched / marked_inactive < MIN_FETCHED_TO_MARKED_INACTIVE_RATIO
+    return jobs_fetched / marked_inactive < config.min_fetched_to_stale_ratio
 
 
 @dataclass(frozen=True)
@@ -137,7 +141,7 @@ class PipelineRunner:
         state_manager_class=PipelineStateManager,
         get_incomplete_run_func=get_incomplete_run,
         get_resumable_run_func=get_resumable_run,
-        classify_commit_batch_size: int = CLASSIFY_COMMIT_BATCH_SIZE,
+        classify_commit_batch_size: int | None = None,
     ):
         self.config = get_config()
         self.skip_discover = skip_discover
@@ -149,7 +153,12 @@ class PipelineRunner:
         self.state_manager_class = state_manager_class
         self.get_incomplete_run_func = get_incomplete_run_func
         self.get_resumable_run_func = get_resumable_run_func
-        self.classify_commit_batch_size = classify_commit_batch_size
+        batch_size = (
+            classify_commit_batch_size
+            if classify_commit_batch_size is not None
+            else self.config.classify.commit_batch_size
+        )
+        self.classify_commit_batch_size = batch_size
         self.results = {
             "companies_verified": 0,
             "jobs_fetched": 0,
@@ -218,8 +227,6 @@ class PipelineRunner:
         if self.dry_run:
             logger.info("[DRY RUN] Would discover companies via SearxNG")
             return 0
-
-        from pipeline.discovery import discover_companies
 
         logger.info("Running company discovery via SearxNG")
         slugs = await discover_companies()
@@ -333,117 +340,28 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would classify jobs without categories")
             return 0, 0
 
-        from sqlalchemy import func, select, update
-
-        from pipeline.classification import get_classifier, reset_classifier_async
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
-
-        success, errors = 0, 0
-
-        async with AsyncSessionLocal() as session:
-            total_query = select(func.count()).select_from(Job).where(Job.job_category.is_(None))
-            total_result = await session.execute(total_query)
-            total_available = int(total_result.scalar() or 0)
-            total_jobs = min(limit, total_available) if limit else total_available
-
-            if total_jobs == 0:
-                logger.info("No jobs to classify")
-                self.step_times[step_name] = time.time() - step_start
-                if state:
-                    await state.mark_step_complete(step_name)
-                return 0, 0
-
-            logger.info("Classifying %d jobs without categories...", total_jobs)
-
+        async with AsyncSessionLocal() as db:
             classifier = get_classifier()
-            processed = 0
-            attempted_job_ids: set[object] = set()
             try:
-                while processed < total_jobs:
-                    batch_limit = min(self.classify_commit_batch_size, total_jobs - processed)
-                    batch_query = (
-                        select(Job.id, Job.title, Job.description_text)
-                        .where(Job.job_category.is_(None))
-                        .order_by(
-                            Job.posted_at.desc().nulls_last(),
-                            Job.id.desc(),
-                        )
-                        .limit(batch_limit)
-                    )
-                    if attempted_job_ids:
-                        batch_query = batch_query.where(Job.id.notin_(attempted_job_ids))
-                    batch_result = await session.execute(batch_query)
-                    rows = batch_result.all()
-                    if not rows:
-                        logger.warning(
-                            "Classification stopped early at %d/%d jobs; no uncategorized rows returned after excluding %d attempted rows",
-                            processed,
-                            total_jobs,
-                            len(attempted_job_ids),
-                        )
-                        break
-
-                    inputs = [(row.title, row.description_text or "") for row in rows]
-                    # inputs = [(j.title, j.description_text or "") for j in chunk]
-                    categories_with_reason = await classifier.classify_batch_with_reasons(inputs)
-
-                    batch_success = 0
-                    batch_errors = 0
-                    failed_entries: list[tuple[object | None, str]] = []
-                    for row, (category, reason) in zip(rows, categories_with_reason):
-                        if category:
-                            await session.execute(update(Job).where(Job.id == row.id).values(job_category=category))
-                            success += 1
-                            batch_success += 1
-                        else:
-                            # Only track failures — they stay NULL and could re-appear in the query
-                            if row.id is not None:
-                                attempted_job_ids.add(row.id)
-                                failed_entries.append((row.id, reason))
-                            errors += 1
-                            batch_errors += 1
-
-                    if failed_entries:
-                        sample = ", ".join(f"{job_id}:{reason}" for job_id, reason in failed_entries[:10])
-                        logger.warning(
-                            "Classification failed for %d jobs in batch (sample: %s)",
-                            len(failed_entries),
-                            sample,
-                        )
-
-                    await session.commit()
-                    session.expunge_all()  # free Job ORM objects (incl. description_text) immediately
-                    processed += len(rows)
-                    batch_success_rate = (batch_success / len(rows)) * 100 if rows else 0.0
-                    cumulative_success_rate = (success / processed) * 100 if processed else 0.0
-                    logger.info(
-                        (
-                            "Classification commit progress: %d/%d "
-                            "(batch_success=%d, batch_errors=%d, batch_success_rate=%.1f%%; "
-                            "success=%d, errors=%d, cumulative_success_rate=%.1f%%)"
-                        ),
-                        processed,
-                        total_jobs,
-                        batch_success,
-                        batch_errors,
-                        batch_success_rate,
-                        success,
-                        errors,
-                        cumulative_success_rate,
-                    )
+                result = await run_classify_step(
+                    db=db,
+                    classifier=classifier,
+                    commit_batch_size=self.classify_commit_batch_size,
+                    limit=limit,
+                )
             finally:
                 await reset_classifier_async()
 
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'classify' completed in {self.step_times[step_name]:.1f}s")
-        _log_step_rate(step_name, self.step_times[step_name], success)
+        _log_step_rate(step_name, self.step_times[step_name], result.success_count)
 
         if state:
             await state.mark_step_complete(step_name)
 
         log_memory_usage("after classify")
 
-        return success, errors
+        return result.success_count, result.error_count
 
     async def step_sync_inactive(self, state: PipelineStateManager | None) -> int:
         """No-op retained for CLI and resume compatibility."""
@@ -479,11 +397,19 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would mark stale jobs as inactive")
             return 0
 
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+        batch_size = self.config.sync.sync_batch_size
+        retry_options = self.config.retry
 
         async with AsyncSessionLocal() as session:
             logger.info("Marking jobs absent from sync %s inactive...", sync_id)
-            count = await mark_stale_jobs_inactive(session, sync_id)
+            count = await mark_stale_jobs_inactive(
+                session,
+                sync_id,
+                batch_size=batch_size,
+                max_attempts=retry_options.db_max_attempts,
+                base_delay=retry_options.db_base_delay_seconds,
+                max_delay=retry_options.db_max_delay_seconds,
+            )
             logger.info("Marked %d stale jobs as inactive", count)
 
         self.step_times[step_name] = time.time() - step_start
@@ -505,7 +431,16 @@ class PipelineRunner:
             logger.info("[DRY RUN] Would delete inactive jobs")
             return 0
 
-        count = await delete_inactive_jobs(sync_id=sync_id)
+        batch_size = self.config.sync.sync_batch_size
+        retry_options = self.config.retry
+
+        count = await delete_inactive_jobs(
+            sync_id=sync_id,
+            batch_size=batch_size,
+            max_attempts=retry_options.db_max_attempts,
+            base_delay=retry_options.db_base_delay_seconds,
+            max_delay=retry_options.db_max_delay_seconds,
+        )
         self.step_times[step_name] = time.time() - step_start
         logger.info(f"Step 'delete_inactive' completed in {self.step_times[step_name]:.1f}s")
         _log_step_rate(step_name, self.step_times[step_name], count)
@@ -518,8 +453,6 @@ class PipelineRunner:
 
     async def assess_sync(self, ingest: IngestResult) -> SyncSafetyAssessment:
         """Read authoritative counts and reject unsafe synchronization before writes."""
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
-
         async with AsyncSessionLocal() as session:
             source_counts = await get_sighting_counts(session, ingest.sync_id)
             stale_count = await count_stale_jobs(session, ingest.sync_id)
@@ -557,8 +490,6 @@ class PipelineRunner:
         return assessment
 
     async def cleanup_sync_sightings(self, sync_id: UUID) -> None:
-        from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
-
         async with AsyncSessionLocal() as session:
             deleted = await delete_sightings(session, sync_id)
             pruned = await prune_abandoned_sightings(

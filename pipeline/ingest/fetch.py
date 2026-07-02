@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.ingest.core import fetch_and_ingest_streamed
 from pipeline.ingest.result import IngestResult
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+from pipeline.db import AsyncSessionLocal
 from pipeline.runtime.config import get_config
 
 logger = logging.getLogger(__name__)

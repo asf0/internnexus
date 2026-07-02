@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+import warnings
 
 from pipeline.cli.args import build_parser
 from pipeline.runtime import (
@@ -52,8 +53,7 @@ from pipeline.runtime import (
     print_health_report,
     run_health_checks,
 )
-from pipeline.runtime.runner import CLASSIFY_COMMIT_BATCH_SIZE
-from pipeline.runtime.runner import PipelineRunner as _PipelineRunner
+from pipeline.runtime.runner import PipelineRunner as _RuntimePipelineRunner
 from pipeline.runtime.runner import STEPS as _RUNNER_STEPS
 from pipeline.runtime.services import (
     resolve_resume_run_id,
@@ -69,14 +69,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 STEPS = _RUNNER_STEPS
 
-__all__ = ["PipelineRunner", "STEPS", "CLASSIFY_COMMIT_BATCH_SIZE"]
+__all__ = ["PipelineRunner", "STEPS"]
 
 
-class PipelineRunner(_PipelineRunner):
+class PipelineRunner(_RuntimePipelineRunner):
     """Backward-compatible CLI import for the runtime pipeline runner."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, classify_commit_batch_size=CLASSIFY_COMMIT_BATCH_SIZE, **kwargs)
+        warnings.warn(
+            "Import PipelineRunner from pipeline.runtime.runner",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
 
 async def run_continuous(runner: PipelineRunner, interval: int):
@@ -110,7 +115,7 @@ def main():
             logger=logger,
         )
 
-        runner = PipelineRunner(
+        runner = _RuntimePipelineRunner(
             skip_discover=args.skip_discover,
             dry_run=args.dry_run,
             process_all=args.all,
@@ -142,7 +147,7 @@ def main():
                 resume_run_id = incomplete.id
                 logger.info(f"Resuming incomplete run: {resume_run_id}")
 
-            runner = PipelineRunner(
+            runner = _RuntimePipelineRunner(
                 skip_discover=args.skip_discover,
                 dry_run=args.dry_run,
                 process_all=args.all,

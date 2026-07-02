@@ -28,7 +28,8 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipeline.classification import CANONICAL_CATEGORIES, get_canonical_category
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal, Job
+from pipeline.db import AsyncSessionLocal
+from pipeline.models import Job
 
 logging.basicConfig(
     level=logging.INFO,

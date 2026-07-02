@@ -11,6 +11,7 @@ import asyncio
 import logging
 import random
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.exc import DBAPIError
@@ -19,6 +20,14 @@ logger = logging.getLogger(__name__)
 
 # 40P01 deadlock_detected, 40001 serialization_failure, 55P03 lock_not_available
 RETRYABLE_SQLSTATES = frozenset({"40P01", "40001", "55P03"})
+
+
+@dataclass(frozen=True)
+class DbRetryOptions:
+    max_attempts: int = 3
+    base_delay: float = 0.5
+    max_delay: float = 4.0
+
 
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_BASE_DELAY = 0.5
@@ -40,20 +49,17 @@ def _retryable_sqlstate(exc: BaseException) -> str | None:
             code = getattr(current, attr, None)
             if isinstance(code, str) and code in RETRYABLE_SQLSTATES:
                 return code
-        current = (
-            getattr(current, "orig", None)
-            or current.__cause__
-            or current.__context__
-        )
+        current = getattr(current, "orig", None) or current.__cause__ or current.__context__
     return None
 
 
 async def with_db_retry(
     func: Callable[[], Awaitable[Any]],
     *,
-    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-    base_delay: float = DEFAULT_BASE_DELAY,
-    max_delay: float = DEFAULT_MAX_DELAY,
+    options: DbRetryOptions | None = None,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
     rollback: Callable[[], Awaitable[Any]] | None = None,
 ) -> Any:
     """Execute *func* with retry on transient PostgreSQL concurrency errors.
@@ -74,25 +80,32 @@ async def with_db_retry(
         The last exception if all attempts are exhausted or the error is not
         retryable.
     """
-    for attempt in range(1, max_attempts + 1):
+    if options is None:
+        options = DbRetryOptions(
+            max_attempts=max_attempts if max_attempts is not None else DEFAULT_MAX_ATTEMPTS,
+            base_delay=base_delay if base_delay is not None else DEFAULT_BASE_DELAY,
+            max_delay=max_delay if max_delay is not None else DEFAULT_MAX_DELAY,
+        )
+
+    for attempt in range(1, options.max_attempts + 1):
         try:
             return await func()
         except DBAPIError as exc:
             code = _retryable_sqlstate(exc)
-            if code is None or attempt >= max_attempts:
+            if code is None or attempt >= options.max_attempts:
                 raise
             if rollback is not None:
                 try:
                     await rollback()
                 except Exception:  # noqa: BLE001  # rollback must not mask the retryable error
                     logger.warning("Rollback failed before retry", exc_info=True)
-            delay = min(max_delay, base_delay * (2 ** (attempt - 1)))
+            delay = min(options.max_delay, options.base_delay * (2 ** (attempt - 1)))
             delay *= 0.5 + random.random()
             logger.warning(
                 "Retryable DB error %s on attempt %d/%d, retrying in %.2fs",
                 code,
                 attempt,
-                max_attempts,
+                options.max_attempts,
                 delay,
             )
             await asyncio.sleep(delay)

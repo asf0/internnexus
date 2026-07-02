@@ -19,7 +19,7 @@ from pipeline.embeddings.retry_handler import (
     _log_exhausted_retries,
     _process_retry_queue,
 )
-from pipeline.repositories.sqlalchemy_repo import AsyncSessionLocal
+from pipeline.db import AsyncSessionLocal
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
