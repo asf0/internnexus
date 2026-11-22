@@ -1,0 +1,23 @@
+# Inert: backend builds use the repository root as context, so the root
+# .dockerignore is authoritative. Keep this only for standalone backend builds.
+.env
+.env.local
+.env.*
+node_modules
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.next
+dist
+*.log
+*.db
+.DS_Store
+.git
+.gitignore
+Dockerfile*
+docker-compose*
+README.md
+*.md
+.vscode
+.idea

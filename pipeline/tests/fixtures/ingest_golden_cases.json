@@ -1,0 +1,142 @@
+{
+  "happy_path": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 6,
+    "source_counts": {
+      "greenhouse": 2,
+      "lever": 2,
+      "ashby": 2
+    },
+    "fetch_error_counts": {
+      "greenhouse": 0,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": true,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 6
+  },
+  "existing_cooldown": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 4,
+    "source_counts": {
+      "greenhouse": 0,
+      "lever": 2,
+      "ashby": 2
+    },
+    "fetch_error_counts": {
+      "greenhouse": 1,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": false,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 4
+  },
+  "new_404": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 4,
+    "source_counts": {
+      "greenhouse": 0,
+      "lever": 2,
+      "ashby": 2
+    },
+    "fetch_error_counts": {
+      "greenhouse": 1,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": false,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 4
+  },
+  "non_404_per_slug_exception": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 6,
+    "source_counts": {
+      "greenhouse": 2,
+      "lever": 2,
+      "ashby": 2
+    },
+    "fetch_error_counts": {
+      "greenhouse": 1,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": false,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 6
+  },
+  "fatal_sync_client_exception": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 4,
+    "source_counts": {
+      "greenhouse": 0,
+      "lever": 2,
+      "ashby": 2
+    },
+    "fetch_error_counts": {
+      "greenhouse": 1,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": false,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 4
+  },
+  "dedup": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 2,
+    "source_counts": {
+      "greenhouse": 2,
+      "lever": 0,
+      "ashby": 0
+    },
+    "fetch_error_counts": {
+      "greenhouse": 0,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": true,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 1
+  },
+  "empty_result": {
+    "sync_id": "12345678-1234-5678-1234-567812345678",
+    "jobs_fetched": 0,
+    "source_counts": {
+      "greenhouse": 0,
+      "lever": 0,
+      "ashby": 0
+    },
+    "fetch_error_counts": {
+      "greenhouse": 0,
+      "lever": 0,
+      "ashby": 0
+    },
+    "source_complete": {
+      "greenhouse": true,
+      "lever": true,
+      "ashby": true
+    },
+    "jobs_changed": 0
+  }
+}

@@ -1,0 +1,346 @@
+{
+  "version": 1,
+  "description": "Golden fixture for cleanup loop tests. Captures current behavior as of 2026-07-02.",
+
+  "parser_cases": [
+    {"name": "remote",              "input": "Remote",              "expected": {"city": null, "state": null, "country": null}},
+    {"name": "work_from_home",       "input": "Work from home",      "expected": {"city": null, "state": null, "country": null}},
+    {"name": "wfh",                 "input": "WFH",                 "expected": {"city": null, "state": null, "country": null}},
+    {"name": "distributed",          "input": "Distributed",         "expected": {"city": null, "state": null, "country": null}},
+    {"name": "virtual",             "input": "Virtual",             "expected": {"city": null, "state": null, "country": null}},
+    {"name": "telecommute",          "input": "Telecommute",         "expected": {"city": "Telecommute", "state": null, "country": null}},
+    {"name": "anywhere",            "input": "Anywhere",            "expected": {"city": null, "state": null, "country": null}},
+    {"name": "mountain_view_override","input": "Mountain View",       "expected": {"city": "Mountain View", "state": null, "country": "United States"}},
+    {"name": "nyc_override",         "input": "NYC",                 "expected": {"city": "New York", "state": "New York", "country": "United States"}},
+    {"name": "singapore_override",   "input": "Singapore",           "expected": {"city": "Singapore", "state": null, "country": "Singapore"}},
+    {"name": "san_francisco_ca",     "input": "San Francisco, CA",   "expected": {"city": "San Francisco", "state": "California", "country": "United States"}},
+    {"name": "london_uk",           "input": "London, UK",          "expected": {"city": "London", "state": null, "country": "United Kingdom"}},
+    {"name": "california_state_only","input": "California",          "expected": {"city": null, "state": "California", "country": "United States"}},
+    {"name": "atlantis_unknown",     "input": "Atlantis",            "expected": {"city": "Atlantis", "state": null, "country": null}},
+    {"name": "cache_hit",
+     "input": "San Francisco, CA",
+     "preload": {"San Francisco, CA": {"city": "FakeCity", "state": "FakeState", "country": "FakeCountry"}},
+     "expected": {"city": "FakeCity", "state": "FakeState", "country": "FakeCountry"}}
+  ],
+
+  "production_cases": [
+    {
+      "name": "empty",
+      "params": {"total_count": 0, "jobs": []},
+      "expected": {"updated": 0, "snapshot": {}, "expected_update_batches": []}
+    },
+    {
+      "name": "missing_location",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": null, "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 0,
+        "expected_update_batches": [],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": null, "state": null, "country": null}
+        }
+      }
+    },
+    {
+      "name": "unchanged",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": "San Francisco", "state": "California", "country": "United States"}
+        ]
+      },
+      "expected": {
+        "updated": 0,
+        "expected_update_batches": [],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "San Francisco", "state": "California", "country": "United States"}
+        }
+      }
+    },
+    {
+      "name": "parseable_city_state",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 1,
+        "expected_update_batches": [["00000000-0000-0000-0000-000000000001"]],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "San Francisco", "state": "California", "country": "United States"}
+        }
+      }
+    },
+    {
+      "name": "remote_noop",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 0,
+        "expected_update_batches": [],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": null, "state": null, "country": null}
+        }
+      }
+    },
+    {
+      "name": "state_only",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "California", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 1,
+        "expected_update_batches": [["00000000-0000-0000-0000-000000000001"]],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": null, "state": "California", "country": "United States"}
+        }
+      }
+    },
+    {
+      "name": "single_chunk",
+      "params": {
+        "total_count": 3,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 2,
+        "expected_update_batches": [["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000003"]],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "New York", "state": "New York", "country": "United States"},
+          "00000000-0000-0000-0000-000000000002": {"city": null, "state": null, "country": null},
+          "00000000-0000-0000-0000-000000000003": {"city": "London", "state": null, "country": "United Kingdom"}
+        }
+      }
+    },
+    {
+      "name": "multi_chunk",
+      "params": {
+        "total_count": 6,
+        "chunk_size": 2,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "lever", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000004", "source": "ashby", "location": "Chicago, IL", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000005", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000006", "source": "lever", "location": "Somewhere", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 5,
+        "expected_update_batches": [
+          ["00000000-0000-0000-0000-000000000001"],
+          ["00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"],
+          ["00000000-0000-0000-0000-000000000005", "00000000-0000-0000-0000-000000000006"]
+        ],
+        "expected_pagination_calls": [
+          {"last_id": null, "limit": 2, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]},
+          {"last_id": "00000000-0000-0000-0000-000000000002", "limit": 2, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"]},
+          {"last_id": "00000000-0000-0000-0000-000000000004", "limit": 2, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000005", "00000000-0000-0000-0000-000000000006"]},
+          {"last_id": "00000000-0000-0000-0000-000000000006", "limit": 2, "returned_count": 0, "returned_ids": []}
+        ],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "San Francisco", "state": "California", "country": "United States"},
+          "00000000-0000-0000-0000-000000000002": {"city": null, "state": null, "country": null},
+          "00000000-0000-0000-0000-000000000003": {"city": "New York", "state": "New York", "country": "United States"},
+          "00000000-0000-0000-0000-000000000004": {"city": "Chicago", "state": "Illinois", "country": "Israel"},
+          "00000000-0000-0000-0000-000000000005": {"city": "London", "state": null, "country": "United Kingdom"},
+          "00000000-0000-0000-0000-000000000006": {"city": "Somewhere", "state": null, "country": null}
+        }
+      }
+    },
+    {
+      "name": "duplicate_location",
+      "params": {
+        "total_count": 2,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 2,
+        "expected_update_batches": [["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "San Francisco", "state": "California", "country": "United States"},
+          "00000000-0000-0000-0000-000000000002": {"city": "San Francisco", "state": "California", "country": "United States"}
+        }
+      }
+    },
+    {
+      "name": "limit_cutoff",
+      "params": {
+        "total_count": 3,
+        "limit": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "updated": 1,
+        "expected_update_batches": [["00000000-0000-0000-0000-000000000001"]],
+        "snapshot": {
+          "00000000-0000-0000-0000-000000000001": {"city": "New York", "state": "New York", "country": "United States"},
+          "00000000-0000-0000-0000-000000000002": {"city": null, "state": null, "country": null},
+          "00000000-0000-0000-0000-000000000003": {"city": null, "state": null, "country": null}
+        }
+      }
+    }
+  ],
+
+  "test_mode_cases": [
+    {
+      "name": "empty",
+      "params": {"total_count": 0, "jobs": []},
+      "expected": {"processed": 0, "csv": "id,source,original_location,city,state,country,fix_source\r\n"}
+    },
+    {
+      "name": "missing_location",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": null, "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n"}
+    },
+    {
+      "name": "unchanged",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": "San Francisco", "state": "California", "country": "United States"}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"San Francisco, CA\",San Francisco,California,United States,location_string\r\n"}
+    },
+    {
+      "name": "parseable_city_state",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"San Francisco, CA\",San Francisco,California,United States,location_string\r\n"}
+    },
+    {
+      "name": "remote_noop",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,Remote,,,,location_string\r\n"}
+    },
+    {
+      "name": "state_only",
+      "params": {
+        "total_count": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "California", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,California,,California,United States,location_string\r\n"}
+    },
+    {
+      "name": "single_chunk",
+      "params": {
+        "total_count": 3,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 3, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"New York, NY\",New York,New York,United States,location_string\r\n00000000-0000-0000-0000-000000000002,greenhouse,Remote,,,,location_string\r\n00000000-0000-0000-0000-000000000003,greenhouse,\"London, UK\",London,,United Kingdom,location_string\r\n"}
+    },
+    {
+      "name": "multi_chunk",
+      "params": {
+        "total_count": 6,
+        "max_page_size": 2,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "lever", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000004", "source": "ashby", "location": "Chicago, IL", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000005", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000006", "source": "lever", "location": "Somewhere", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {
+        "processed": 6,
+        "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"San Francisco, CA\",San Francisco,California,United States,location_string\r\n00000000-0000-0000-0000-000000000002,greenhouse,Remote,,,,location_string\r\n00000000-0000-0000-0000-000000000003,lever,\"New York, NY\",New York,New York,United States,location_string\r\n00000000-0000-0000-0000-000000000004,ashby,\"Chicago, IL\",Chicago,Illinois,Israel,location_string\r\n00000000-0000-0000-0000-000000000005,greenhouse,\"London, UK\",London,,United Kingdom,location_string\r\n00000000-0000-0000-0000-000000000006,lever,Somewhere,Somewhere,,,location_string\r\n",
+        "expected_pagination_calls": [
+          {"last_id": null, "limit": 5000, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]},
+          {"last_id": "00000000-0000-0000-0000-000000000002", "limit": 5000, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"]},
+          {"last_id": "00000000-0000-0000-0000-000000000004", "limit": 5000, "returned_count": 2, "returned_ids": ["00000000-0000-0000-0000-000000000005", "00000000-0000-0000-0000-000000000006"]},
+          {"last_id": "00000000-0000-0000-0000-000000000006", "limit": 5000, "returned_count": 0, "returned_ids": []}
+        ]
+      }
+    },
+    {
+      "name": "duplicate_location",
+      "params": {
+        "total_count": 2,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "San Francisco, CA", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 2, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"San Francisco, CA\",San Francisco,California,United States,location_string\r\n00000000-0000-0000-0000-000000000002,greenhouse,\"San Francisco, CA\",San Francisco,California,United States,location_string\r\n"}
+    },
+    {
+      "name": "limit_cutoff",
+      "params": {
+        "total_count": 3,
+        "limit": 1,
+        "jobs": [
+          {"id": "00000000-0000-0000-0000-000000000001", "source": "greenhouse", "location": "New York, NY", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000002", "source": "greenhouse", "location": "Remote", "city": null, "state": null, "country": null},
+          {"id": "00000000-0000-0000-0000-000000000003", "source": "greenhouse", "location": "London, UK", "city": null, "state": null, "country": null}
+        ]
+      },
+      "expected": {"processed": 1, "csv": "id,source,original_location,city,state,country,fix_source\r\n00000000-0000-0000-0000-000000000001,greenhouse,\"New York, NY\",New York,New York,United States,location_string\r\n"}
+    }
+  ],
+
+  "normalizer_cases": {
+    "initial_rows": [
+      {"id": "A", "city": "Cleveland", "state": "Ohio", "country": "United States"},
+      {"id": "B", "city": "  Columbus  ", "state": "  Bayern  ", "country": "  United States  "},
+      {"id": "C", "city": null, "state": "Canada", "country": null},
+      {"id": "D", "city": null, "state": "Abu Dhabi", "country": null},
+      {"id": "E", "city": "United Kingdom", "state": "Europe", "country": null}
+    ],
+    "expected_rows": [
+      {"id": "A", "city": "Cleveland", "state": "Ohio", "country": "United States"},
+      {"id": "B", "city": "Columbus", "state": "Bavaria", "country": "United States"},
+      {"id": "C", "city": null, "state": null, "country": "Canada"},
+      {"id": "D", "city": null, "state": null, "country": null},
+      {"id": "E", "city": null, "state": null, "country": null}
+    ],
+    "expected_total": 8
+  }
+}

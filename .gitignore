@@ -1,0 +1,115 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Build outputs
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sql
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.pytest_cache/
+.ruff_cache/
+.sonar/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Pipeline runtime artifacts
+pipeline/output/
+pipeline/apis/*.old
+pipeline/telemetry-id
+pipeline/docs-plan/
+pipeline/data/classification_rejections_*.jsonl
+qdrant_storage/
+data/classification_rejections.jsonl
+
+# Test artifacts
+.hypothesis/
+backend/.hypothesis/
+frontend/playwright-report/
+frontend/test-results/
+.tmp/
+TEST_STATUS.md
+TEST_SUMMARY.md
+._.env.example
+
+# Misc
+*.pdf
+telemetry-id
+opencode.json
+my-react-native-app/
+rntemp/
+# Local helper scripts at the repo root are ignored; CI scripts under
+# .github/scripts are tracked.
+/scripts/
+.roo/
+/package-lock.json
+docs/*-plan.md
+
+# Temporary discovery merge artifacts
+greenhouse.csv
+lever.csv
+ashby.csv
+
+tests/
+!backend/tests/
+!backend/tests/**
+!frontend/tests/
+!frontend/tests/**
+!pipeline/tests/
+!pipeline/tests/**
+!packages/internnexus-core/tests/
+!packages/internnexus-core/tests/**
+packages/internnexus-core/tests/**/__pycache__/
+packages/internnexus-core/tests/**/*.py[cod]
+pipeline/tests/**/__pycache__/
+pipeline/tests/**/*.py[cod]
+.test/
+.opencode/
+logs/
+PIPELINE_IMPLEMENTATION_PLAN.md
+.ralph/
+machine_specs.py
+test.py
+test.json
+docs/
+tools/**
+
+# pnpm content-addressable store (created by a local `pnpm install`)
+.pnpm-store/
+
+# Claude Code: personal overrides and runtime state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+bench/session.txt

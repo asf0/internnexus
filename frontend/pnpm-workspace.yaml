@@ -1,0 +1,29 @@
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - vite@8.3.8
+overrides:
+  postcss@<8.5.23: ^8.5.28
+  vite@>=8.0.0 <=8.0.15: ^8.0.16
+  # Transitive advisories below production Next.js. Pin the patched minors so
+  # `pnpm audit --prod --audit-level=high` (CI gate) stays clean.
+  nanoid@<3.3.18: ^3.3.19
+  browserslist@<4.28.7: ^4.28.7
+  baseline-browser-mapping@<2.11.0: ^2.11.0
+  # Dev-only transitive advisories (eslint plugins, undici). Pinned for a clean
+  # full `pnpm audit`, not just the CI production gate.
+  brace-expansion@<1.1.18: ^1.1.18
+  brace-expansion@>=5.0.0 <5.0.9: ^5.0.9
+  undici@<7.29.0: ^7.29.0
+  # next 16 declares sharp ^0.34.5, but every 0.34.x carries the libvips CVEs
+  # in GHSA-f88m-g3jw-g9cj. Forcing the patched minor is safe here: sharp only
+  # backs next/image optimization, and nothing in this app imports next/image.
+  # 0.35.5 patches CVE-2026-96889 (GHSA-wq5f-xc86-pv6w).
+  sharp@<0.35.5: ^0.35.5
+  # next pins postcss 8.5.23, whose source-map-js range allows the vulnerable
+  # 1.2.1. 1.2.2 fixes GHSA-68fv-2mgg-jv7q (event-loop DoS).
+  source-map-js@<1.2.2: ^1.2.2
+  # @tailwindcss/typography pulls postcss-selector-parser 6.x; 7.1.6 fixes
+  # GHSA-rj75-hqrm-r3gf (quadratic selector parsing).
+  postcss-selector-parser@<7.1.6: ^7.1.6

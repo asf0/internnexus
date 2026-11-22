@@ -1,0 +1,66 @@
+# Development-only services. Do not add deployment concerns here; production is
+# defined by ../docker-compose.yml.
+services:
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    # The workspace is mounted at the same absolute path it has on the host — see the volumes
+    # section below — so this is the host path, not a /workspaces/... convention.
+    working_dir: ${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      BACKEND_URL: http://localhost:8000
+      ZED_FILE_WATCHER_MODE: poll
+    volumes:
+      # Mounted at its host path rather than /workspaces/internjobs, and the two must stay equal.
+      # Bind paths handed to the daemon from inside a container are resolved on the host, where a
+      # container-only path does not exist; Docker answers that by creating an empty directory and
+      # mounting it rather than failing, so the consumer silently gets nothing. Identical paths
+      # make both sides resolve the same way. HOME comes from the environment `docker compose`
+      # runs in, and this path is duplicated in devcontainer.json's workspaceFolder.
+      - ..:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs
+      - backend_venv:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/backend/.venv
+      - pipeline_venv:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/pipeline/.venv
+      - frontend_node_modules:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/frontend/node_modules
+      # Keep OpenCode's SQLite history inside Docker. Do not share it with the macOS host.
+      - internjobs_opencode_data:/home/vscode/.local/share/opencode
+      # Claude Code settings, history and sessions. Auth comes from CLAUDE_CODE_OAUTH_TOKEN.
+      - internjobs_claude_data:/home/vscode/.claude
+      # Persist GitHub CLI authentication across container rebuilds.
+      - shared_gh_config:/home/vscode/.config/gh
+      # Containers started from in here — the production compose stack, one-off database or
+      # tooling images — are siblings on the host daemon rather than children. The devcontainer
+      # CLI cannot add a feature's mounts to a compose service, so the docker-outside-of-docker
+      # feature's expected source path is bound explicitly; it proxies a vscode-owned socket at
+      # /var/run/docker.sock in front of this root-owned one.
+      - /var/run/docker.sock:/var/run/docker-host.sock
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+    env_file:
+      - ../.env
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  backend_venv:
+  pipeline_venv:
+  frontend_node_modules:
+  db_data:
+  internjobs_opencode_data:
+    name: internjobs_opencode_data
+  internjobs_claude_data:
+    name: internjobs_claude_data
+  shared_gh_config:
+    name: shared_gh_config

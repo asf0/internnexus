@@ -1,0 +1,125 @@
+"""Retry helper for transient PostgreSQL concurrency errors.
+
+Catches SQLAlchemy DBAPIError, inspects the exception chain for retryable
+SQLSTATE codes (deadlock, serialization, lock-not-available), rolls back the
+session, and retries with jittered exponential backoff.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import secrets
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
+
+from sqlalchemy.exc import DBAPIError
+
+logger = logging.getLogger(__name__)
+
+# 40P01 deadlock_detected, 40001 serialization_failure, 55P03 lock_not_available
+RETRYABLE_SQLSTATES = frozenset({"40P01", "40001", "55P03"})
+
+
+@dataclass(frozen=True)
+class DbRetryOptions:
+    max_attempts: int = 3
+    base_delay: float = 0.5
+    max_delay: float = 4.0
+
+
+DEFAULT_MAX_ATTEMPTS = 3
+DEFAULT_BASE_DELAY = 0.5
+DEFAULT_MAX_DELAY = 4.0
+
+
+def _retryable_sqlstate(exc: BaseException) -> str | None:
+    """Walk the exception chain and return the first retryable SQLSTATE, if any.
+
+    SQLAlchemy wraps the driver exception in DBAPIError; the original driver
+    error is accessible via ``exc.orig``. We also walk ``__cause__`` and
+    ``__context__`` to be robust to nested wrapping.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        for attr in ("pgcode", "sqlstate", "code"):
+            code = getattr(current, attr, None)
+            if isinstance(code, str) and code in RETRYABLE_SQLSTATES:
+                return code
+        current = getattr(current, "orig", None) or current.__cause__ or current.__context__
+    return None
+
+
+async def with_db_retry(
+    func: Callable[[], Awaitable[Any]],
+    *,
+    options: DbRetryOptions | None = None,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
+    rollback: Callable[[], Awaitable[Any]] | None = None,
+) -> Any:
+    """Execute *func* with retry on transient PostgreSQL concurrency errors.
+
+    Args:
+        func: Zero-arg async callable producing the result.
+        max_attempts: Maximum number of attempts (including the first).
+        base_delay: Base delay in seconds for the first retry.
+        max_delay: Upper bound on the per-retry delay.
+        rollback: Optional async callback to roll back the session before
+            retrying. Rollback errors are logged and swallowed so they never
+            mask the original retryable error.
+
+    Returns:
+        The result of *func*.
+
+    Raises:
+        The last exception if all attempts are exhausted or the error is not
+        retryable.
+    """
+    options = options or _retry_options(max_attempts, base_delay, max_delay)
+
+    for attempt in range(1, options.max_attempts + 1):
+        try:
+            return await func()
+        except DBAPIError as exc:
+            code = _retryable_sqlstate(exc)
+            if code is None or attempt >= options.max_attempts:
+                raise
+            await _rollback_before_retry(rollback)
+            delay = _retry_delay(options, attempt)
+            logger.warning(
+                "Retryable DB error %s on attempt %d/%d, retrying in %.2fs",
+                code,
+                attempt,
+                options.max_attempts,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+
+def _retry_options(
+    max_attempts: int | None, base_delay: float | None, max_delay: float | None
+) -> DbRetryOptions:
+    return DbRetryOptions(
+        max_attempts=max_attempts if max_attempts is not None else DEFAULT_MAX_ATTEMPTS,
+        base_delay=base_delay if base_delay is not None else DEFAULT_BASE_DELAY,
+        max_delay=max_delay if max_delay is not None else DEFAULT_MAX_DELAY,
+    )
+
+
+async def _rollback_before_retry(rollback: Callable[[], Awaitable[Any]] | None) -> None:
+    if rollback is None:
+        return
+    try:
+        await rollback()
+    except Exception:  # noqa: BLE001  # rollback must not mask the retryable error
+        logger.warning("Rollback failed before retry", exc_info=True)
+
+
+def _retry_delay(options: DbRetryOptions, attempt: int) -> float:
+    delay = min(options.max_delay, options.base_delay * (2 ** (attempt - 1)))
+    return delay * (0.5 + secrets.randbits(53) / (1 << 53))

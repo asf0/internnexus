@@ -1,0 +1,390 @@
+name: CI
+
+# Primary CI. On pushes to main, the `images` job builds linux/amd64 images
+# and pushes them to GHCR tagged with the commit SHA and `latest`.
+#
+# Deploy, pipeline, and retention automation were removed with the Gitea
+# migration. They will return as GitHub Actions workflows once the production
+# host has a self-hosted runner; until then, production operations are manual.
+#
+# Required repository variable for production image builds:
+#   NEXT_PUBLIC_BASE_URL  e.g. https://jobfinder.asf0.dev
+# Optional repository variables:
+#   BACKEND_URL                            default http://backend:8000
+#   NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH     default true
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main, develop]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+    UV_VERSION: "0.13.9"
+    PYTHON_VERSION: "3.14.10"
+    NODE_VERSION: "26.13.1"
+    PNPM_VERSION: "12.21.0"
+
+jobs:
+    backend:
+        name: Backend Checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        services:
+            postgres:
+                image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+                env:
+                    POSTGRES_DB: test_db
+                    POSTGRES_USER: test
+                    POSTGRES_PASSWORD: test
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U test -d test_db"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+        env:
+            POSTGRES_DB: test_db
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: test
+            POSTGRES_HOST: 127.0.0.1
+            POSTGRES_PORT: "5432"
+            TEST_DATABASE_URL: postgresql+asyncpg://test:test@127.0.0.1:5432/test_db
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            REDIS_URL: ""
+            EMBEDDING_MODEL: test-embedding-model
+            OPENAI_BASE_URL: http://127.0.0.1:8080/v1
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: astral-sh/setup-uv@v10.4.0
+              with:
+                  version: ${{ env.UV_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
+                  enable-cache: true
+                  cache-dependency-glob: |
+                      backend/uv.lock
+                      packages/internnexus-core/uv.lock
+
+            - name: Sync dependencies
+              run: cd backend && uv sync --frozen --group dev
+
+            - name: Type check (Pyright)
+              run: cd backend && uv run pyright --project pyproject.toml
+
+            - name: Audit locked Python dependencies
+              run: |
+                  bash .github/scripts/audit-with-retry.sh "uv audit (backend)" \
+                    sh -c 'cd backend && uv audit --frozen --preview-features audit-command'
+
+            - name: Lint (ruff)
+              run: cd backend && uv run ruff check app tests
+
+            - name: Run unit tests
+              run: cd backend && uv run pytest tests/unit -q --tb=short --cov=app --cov-report=term-missing
+
+            - name: Run integration, E2E, and property tests
+              run: cd backend && uv run pytest tests/integration tests/e2e tests/property -q --tb=short
+
+            - name: Validate imports
+              run: cd backend && uv run pytest tests/test_import_chains.py -q
+
+    pipeline:
+        name: Pipeline Checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        services:
+            postgres:
+                image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+                env:
+                    POSTGRES_DB: test
+                    POSTGRES_USER: test
+                    POSTGRES_PASSWORD: test
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U test -d test"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+        env:
+            POSTGRES_DB: test
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: test
+            POSTGRES_HOST: 127.0.0.1
+            POSTGRES_PORT: "5432"
+            DATABASE_URL: postgresql+asyncpg://test:test@127.0.0.1:5432/test
+            PIPELINE_TEST_DATABASE_URL: postgresql+asyncpg://test:test@127.0.0.1:5432/test
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            REDIS_URL: ""
+            EMBEDDING_MODEL: test-embedding-model
+            OPENAI_BASE_URL: http://127.0.0.1:8080/v1
+            CLASSIFICATION_MODEL: test-classifier
+            GREENHOUSE_API_URL: https://boards-api.greenhouse.io/v1/boards
+            LEVER_API_URL: https://api.lever.co/v0/postings
+            ASHBY_API_URL: https://api.ashbyhq.com/posting-api/job-board
+            SIMPLIFY_JOBS_INTERN_URL: https://example.com/intern
+            SIMPLIFY_JOBS_NEW_GRAD_URL: https://example.com/newgrad
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: astral-sh/setup-uv@v10.4.0
+              with:
+                  version: ${{ env.UV_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
+                  enable-cache: true
+                  cache-dependency-glob: |
+                      pipeline/uv.lock
+                      backend/uv.lock
+                      packages/internnexus-core/uv.lock
+
+            - name: Sync dependencies
+              run: cd pipeline && uv sync --frozen --group dev
+
+            - name: Type check (Pyright)
+              run: cd pipeline && uv run pyright --project pyproject.toml
+
+            - name: Audit locked Python dependencies
+              run: |
+                  bash .github/scripts/audit-with-retry.sh "uv audit (pipeline)" \
+                    sh -c 'cd pipeline && uv audit --frozen --preview-features audit-command'
+
+            - name: Migrate integration database
+              run: cd backend && uv sync --frozen --no-dev && uv run alembic -c alembic.ini upgrade head
+
+            - name: Lint (ruff)
+              run: cd pipeline && uv run ruff check .
+
+            - name: Run unit tests
+              run: cd pipeline && uv run pytest tests/unit -q --tb=short --cov=pipeline --cov-report=term-missing
+
+            - name: Run integration tests
+              run: cd pipeline && uv run pytest tests/integration -q --tb=short
+
+            - name: Validate imports
+              run: cd pipeline && uv run pytest tests/test_import_chains.py -q
+
+            - name: Validate CLI entry points
+              run: |
+                  cd pipeline
+                  uv run internnexus-pipeline --help
+                  uv run internnexus-consolidate-categories --help
+
+    core:
+        name: Shared Core Checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: astral-sh/setup-uv@v10.4.0
+              with:
+                  version: ${{ env.UV_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
+                  enable-cache: true
+                  cache-dependency-glob: packages/internnexus-core/uv.lock
+
+            - name: Sync dependencies
+              run: cd packages/internnexus-core && uv sync --frozen --group dev
+
+            - name: Audit locked Python dependencies
+              run: |
+                  bash .github/scripts/audit-with-retry.sh "uv audit (core)" \
+                    sh -c 'cd packages/internnexus-core && uv audit --frozen --preview-features audit-command'
+
+            - name: Type check (Pyright)
+              run: cd packages/internnexus-core && uv run pyright --project pyproject.toml
+
+            - name: Lint
+              run: cd packages/internnexus-core && uv run ruff check .
+
+            - name: Test
+              run: cd packages/internnexus-core && uv run pytest -q --tb=short
+
+    frontend:
+        name: Frontend Checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        env:
+            BACKEND_URL: http://localhost:8000
+            NEXT_PUBLIC_BASE_URL: http://localhost:3000
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            GH_CLIENT_ID: test-github-client-id
+            GH_CLIENT_SECRET: test-github-client-secret
+            GOOGLE_CLIENT_ID: test-google-client-id
+            GOOGLE_CLIENT_SECRET: test-google-client-secret
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: pnpm/action-setup@v6
+              with:
+                  version: ${{ env.PNPM_VERSION }}
+                  run_install: false
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: pnpm
+                  cache-dependency-path: frontend/pnpm-lock.yaml
+
+            - name: Install dependencies
+              run: cd frontend && pnpm install --frozen-lockfile
+
+            - name: Type check (lint)
+              run: cd frontend && pnpm run lint
+
+            - name: Run tests
+              run: cd frontend && pnpm test
+
+            - name: Install Chromium for browser tests
+              run: cd frontend && pnpm exec playwright install --with-deps chromium
+
+            - name: Run browser accessibility and visual tests
+              run: cd frontend && pnpm run test:e2e
+
+            - name: Build
+              run: cd frontend && pnpm run build
+
+            - name: Audit production JavaScript dependencies
+              run: |
+                  bash .github/scripts/audit-with-retry.sh "pnpm audit (prod, high)" \
+                    sh -c 'cd frontend && pnpm audit --prod --audit-level=high'
+
+    compose:
+        name: Compose Validation
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        env:
+            POSTGRES_DB: ci
+            POSTGRES_USER: ci
+            POSTGRES_PASSWORD: ci-only
+            AUTH_SECRET: test-auth-secret-that-is-at-least-32-chars
+            OPENAI_BASE_URL: http://127.0.0.1:8080/v1
+            EMBEDDING_MODEL: test-embedding-model
+            CLASSIFICATION_MODEL: test-classification-model
+            CLOUDFLARED_TOKEN: ci-only
+            RESUME_ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+            BACKEND_URL: http://backend:8000
+            NEXT_PUBLIC_BASE_URL: http://localhost:3000
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Validate Compose model
+              run: docker compose config --quiet
+
+    images:
+        name: Container Images
+        needs: [backend, pipeline, core, frontend, compose]
+        runs-on: ubuntu-latest
+        timeout-minutes: 40
+        permissions:
+            contents: read
+            packages: write
+        env:
+            IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+            BACKEND_URL: ${{ vars.BACKEND_URL || 'http://backend:8000' }}
+            NEXT_PUBLIC_BASE_URL: ${{ vars.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000' }}
+            NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH: ${{ vars.NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH || 'true' }}
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Require production frontend URL
+              if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+              run: |
+                  test -n "${{ vars.NEXT_PUBLIC_BASE_URL }}" || {
+                    echo "::error::Set the NEXT_PUBLIC_BASE_URL repository variable before publishing images."
+                    exit 1
+                  }
+
+            - uses: docker/setup-buildx-action@v4
+
+            - name: Log in to GHCR
+              if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+              uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build backend image
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: backend/Dockerfile
+                  platforms: linux/amd64
+                  push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+                  load: ${{ github.event_name == 'pull_request' }}
+                  tags: |
+                      ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
+                      ${{ env.IMAGE_PREFIX }}/backend:latest
+                  labels: |
+                      org.opencontainers.image.source=https://github.com/${{ github.repository }}
+                      org.opencontainers.image.revision=${{ github.sha }}
+                  build-args: |
+                      VCS_REF=${{ github.sha }}
+                  cache-from: type=gha,scope=backend
+                  cache-to: type=gha,mode=max,scope=backend
+
+            - name: Validate MCP entry point
+              if: github.event_name == 'pull_request'
+              run: docker run --rm --entrypoint internnexus-mcp "${IMAGE_PREFIX}/backend:${GITHUB_SHA}" --help
+
+            - name: Build pipeline image
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: pipeline/Dockerfile
+                  platforms: linux/amd64
+                  push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+                  tags: |
+                      ${{ env.IMAGE_PREFIX }}/pipeline:${{ github.sha }}
+                      ${{ env.IMAGE_PREFIX }}/pipeline:latest
+                  labels: |
+                      org.opencontainers.image.source=https://github.com/${{ github.repository }}
+                      org.opencontainers.image.revision=${{ github.sha }}
+                  build-args: |
+                      VCS_REF=${{ github.sha }}
+                  cache-from: type=gha,scope=pipeline
+                  cache-to: type=gha,mode=max,scope=pipeline
+
+            - name: Build frontend image
+              uses: docker/build-push-action@v7
+              with:
+                  context: ./frontend
+                  file: ./frontend/Dockerfile
+                  platforms: linux/amd64
+                  push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+                  tags: |
+                      ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+                      ${{ env.IMAGE_PREFIX }}/frontend:latest
+                  labels: |
+                      org.opencontainers.image.source=https://github.com/${{ github.repository }}
+                      org.opencontainers.image.revision=${{ github.sha }}
+                  build-args: |
+                      VCS_REF=${{ github.sha }}
+                      BACKEND_URL=${{ env.BACKEND_URL }}
+                      NEXT_PUBLIC_BASE_URL=${{ env.NEXT_PUBLIC_BASE_URL }}
+                      NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH=${{ env.NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH }}
+                  cache-from: type=gha,scope=frontend
+                  cache-to: type=gha,mode=max,scope=frontend
+
+            - name: Publish image summary
+              run: |
+                  {
+                    echo "### Container images"
+                    echo ""
+                    echo "| Service | Reference |"
+                    echo "|---|---|"
+                    echo "| backend | \`${IMAGE_PREFIX}/backend:${GITHUB_SHA}\` |"
+                    echo "| pipeline | \`${IMAGE_PREFIX}/pipeline:${GITHUB_SHA}\` |"
+                    echo "| frontend | \`${IMAGE_PREFIX}/frontend:${GITHUB_SHA}\` |"
+                  } >> "$GITHUB_STEP_SUMMARY"

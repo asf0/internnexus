@@ -1,0 +1,380 @@
+x-logging: &default-logging
+    driver: "json-file"
+    options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILES:-3}"
+
+x-hardening: &default-hardening
+    security_opt:
+        - no-new-privileges:true
+
+
+x-backend-image: &backend-image
+    image: jobs-backend:${BACKEND_IMAGE_TAG:-latest}
+    build:
+        context: .
+        dockerfile: backend/Dockerfile
+        args:
+            VCS_REF: ${BACKEND_IMAGE_TAG:-unknown}
+
+x-db-env: &db-env
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+
+x-ai-env: &ai-env
+    OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+    EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+    EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-180}
+
+services:
+    db:
+        <<: *default-hardening
+        image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+        container_name: jobs-db
+        restart: unless-stopped
+        networks:
+            - data
+        # Minimal capability set for the official postgres entrypoint
+        # (root -> postgres user switch and data-dir ownership).
+        cap_drop:
+            - ALL
+        cap_add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - FOWNER
+            - SETGID
+            - SETUID
+        ports:
+            - "127.0.0.1:5432:5432"
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        volumes:
+            - db_data_pg18:/var/lib/postgresql
+        command:
+            - "postgres"
+            - "-c"
+            - "log_lock_waits=on"
+            - "-c"
+            - "deadlock_timeout=200ms"
+            - "-c"
+            # Defaults target a constrained production host. Override only
+            # after measuring the working set under representative load.
+            - "shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}"
+            - "-c"
+            - "effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-2GB}"
+            - "-c"
+            - "random_page_cost=${POSTGRES_RANDOM_PAGE_COST:-1.1}"
+            - "-c"
+            - "work_mem=${POSTGRES_WORK_MEM:-8MB}"
+            - "-c"
+            - "maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-128MB}"
+            - "-c"
+            - "wal_buffers=-1"
+            - "-c"
+            - "wal_compression=lz4"
+            - "-c"
+            - "max_wal_size=${POSTGRES_MAX_WAL_SIZE:-4GB}"
+            - "-c"
+            - "min_wal_size=${POSTGRES_MIN_WAL_SIZE:-512MB}"
+            - "-c"
+            - "checkpoint_timeout=30min"
+            - "-c"
+            - "checkpoint_completion_target=0.9"
+            # Durability trade-off: a crash can lose the last few hundred ms of
+            # committed transactions, but cannot corrupt the database. This
+            # removes one fsync per commit on a write-heavy local host.
+            - "-c"
+            - "synchronous_commit=${POSTGRES_SYNCHRONOUS_COMMIT:-off}"
+            # JIT compilation adds CPU to these short OLTP queries and does not
+            # reduce I/O; pgvector/pipeline work does not benefit from it.
+            - "-c"
+            - "jit=off"
+            - "-c"
+            - "shared_preload_libraries=pg_stat_statements"
+            - "-c"
+            - "track_io_timing=on"
+            - "-c"
+            - "track_wal_io_timing=on"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+        mem_limit: ${DB_MEMORY_LIMIT:-2g}
+        cpus: ${DB_CPU_LIMIT:-2.0}
+        # pgvector HNSW builds use dynamic shared memory when parallel
+        # maintenance workers are enabled. The Docker default (64 MB) is too
+        # small and aborts with "could not resize shared memory segment".
+        shm_size: ${DB_SHM_SIZE:-512mb}
+        logging: *default-logging
+
+    # Transaction-mode connection pooler for the long-lived backend/mcp
+    # services. `migrate` (DDL) and `pipeline` (holds a session-level
+    # Postgres advisory lock for the whole run; see
+    # pipeline/runtime/sync_lock.py) are INCOMPATIBLE with transaction
+    # pooling and MUST keep connecting directly to `db`.
+    pgbouncer:
+        <<: *default-hardening
+        image: edoburu/pgbouncer@sha256:8638aa563607256d3c7440437534195f1066a92b68015d89ae9d6b935b444a6d
+        container_name: jobs-pgbouncer
+        restart: unless-stopped
+        networks:
+            - data
+        cap_drop:
+            - ALL
+        environment:
+            DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+            AUTH_TYPE: scram-sha-256
+            LISTEN_PORT: "6432"
+            POOL_MODE: transaction
+            MAX_CLIENT_CONN: "100"
+            DEFAULT_POOL_SIZE: ${PGBOUNCER_DEFAULT_POOL_SIZE:-10}
+            SERVER_IDLE_TIMEOUT: "300"
+            MAX_PREPARED_STATEMENTS: "200"
+        depends_on:
+            db:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+        mem_limit: ${PGBOUNCER_MEMORY_LIMIT:-64m}
+        cpus: ${PGBOUNCER_CPU_LIMIT:-0.5}
+        logging: *default-logging
+
+    migrate:
+        <<: [*default-hardening, *backend-image]
+        restart: "no"
+        networks:
+            - data
+        cap_drop:
+            - ALL
+        environment:
+            <<: [*db-env, *ai-env]
+            DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+            DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+            AUTH_SECRET: ${AUTH_SECRET}
+        depends_on:
+            db:
+                condition: service_healthy
+        command: ["alembic", "-c", "backend/alembic.ini", "upgrade", "head"]
+        mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+        cpus: ${BACKEND_CPU_LIMIT:-1.0}
+        logging: *default-logging
+
+    backend:
+        <<: [*default-hardening, *backend-image]
+        container_name: jobs-backend
+        restart: unless-stopped
+        networks:
+            - web
+            - data
+        cap_drop:
+            - ALL
+        ports:
+            - "127.0.0.1:8000:8000"
+        environment:
+            <<: [*db-env, *ai-env]
+            # Route through pgbouncer (transaction-mode pooling); overrides
+            # the `db-env` anchor's direct-to-`db` default. `migrate` and
+            # `pipeline` are excluded from this override on purpose.
+            POSTGRES_HOST: pgbouncer
+            POSTGRES_PORT: "6432"
+            DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+            DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+            GH_CLIENT_ID: ${GH_CLIENT_ID}
+            GH_CLIENT_SECRET: ${GH_CLIENT_SECRET}
+            GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+            AUTH_SECRET: ${AUTH_SECRET}
+            CORS_ORIGINS: ${CORS_ORIGINS}
+            TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+            TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+            RESUME_ENCRYPTION_KEY: ${RESUME_ENCRYPTION_KEY}
+            FRONTEND_INTERNAL_URL: ${FRONTEND_INTERNAL_URL:-http://frontend:3000}
+            JOB_CACHE_REVALIDATION_SECRET: ${JOB_CACHE_REVALIDATION_SECRET}
+            BENCHMARK_COUNTERS_ENABLED: ${BENCHMARK_COUNTERS_ENABLED:-false}
+            BENCHMARK_COUNTERS_SECRET: ${BENCHMARK_COUNTERS_SECRET}
+        depends_on:
+            migrate:
+                condition: service_completed_successfully
+            pgbouncer:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+        mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+        cpus: ${BACKEND_CPU_LIMIT:-1.0}
+        logging: *default-logging
+
+    mcp:
+        <<: [*default-hardening, *backend-image]
+        container_name: jobs-mcp
+        restart: unless-stopped
+        networks:
+            - web
+            - data
+        cap_drop:
+            - ALL
+        ports:
+            - "127.0.0.1:8001:8001"
+        environment:
+            <<: [*db-env, *ai-env]
+            # Route through pgbouncer (transaction-mode pooling); overrides
+            # the `db-env` anchor's direct-to-`db` default. `migrate` and
+            # `pipeline` are excluded from this override on purpose.
+            POSTGRES_HOST: pgbouncer
+            POSTGRES_PORT: "6432"
+            DB_POOL_SIZE: ${MCP_DB_POOL_SIZE:-5}
+            DB_MAX_OVERFLOW: ${MCP_DB_MAX_OVERFLOW:-5}
+            AUTH_SECRET: ${AUTH_SECRET}
+            MCP_HOST: 0.0.0.0
+            MCP_PORT: "8001"
+            MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8001}
+        depends_on:
+            migrate:
+                condition: service_completed_successfully
+            pgbouncer:
+                condition: service_healthy
+        command: ["internnexus-mcp", "--transport", "streamable-http"]
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 20s
+        mem_limit: ${MCP_MEMORY_LIMIT:-384m}
+        cpus: ${MCP_CPU_LIMIT:-0.75}
+        logging: *default-logging
+
+    pipeline:
+        <<: *default-hardening
+        # One-shot ingestion run; started manually with `docker compose run`
+        # (or by a future GitHub Actions workflow), not by `docker compose up`.
+        profiles: ["pipeline"]
+        image: jobs-pipeline:${PIPELINE_IMAGE_TAG:-latest}
+        build:
+            context: .
+            dockerfile: pipeline/Dockerfile
+            args:
+                VCS_REF: ${PIPELINE_IMAGE_TAG:-unknown}
+        restart: "no"
+        networks:
+            - web
+            - data
+        cap_drop:
+            - ALL
+        command: ["internnexus-pipeline"]
+        mem_limit: ${PIPELINE_MEMORY_LIMIT:-1g}
+        cpus: ${PIPELINE_CPU_LIMIT:-2.0}
+        environment:
+            <<: [*db-env, *ai-env]
+            OPENAI_CLASSIFICATION_URL: ${OPENAI_CLASSIFICATION_URL}
+            CLASSIFICATION_MODEL: ${CLASSIFICATION_MODEL}
+            CLASSIFICATION_BATCH_SIZE: ${CLASSIFICATION_BATCH_SIZE:-10}
+            CLASSIFICATION_MAX_CONCURRENT: ${CLASSIFICATION_MAX_CONCURRENT:-4}
+            GREENHOUSE_API_URL: ${GREENHOUSE_API_URL}
+            LEVER_API_URL: ${LEVER_API_URL}
+            ASHBY_API_URL: ${ASHBY_API_URL}
+            SIMPLIFY_JOBS_INTERN_URL: ${SIMPLIFY_JOBS_INTERN_URL}
+            SIMPLIFY_JOBS_NEW_GRAD_URL: ${SIMPLIFY_JOBS_NEW_GRAD_URL}
+            DATA_DIR: /app/data
+            DISCOVERY_OUTPUT_DIR: /app/data/discovery
+            DB_POOL_SIZE: ${PIPELINE_DB_POOL_SIZE:-2}
+            DB_MAX_OVERFLOW: ${PIPELINE_DB_MAX_OVERFLOW:-2}
+            FRONTEND_INTERNAL_URL: ${FRONTEND_INTERNAL_URL:-http://frontend:3000}
+            JOB_CACHE_REVALIDATION_SECRET: ${JOB_CACHE_REVALIDATION_SECRET}
+        volumes:
+            - pipeline_data:/app/data
+        depends_on:
+            db:
+                condition: service_healthy
+            backend:
+                condition: service_healthy
+        logging: *default-logging
+
+    frontend:
+        <<: *default-hardening
+        image: jobs-frontend:${FRONTEND_IMAGE_TAG:-latest}
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+            args:
+                - VCS_REF=${FRONTEND_IMAGE_TAG:-unknown}
+                - BACKEND_URL=${BACKEND_URL}
+                - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://jobfinder.asf0.dev}
+                - NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH=${NEXT_PUBLIC_ENABLE_CREDENTIAL_AUTH:-true}
+        container_name: jobs-frontend
+        restart: unless-stopped
+        networks:
+            - web
+        cap_drop:
+            - ALL
+        ports:
+            - "127.0.0.1:3000:3000"
+        environment:
+            - HOSTNAME=0.0.0.0
+            # Without this V8 sizes its old-space heap from total host RAM
+            # rather than the cgroup limit below, so it never feels pressure to
+            # run a major GC and RSS ratchets up toward mem_limit. Leaves
+            # ~128m of the 512m for code, stacks, and native buffers.
+            - NODE_OPTIONS=--max-old-space-size=384
+            - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-http://localhost:8001}
+            - BACKEND_URL=${BACKEND_URL}
+            - AUTH_SECRET=${AUTH_SECRET}
+            - NEXTAUTH_URL=${NEXTAUTH_URL}
+            - AUTH_URL=${AUTH_URL}
+            - GH_CLIENT_ID=${GH_CLIENT_ID}
+            - GH_CLIENT_SECRET=${GH_CLIENT_SECRET}
+            - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            - JOB_CACHE_REVALIDATION_SECRET=${JOB_CACHE_REVALIDATION_SECRET}
+        depends_on:
+            backend:
+                condition: service_healthy
+        healthcheck:
+            # curl is in the current image; the node fallback keeps the
+            # healthcheck valid for the previous image during a rollback.
+            test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health || node -e \"fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+        mem_limit: ${FRONTEND_MEMORY_LIMIT:-512m}
+        cpus: ${FRONTEND_CPU_LIMIT:-1.0}
+        logging: *default-logging
+
+    cloudflared:
+        <<: *default-hardening
+        image: cloudflare/cloudflared@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
+        container_name: jobs-cloudflared
+        restart: unless-stopped
+        networks:
+            - web
+        cap_drop:
+            - ALL
+        command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+        mem_limit: ${CLOUDFLARED_MEMORY_LIMIT:-128m}
+        cpus: ${CLOUDFLARED_CPU_LIMIT:-0.5}
+        logging: *default-logging
+
+volumes:
+    db_data_pg18:
+    pipeline_data:
+
+networks:
+    # `web` faces the Cloudflare tunnel; `data` carries database traffic.
+    # Backend and one-shot pipeline work straddle both; the tunnel and
+    # frontend still have no route to Postgres.
+    web:
+    data:

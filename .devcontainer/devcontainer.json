@@ -1,0 +1,47 @@
+{
+  "name": "InternNexus development",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  // Must match the container-side path of the workspace bind mount in docker-compose.yml,
+  // which is deliberately the host path so that bind mounts requested from inside the
+  // container resolve to the same directory on the host.
+  "workspaceFolder": "${localEnv:HOME}/Developer/Ensign/internjobs",
+  "runServices": ["workspace", "db"],
+  "shutdownAction": "stopCompose",
+  "remoteUser": "vscode",
+    // Supplies the docker CLI and a vscode-owned socket proxied from the root-owned
+    // /var/run/docker-host.sock bound in docker-compose.yml. The bind-mounted socket arrives
+    // as root:root, so the proxy — not a chown — is what makes it usable as vscode.
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
+    "containerEnv": {
+        "ZED_FILE_WATCHER_MODE": "poll",
+        "SSH_AUTH_SOCK": "/ssh-agent",
+        "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
+        // Subscription token from `claude setup-token` on the host. macOS keeps the normal
+        // Claude Code login in the Keychain, which a Linux container cannot read.
+        "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}",
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    },
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "/ssh-agent",
+        "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
+    },
+  "forwardPorts": [3000, 8000],
+  "portsAttributes": {
+    "3000": { "label": "InternNexus frontend", "onAutoForward": "openBrowser" },
+    "8000": { "label": "InternNexus backend" }
+  },
+    "mounts": [
+        "source=/run/host-services/ssh-auth.sock,target=/ssh-agent,type=bind",
+        "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
+        // Writable on purpose: ssh appends to this, and read-only would make the container
+        // re-prompt for every host it has already accepted. Only the agent socket above
+        // carries keys — no private key material is mounted.
+        "source=${localEnv:HOME}/.ssh/known_hosts,target=/home/vscode/.ssh/known_hosts,type=bind",
+        "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
+        "source=${localEnv:HOME}/.config/opencode,target=/home/vscode/.config/opencode,type=bind"
+  ],
+  "postCreateCommand": "sudo mkdir -p /home/vscode/.config/gh /home/vscode/.local/share/opencode /home/vscode/.claude backend/.venv pipeline/.venv frontend/node_modules && sudo chown -R vscode:vscode /home/vscode/.config/gh /home/vscode/.local/share/opencode /home/vscode/.claude backend/.venv pipeline/.venv frontend/node_modules && (test -f /home/vscode/.claude/.claude.json || echo '{\"hasCompletedOnboarding\":true}' > /home/vscode/.claude/.claude.json)"
+}

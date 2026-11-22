@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "description": "Golden aggregate counts for embedding pipeline orchestration scenarios.",
+  "cases": [
+    {
+      "name": "empty_queue",
+      "initial_count": 0,
+      "batch_result": [0, 0, 0],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 0, "errors": 0, "skipped": 0, "retried": 0}
+    },
+    {
+      "name": "one_batch",
+      "initial_count": 2,
+      "batch_result": [2, 0, 0],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 2, "errors": 0, "skipped": 0, "retried": 0}
+    },
+    {
+      "name": "two_batches",
+      "initial_count": 5,
+      "batch_result": [5, 0, 0],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 5, "errors": 0, "skipped": 0, "retried": 0}
+    },
+    {
+      "name": "empty_description_skipped",
+      "initial_count": 2,
+      "batch_result": [1, 0, 1],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 1, "errors": 0, "skipped": 1, "retried": 0}
+    },
+    {
+      "name": "short_text_skipped",
+      "initial_count": 2,
+      "batch_result": [1, 0, 1],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 1, "errors": 0, "skipped": 1, "retried": 0}
+    },
+    {
+      "name": "retryable_then_success",
+      "initial_count": 2,
+      "batch_result": [1, 0, 0],
+      "retry_result": [1, 0, 0],
+      "retry_queue_size": 1,
+      "expected": {"success": 2, "errors": 0, "skipped": 0, "retried": 1}
+    },
+    {
+      "name": "permanent_failure",
+      "initial_count": 2,
+      "batch_result": [1, 1, 0],
+      "retry_result": [0, 0, 0],
+      "expected": {"success": 1, "errors": 1, "skipped": 0, "retried": 0}
+    }
+  ]
+}

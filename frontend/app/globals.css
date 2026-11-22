@@ -1,0 +1,148 @@
+@import '@fontsource-variable/inter/wght.css';
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme inline {
+  /* Semantic application colors. Values adapt to the user's system theme. */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-header: var(--surface-header);
+  --color-nav: var(--nav);
+  --color-selected: var(--selected);
+  --color-foreground: var(--foreground);
+  --color-foreground-bright: var(--foreground-bright);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-text: var(--danger-text);
+  --color-focus-ring: var(--focus-ring);
+
+  /* Legacy Material aliases retained while existing components migrate. */
+  --color-md-surface: var(--canvas);
+  --color-md-surface-variant: var(--surface-raised);
+  --color-md-surface-container-lowest: var(--canvas);
+  --color-md-surface-container-low: var(--surface);
+  --color-md-surface-container: var(--surface);
+  --color-md-surface-container-high: var(--surface-raised);
+  --color-md-surface-container-highest: var(--surface-subtle);
+  --color-md-on-surface: var(--foreground);
+  --color-md-on-surface-variant: var(--foreground-secondary);
+  --color-md-outline: var(--foreground-muted);
+  --color-md-outline-variant: var(--border);
+  --color-md-primary: var(--accent);
+  --color-md-on-primary: var(--on-accent);
+  --color-md-primary-container: var(--accent-hover);
+  --color-md-on-primary-container: var(--on-accent);
+}
+
+:root {
+  color-scheme: light;
+  --canvas: #f8fafc;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f1f5f9;
+  --surface-inset: #f8fafc;
+  --surface-header: #f1f5f9;
+  --nav: #ffffff;
+  --selected: #e2e8f0;
+  --foreground: #0f172a;
+  --foreground-bright: #020617;
+  --foreground-secondary: #334155;
+  --foreground-muted: #475569;
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
+  --accent: #2563eb;
+  --accent-text: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-active: #1e40af;
+  --on-accent: #ffffff;
+  --success: #15803d;
+  --warning: #a16207;
+  --danger: #b91c1c;
+  --danger-text: #b91c1c;
+  --focus-ring: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --canvas: #1e1f20;
+    --surface: #191a1c;
+    --surface-raised: #232528;
+    --surface-subtle: #202124;
+    --surface-inset: #161718;
+    --surface-header: #1b1c1e;
+    --nav: #18191b;
+    --selected: #38393a;
+    --foreground: #d2d4d8;
+    --foreground-bright: #f8f8f8;
+    --foreground-secondary: #c0c2c7;
+    --foreground-muted: #969aa1;
+    --border: #3f4248;
+    --border-strong: #46494f;
+    --accent: #4183c4;
+    --accent-text: #679cd0;
+    --accent-hover: #3876b3;
+    --accent-active: #31699f;
+    --on-accent: #161718;
+    --success: #87ab63;
+    --warning: #cc9903;
+    --danger: #cc4848;
+    --danger-text: #f85149;
+    --focus-ring: #4183c4;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Gitea uses lighter upstream variants when accent/status colors render as text. */
+  .text-accent,
+  .dark\:text-accent {
+    color: var(--accent-text);
+  }
+
+  .text-danger,
+  .dark\:text-danger {
+    color: var(--danger-text);
+  }
+}
+
+html {
+  min-width: 320px;
+  background: var(--canvas);
+  font-family:
+    'Inter Variable',
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-width: 320px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

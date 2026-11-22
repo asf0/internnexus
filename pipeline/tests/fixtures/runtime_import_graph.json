@@ -1,0 +1,1518 @@
+{
+  "edges": [
+    {
+      "source_file": "repositories/__init__.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/__init__.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/__init__.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/__init__.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Protocol",
+        "TYPE_CHECKING"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/__init__.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime",
+        "timezone"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "hashlib",
+      "imported_names": [
+        "hashlib"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.domain.board_snapshot",
+      "imported_names": [
+        "BoardSnapshot",
+        "canonical_json"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.infra.job_cache",
+      "imported_names": [
+        "invalidate_job_detail_cache"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job",
+        "JobBoardSnapshot",
+        "JobSource",
+        "PipelineSyncState"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.infra.pipeline_config",
+      "imported_names": [
+        "get_config"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.repositories.job_text_sql",
+      "imported_names": [
+        "rowcount"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "pipeline.repositories.job_upsert",
+      "imported_names": [
+        "build_job_rows",
+        "changed_only_job_upsert"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "exists",
+        "select",
+        "update"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "sqlalchemy.dialects.postgresql",
+      "imported_names": [
+        "insert"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/board_snapshots.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "asyncio",
+      "imported_names": [
+        "asyncio"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "collections.abc",
+      "imported_names": [
+        "Awaitable",
+        "Callable"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "secrets",
+      "imported_names": [
+        "secrets"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "sqlalchemy.exc",
+      "imported_names": [
+        "DBAPIError"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/db_retry.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_text_sql.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_text_sql.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_text_sql.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "func"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime",
+        "timezone"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "internnexus_core.text",
+      "imported_names": [
+        "clean_job_description",
+        "embedding_input_hash",
+        "strip_control_chars"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "pipeline.domain.job_identity",
+      "imported_names": [
+        "fingerprint_for"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "pipeline.domain.schemas",
+      "imported_names": [
+        "JobSchema"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job",
+        "JobSource"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "case",
+        "or_"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/job_upsert.py",
+      "from_module": "sqlalchemy.dialects.postgresql",
+      "imported_names": [
+        "insert"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime",
+        "timedelta",
+        "timezone"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "json",
+      "imported_names": [
+        "json"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "pipeline.domain.sync_result",
+      "imported_names": [
+        "SYNC_SOURCES"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job",
+        "JobSource",
+        "PipelineJobSighting",
+        "PipelineRun",
+        "PipelineRunStatus"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "pipeline.repositories.job_text_sql",
+      "imported_names": [
+        "rowcount"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "delete",
+        "func",
+        "select",
+        "tuple_"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sightings.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "enum",
+      "imported_names": [
+        "Enum"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "pipeline.infra.job_cache",
+      "imported_names": [
+        "invalidate_job_detail_cache"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "pipeline.repositories",
+      "imported_names": [
+        "JobLocationData",
+        "LocationUpdate"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "pipeline.repositories.sync_ops",
+      "imported_names": [
+        "SYNC_BATCH_SIZE",
+        "batched_delete_inactive"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "func",
+        "select",
+        "update"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "typing",
+      "imported_names": [
+        "TYPE_CHECKING"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sqlalchemy_repo.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "pipeline.infra.job_cache",
+      "imported_names": [
+        "invalidate_job_detail_cache"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "pipeline.repositories.db_retry",
+      "imported_names": [
+        "with_db_retry"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "text"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "repositories/sync_ops.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/__init__.py",
+      "from_module": "pipeline.infra.pipeline_config",
+      "imported_names": [
+        "Config",
+        "get_config"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/__init__.py",
+      "from_module": "pipeline.runtime.health",
+      "imported_names": [
+        "HealthCheckResult",
+        "print_health_report",
+        "run_and_report_health",
+        "run_health_checks"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/__init__.py",
+      "from_module": "pipeline.runtime.state",
+      "imported_names": [
+        "PipelineStateManager",
+        "clear_incomplete_runs",
+        "get_incomplete_run",
+        "get_last_completed_run_started_at",
+        "mark_unresumable_run_failed",
+        "get_resumable_run"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "pipeline.infra.job_cache",
+      "imported_names": [
+        "invalidate_job_detail_cache"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "Job"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "pipeline.stages.classification",
+      "imported_names": [
+        "JobClassifier"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "String",
+        "and_",
+        "cast",
+        "column",
+        "func",
+        "or_",
+        "select",
+        "update",
+        "values"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "sqlalchemy.dialects.postgresql",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "typing",
+      "imported_names": [
+        "cast"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/classify_step.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime",
+        "timedelta",
+        "timezone"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "AsyncSessionLocal"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "PipelineCommand",
+        "PipelineCommandStatus"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "pipeline.infra.pipeline_config",
+      "imported_names": [
+        "get_config"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "select",
+        "update"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/commands.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "asyncio",
+      "imported_names": [
+        "asyncio"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "httpx",
+      "imported_names": [
+        "httpx"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "AsyncSessionLocal"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "pipeline.infra.pipeline_config",
+      "imported_names": [
+        "get_config"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "pipeline.infra.settings",
+      "imported_names": [
+        "get_settings"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "text"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/health.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/__init__.py",
+      "from_module": "pipeline.runtime.orchestrator.runner",
+      "imported_names": [
+        "PipelineRunner",
+        "_should_run"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/__init__.py",
+      "from_module": "pipeline.runtime.orchestrator.summary",
+      "imported_names": [
+        "_log_step_rate"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/__init__.py",
+      "from_module": "pipeline.runtime.orchestrator.sync_safety",
+      "imported_names": [
+        "SyncSafetyAssessment",
+        "_assess_sync_safety"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "json",
+      "imported_names": [
+        "json"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime",
+      "imported_names": [
+        "PipelineStateManager",
+        "get_config",
+        "get_incomplete_run",
+        "get_last_completed_run_started_at",
+        "get_resumable_run",
+        "mark_unresumable_run_failed"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.orchestrator.steps",
+      "imported_names": [
+        "StepsMixin"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.orchestrator.summary",
+      "imported_names": [
+        "SummaryMixin"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.orchestrator.sync_safety",
+      "imported_names": [
+        "SyncSafetyMixin"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.services",
+      "imported_names": [
+        "cleanup_step_resources"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.step_order",
+      "imported_names": [
+        "PIPELINE_STEPS",
+        "get_resume_step"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.runtime.sync_lock",
+      "imported_names": [
+        "job_sync_lock",
+        "null_sync_lock"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "pipeline.stages.ingest",
+      "imported_names": [
+        "IngestResult"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "time",
+      "imported_names": [
+        "time"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner_protocol.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner_protocol.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any",
+        "Protocol"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/runner_protocol.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "AsyncSessionLocal"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.runtime",
+      "imported_names": [
+        "PipelineStateManager",
+        "run_and_report_health"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.runtime.classify_step",
+      "imported_names": [
+        "run_classify_step"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.runtime.orchestrator.runner_protocol",
+      "imported_names": [
+        "RunnerProtocol"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.runtime.orchestrator.summary",
+      "imported_names": [
+        "_log_step_rate"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.runtime.services",
+      "imported_names": [
+        "trim_process_memory"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.stages.classification",
+      "imported_names": [
+        "get_classifier",
+        "reset_classifier_async"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.stages.cleanup",
+      "imported_names": [
+        "cleanup_locations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.stages.embeddings",
+      "imported_names": [
+        "generate_embeddings"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "pipeline.stages.ingest",
+      "imported_names": [
+        "IngestResult",
+        "fetch_and_ingest",
+        "mark_stale_jobs_inactive"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "time",
+      "imported_names": [
+        "time"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "typing",
+      "imported_names": [
+        "TYPE_CHECKING"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/steps.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID",
+        "uuid4"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/summary.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/summary.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/summary.py",
+      "from_module": "pipeline.runtime.orchestrator.runner_protocol",
+      "imported_names": [
+        "RunnerProtocol"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/summary.py",
+      "from_module": "typing",
+      "imported_names": [
+        "TYPE_CHECKING"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "dataclasses",
+      "imported_names": [
+        "dataclass"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.domain.sync_result",
+      "imported_names": [
+        "SYNC_SOURCES"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "AsyncSessionLocal"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.repositories.board_snapshots",
+      "imported_names": [
+        "mark_bootstrap_complete"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.repositories.sightings",
+      "imported_names": [
+        "count_stale_jobs",
+        "delete_sightings",
+        "get_previous_successful_source_counts",
+        "get_sighting_counts",
+        "prune_abandoned_sightings",
+        "prune_expired_pipeline_runs"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.runtime",
+      "imported_names": [
+        "PipelineStateManager"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.runtime.orchestrator.runner_protocol",
+      "imported_names": [
+        "RunnerProtocol"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "pipeline.stages.ingest",
+      "imported_names": [
+        "IngestResult"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "typing",
+      "imported_names": [
+        "TYPE_CHECKING"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/orchestrator/sync_safety.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "asyncio",
+      "imported_names": [
+        "asyncio"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "ctypes",
+      "imported_names": [
+        "ctypes"
+      ],
+      "kind": "lazy-in-trim_process_memory"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "gc",
+      "imported_names": [
+        "gc"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "internnexus_core.http_client",
+      "imported_names": [
+        "close_http_client"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "dispose_engines"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "pipeline.runtime.commands",
+      "imported_names": [
+        "claim_next_pending_command",
+        "mark_command_completed",
+        "mark_command_failed"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "pipeline.runtime.sync_lock",
+      "imported_names": [
+        "job_sync_lock"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "pipeline.stages.classification",
+      "imported_names": [
+        "reset_classifier_async"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "pipeline.stages.cleanup",
+      "imported_names": [
+        "close_location_cache"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "sys",
+      "imported_names": [
+        "sys"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/services.py",
+      "from_module": "types",
+      "imported_names": [
+        "SimpleNamespace"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "datetime",
+      "imported_names": [
+        "datetime",
+        "timezone"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "json",
+      "imported_names": [
+        "json"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "AsyncSessionLocal"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "pipeline.infra.models",
+      "imported_names": [
+        "PipelineRun",
+        "PipelineRunStatus"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "select",
+        "update"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "sqlalchemy.ext.asyncio",
+      "imported_names": [
+        "AsyncSession"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "typing",
+      "imported_names": [
+        "Any"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/state.py",
+      "from_module": "uuid",
+      "imported_names": [
+        "UUID"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/step_order.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "__future__",
+      "imported_names": [
+        "annotations"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "collections.abc",
+      "imported_names": [
+        "AsyncIterator"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "contextlib",
+      "imported_names": [
+        "asynccontextmanager"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "logging",
+      "imported_names": [
+        "logging"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "pipeline.infra.db",
+      "imported_names": [
+        "async_engine"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "pipeline.repositories.sync_ops",
+      "imported_names": [
+        "JOB_SYNC_LOCK_KEY"
+      ],
+      "kind": "top-level"
+    },
+    {
+      "source_file": "runtime/sync_lock.py",
+      "from_module": "sqlalchemy",
+      "imported_names": [
+        "text"
+      ],
+      "kind": "top-level"
+    }
+  ]
+}

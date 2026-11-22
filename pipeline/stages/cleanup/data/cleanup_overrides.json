@@ -1,0 +1,20 @@
+{
+  "plain_remote_patterns": [
+    "^remote$",
+    "^work from home$",
+    "^wfh$",
+    "^distributed$",
+    "^virtual$",
+    "^telecommute$",
+    "^anywhere$"
+  ],
+  "location_overrides": {
+    "mountain view": {"city": "Mountain View", "state": null, "country": "United States"},
+    "singapore": {"city": "Singapore", "state": null, "country": "Singapore"},
+    "belgrade": {"city": "Belgrade", "state": null, "country": "Serbia"},
+    "mexico city": {"city": "Mexico City", "state": null, "country": "Mexico"},
+    "vancouver": {"city": "Vancouver", "state": null, "country": "Canada"},
+    "nyc": {"city": "New York", "state": "New York", "country": "United States"},
+    "sf": {"city": "San Francisco", "state": "California", "country": "United States"}
+  }
+}

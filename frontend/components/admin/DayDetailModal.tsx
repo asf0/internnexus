@@ -1,0 +1,241 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Calendar, MousePointerClick, Briefcase, Users, UserX, ExternalLink } from 'lucide-react';
+import { Modal } from '@/components/modals';
+import { IconContainer, LoadingSpinner, Alert } from '@/components/ui';
+import { AdminCard, AdminStatistic, AdminTable } from '@/components/admin/ui';
+import type { AdminColumn } from '@/components/admin/ui';
+import { fetchDayClickStats, type DayClickStats, type TopJobByClicks } from '@/app/actions/admin';
+
+interface DayDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  date: string | null; // YYYY-MM-DD format
+}
+
+function addUtmParams(baseUrl: string, source = 'internnexus'): string {
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set('utm_source', source);
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString + 'T00:00:00');
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+export default function DayDetailModal({ isOpen, onClose, date }: Readonly<DayDetailModalProps>) {
+  const [data, setData] = useState<DayClickStats | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!isOpen || !date) {
+        setData(null);
+        setError(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      const result = await fetchDayClickStats(date);
+
+      if (result.data) {
+        setData(result.data);
+      } else {
+        setError(result.error || 'Failed to load click statistics');
+      }
+
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, [isOpen, date]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setData(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const maxHourClicks = data?.clicks_by_hour
+    ? Math.max(...data.clicks_by_hour.map((h) => h.clicks), 1)
+    : 1;
+
+  const jobColumns: AdminColumn<TopJobByClicks>[] = [
+    {
+      title: 'Job Title',
+      dataIndex: 'title',
+      key: 'title',
+      render: (_: unknown, record: TopJobByClicks) => (
+        <a
+          href={record.apply_url ? addUtmParams(record.apply_url) : '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent flex items-center gap-1 hover:underline"
+        >
+          {record.title}
+          {record.apply_url && <ExternalLink className="h-3 w-3" />}
+        </a>
+      ),
+    },
+    {
+      title: 'Company',
+      dataIndex: 'company',
+      key: 'company',
+      render: (company: string) => <span className="text-foreground-secondary">{company}</span>,
+    },
+    {
+      title: 'Click Count',
+      dataIndex: 'click_count',
+      key: 'click_count',
+      align: 'right',
+      render: (count: number) => (
+        <span className="text-foreground font-semibold">{count.toLocaleString()}</span>
+      ),
+    },
+  ];
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-3">
+          <IconContainer icon={Calendar} color="purple" />
+          <span>{date ? formatDate(date) : 'Day Details'}</span>
+        </div>
+      }
+      size="xl"
+    >
+      <div className="space-y-6">
+        {isLoading && (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        )}
+
+        {error && !isLoading && <Alert type="error">{error}</Alert>}
+
+        {data && !isLoading && !error && (
+          <>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <AdminCard className="bg-surface-subtle p-4">
+                <AdminStatistic
+                  title={
+                    <span className="text-foreground-muted flex items-center gap-2">
+                      <MousePointerClick className="h-4 w-4" />
+                      Total Clicks
+                    </span>
+                  }
+                  value={data.total_clicks}
+                  valueClassName="text-accent"
+                />
+              </AdminCard>
+
+              <AdminCard className="bg-surface-subtle p-4">
+                <AdminStatistic
+                  title={
+                    <span className="text-foreground-muted flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" />
+                      Unique Jobs
+                    </span>
+                  }
+                  value={data.unique_jobs}
+                  valueClassName="text-accent"
+                />
+              </AdminCard>
+
+              <AdminCard className="bg-surface-subtle p-4">
+                <AdminStatistic
+                  title={
+                    <span className="text-foreground-muted flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Unique Users
+                    </span>
+                  }
+                  value={data.unique_users}
+                  valueClassName="text-accent"
+                />
+              </AdminCard>
+
+              <AdminCard className="bg-surface-subtle p-4">
+                <AdminStatistic
+                  title={
+                    <span className="text-foreground-muted flex items-center gap-2">
+                      <UserX className="h-4 w-4" />
+                      Anonymous Clicks
+                    </span>
+                  }
+                  value={data.anonymous_clicks}
+                  valueClassName="text-accent"
+                />
+              </AdminCard>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-foreground text-sm font-semibold tracking-wide uppercase">
+                Clicks by Hour
+              </h3>
+              <div className="border-border bg-surface-subtle rounded-lg border p-4">
+                <div className="grid grid-cols-12 gap-1 lg:grid-cols-24">
+                  {Array.from({ length: 24 }, (_, hour) => {
+                    const hourData = data.clicks_by_hour.find((h) => h.hour === hour);
+                    const clicks = hourData?.clicks || 0;
+                    const widthPercent = (clicks / maxHourClicks) * 100;
+
+                    return (
+                      <div
+                        key={hour}
+                        className="flex flex-col items-center"
+                        title={`${hour}:00 - ${clicks} clicks`}
+                      >
+                        <div className="bg-border relative flex h-16 w-full items-end rounded-sm">
+                          <div
+                            className="bg-accent w-full rounded-sm transition-all"
+                            style={{ height: `${widthPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-foreground-muted mt-1 text-xs">{hour}</span>
+                        <span className="text-foreground text-xs font-medium">{clicks}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-foreground text-sm font-semibold tracking-wide uppercase">
+                Top Jobs
+              </h3>
+              <AdminTable
+                dataSource={data.top_jobs.slice(0, 10)}
+                columns={jobColumns}
+                rowKey="job_id"
+                pagination={false}
+                size="small"
+              />
+            </div>
+          </>
+        )}
+
+        {!date && !isLoading && (
+          <div className="text-foreground-muted py-12 text-center">No date selected</div>
+        )}
+      </div>
+    </Modal>
+  );
+}

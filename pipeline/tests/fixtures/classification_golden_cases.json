@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "description": "Golden results for classification batching, category mapping, and HTTP error classification.",
+  "batch_cases": [
+    {
+      "name": "empty",
+      "jobs": [],
+      "batch_size": 5,
+      "expected": []
+    },
+    {
+      "name": "single_known",
+      "jobs": [["Software Engineer Intern", "Build APIs"]],
+      "batch_size": 5,
+      "expected": [["software_engineering", "ok"]]
+    },
+    {
+      "name": "single_ambiguous",
+      "jobs": [["General Intern", "Help the team"]],
+      "batch_size": 5,
+      "expected": [[null, "no_mappable_token"]]
+    },
+    {
+      "name": "five_under_batch_size",
+      "jobs": [
+        ["Software Engineer", "Build APIs"],
+        ["Finance Analyst", "Analyze budgets"],
+        ["Sales Representative", "Qualify leads"],
+        ["Product Designer", "Design interfaces"],
+        ["Recruiter", "Source candidates"]
+      ],
+      "batch_size": 10,
+      "expected": [
+        ["software_engineering", "ok"],
+        ["finance", "ok"],
+        ["sales", "ok"],
+        ["product_design", "ok"],
+        ["recruiting", "ok"]
+      ]
+    },
+    {
+      "name": "spans_two_chunks",
+      "jobs": [
+        ["Software Engineer", "Build APIs"],
+        ["Finance Analyst", "Analyze budgets"],
+        ["Sales Representative", "Qualify leads"],
+        ["Product Designer", "Design interfaces"],
+        ["Recruiter", "Source candidates"],
+        ["Data Scientist", "Train models"]
+      ],
+      "batch_size": 5,
+      "expected": [
+        ["software_engineering", "ok"],
+        ["finance", "ok"],
+        ["sales", "ok"],
+        ["product_design", "ok"],
+        ["recruiting", "ok"],
+        ["data_science", "ok"]
+      ]
+    },
+    {
+      "name": "unparseable_chunk_falls_back",
+      "jobs": [
+        ["Software Engineer", "Build APIs"],
+        ["Finance Analyst", "Analyze budgets"]
+      ],
+      "batch_size": 5,
+      "batch_behavior": "invalid_json",
+      "expected": [
+        ["software_engineering", "ok"],
+        ["finance", "ok"]
+      ]
+    },
+    {
+      "name": "permanent_chunk_error_falls_back",
+      "jobs": [
+        ["Software Engineer", "Build APIs"],
+        ["General Intern", "Help the team"]
+      ],
+      "batch_size": 5,
+      "batch_behavior": "permanent_error",
+      "expected": [
+        ["software_engineering", "ok"],
+        [null, "no_mappable_token"]
+      ]
+    },
+    {
+      "name": "all_rejected",
+      "jobs": [
+        ["General Intern", ""],
+        ["Mystery Role", ""]
+      ],
+      "batch_size": 5,
+      "batch_behavior": "all_none",
+      "expected": [
+        [null, "no_mappable_token"],
+        [null, "no_mappable_token"]
+      ]
+    },
+    {
+      "name": "empty_descriptions",
+      "jobs": [
+        ["Software Engineer", ""],
+        ["Finance Analyst", ""]
+      ],
+      "batch_size": 5,
+      "expected": [
+        ["software_engineering", "ok"],
+        ["finance", "ok"]
+      ]
+    },
+    {
+      "name": "long_descriptions",
+      "jobs": [
+        ["Software Engineer", "__LONG__"],
+        ["Data Scientist", "__LONG__"]
+      ],
+      "batch_size": 5,
+      "expected": [
+        ["software_engineering", "ok"],
+        ["data_science", "ok"]
+      ]
+    }
+  ],
+  "mapping_cases": [
+    ["software_engineering", "software_engineering"],
+    ["Software Engineering", null],
+    ["software_engineering_emea", "software_engineering"],
+    ["finance_apac", "finance"],
+    ["accountant", "accounting"],
+    ["payroll", "finance"],
+    ["professional_services_engineer", "software_engineering"],
+    ["field_sales", "sales"],
+    ["solution_consulting", "consulting"],
+    ["patient_support", "healthcare"],
+    ["hr_specialist", "hr"],
+    ["business_development", "sales"],
+    ["user_experience_design", "product_design"],
+    ["supply_chain_specialist", "logistics_supply_chain"],
+    ["application_support", "customer_support"],
+    ["risk_analysis", "risk_management"],
+    ["talent_sourcing", "recruiting"],
+    ["none", null],
+    ["", null],
+    ["brand_new_unknown_category", null]
+  ],
+  "http_status_cases": [
+    [400, "ClassificationError", false],
+    [401, "ClassificationError", false],
+    [404, "ClassificationError", false],
+    [429, "RateLimitError", true],
+    [500, "ClassificationError", true],
+    [502, "ClassificationError", true],
+    [503, "ClassificationError", true]
+  ]
+}
