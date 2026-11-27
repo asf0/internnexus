@@ -25,7 +25,7 @@ This directory is for local development only. The deployment configuration in
 The container starts a development-only pgvector database named `db`. The
 workspace container is configured to use it through `POSTGRES_HOST=db`.
 
-The workspace lives at its host path inside the container — `~/Developer/Ensign/internjobs`,
+The workspace lives at its host path inside the container — `~/developer/internjobs`,
 not `/workspaces/internjobs`. Keep it that way, and keep `workspaceFolder` in
 `devcontainer.json` equal to the mount target in `docker-compose.yml`. The reason is bind-mount
 resolution: a path handed to the Docker daemon from inside this container is resolved on the

@@ -8,12 +8,15 @@ services:
     command: sleep infinity
     # The workspace is mounted at the same absolute path it has on the host — see the volumes
     # section below — so this is the host path, not a /workspaces/... convention.
-    working_dir: ${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs
+    working_dir: ${HOME:?set HOME; the workspace bind path is derived from it}/developer/internjobs
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       BACKEND_URL: http://localhost:8000
       ZED_FILE_WATCHER_MODE: poll
+    # Docker Desktop/OrbStack define host.docker.internal automatically; Linux Docker does not.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Mounted at its host path rather than /workspaces/internjobs, and the two must stay equal.
       # Bind paths handed to the daemon from inside a container are resolved on the host, where a
@@ -21,10 +24,10 @@ services:
       # mounting it rather than failing, so the consumer silently gets nothing. Identical paths
       # make both sides resolve the same way. HOME comes from the environment `docker compose`
       # runs in, and this path is duplicated in devcontainer.json's workspaceFolder.
-      - ..:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs
-      - backend_venv:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/backend/.venv
-      - pipeline_venv:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/pipeline/.venv
-      - frontend_node_modules:${HOME:?set HOME; the workspace bind path is derived from it}/Developer/Ensign/internjobs/frontend/node_modules
+      - ..:${HOME:?set HOME; the workspace bind path is derived from it}/developer/internjobs
+      - backend_venv:${HOME:?set HOME; the workspace bind path is derived from it}/developer/internjobs/backend/.venv
+      - pipeline_venv:${HOME:?set HOME; the workspace bind path is derived from it}/developer/internjobs/pipeline/.venv
+      - frontend_node_modules:${HOME:?set HOME; the workspace bind path is derived from it}/developer/internjobs/frontend/node_modules
       # Keep OpenCode's SQLite history inside Docker. Do not share it with the macOS host.
       - internjobs_opencode_data:/home/vscode/.local/share/opencode
       # Claude Code settings, history and sessions. Auth comes from CLAUDE_CODE_OAUTH_TOKEN.

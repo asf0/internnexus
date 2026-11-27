@@ -5,7 +5,7 @@
   // Must match the container-side path of the workspace bind mount in docker-compose.yml,
   // which is deliberately the host path so that bind mounts requested from inside the
   // container resolve to the same directory on the host.
-  "workspaceFolder": "${localEnv:HOME}/Developer/Ensign/internjobs",
+  "workspaceFolder": "${localEnv:HOME}/developer/internjobs",
   "runServices": ["workspace", "db"],
   "shutdownAction": "stopCompose",
   "remoteUser": "vscode",
@@ -17,7 +17,6 @@
     },
     "containerEnv": {
         "ZED_FILE_WATCHER_MODE": "poll",
-        "SSH_AUTH_SOCK": "/ssh-agent",
         "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
         // Subscription token from `claude setup-token` on the host. macOS keeps the normal
         // Claude Code login in the Keychain, which a Linux container cannot read.
@@ -25,7 +24,6 @@
         "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
     },
     "remoteEnv": {
-        "SSH_AUTH_SOCK": "/ssh-agent",
         "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
     },
   "forwardPorts": [3000, 8000],
@@ -34,11 +32,10 @@
     "8000": { "label": "InternNexus backend" }
   },
     "mounts": [
-        "source=/run/host-services/ssh-auth.sock,target=/ssh-agent,type=bind",
         "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
         // Writable on purpose: ssh appends to this, and read-only would make the container
-        // re-prompt for every host it has already accepted. Only the agent socket above
-        // carries keys — no private key material is mounted.
+        // re-prompt for every host it has already accepted. No private key material is
+        // mounted; VS Code forwards the host's SSH agent into the container itself.
         "source=${localEnv:HOME}/.ssh/known_hosts,target=/home/vscode/.ssh/known_hosts,type=bind",
         "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
         "source=${localEnv:HOME}/.config/opencode,target=/home/vscode/.config/opencode,type=bind"
